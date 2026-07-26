@@ -1,14 +1,23 @@
-body.theme-yi {
-  text-align: left;
-  font-size: 16px;
-  line-height: 1.5;
+:root {
+  --ink: #1c1410;
+  --ink-soft: #3d2f26;
+  --wood-mid: #c48a3a;
+  --wood-light: #e2b56a;
+  --accent: #0f5c4c;
+  --accent-soft: #1a7a66;
+  --danger: #8b2e2e;
+  --panel: rgba(255, 248, 235, 0.88);
+  --shadow: 0 24px 60px rgba(28, 20, 16, 0.28);
+  --radius: 18px;
+  --font-display: "ZCOOL XiaoWei", "Noto Serif SC", serif;
+  --font-body: "Noto Serif SC", "Songti SC", serif;
 }
 
 body.game-page {
   overflow-x: hidden;
 }
 
-.xiangqi-shell {
+.app {
   display: grid;
   gap: 1.25rem;
 }
@@ -19,13 +28,10 @@ body.game-page {
   gap: 1.25rem;
   align-items: start;
   animation: rise 900ms 80ms ease both;
-  width: 100%;
 }
 
 .board-wrap {
   position: relative;
-  display: block !important;
-  width: 100%;
   background:
     linear-gradient(145deg, rgba(255, 236, 200, 0.14), transparent 40%),
     linear-gradient(180deg, #d29a4a 0%, #b87932 45%, #9a5f24 100%);
@@ -33,21 +39,19 @@ body.game-page {
   padding: clamp(0.75rem, 2vw, 1.25rem);
   box-shadow: var(--shadow);
   border: 1px solid rgba(255, 230, 180, 0.25);
-  text-align: center;
 }
 
-.board-wrap canvas,
-#chess {
+#board {
   display: block;
-  max-width: 100%;
   width: 100%;
   height: auto;
-  margin: 0 auto;
   border-radius: 10px;
-  box-shadow: inset 0 0 0 1px rgba(70, 40, 10, 0.15);
+  cursor: pointer;
+  touch-action: none;
   background:
-    radial-gradient(circle at 30% 20%, rgba(255, 240, 200, 0.25), transparent 40%),
-    #e2b56a;
+    radial-gradient(circle at 30% 20%, rgba(255, 240, 200, 0.28), transparent 40%),
+    linear-gradient(180deg, #d8c49a, #c4b28a);
+  box-shadow: inset 0 0 0 1px rgba(70, 40, 10, 0.2);
 }
 
 .panel {
@@ -70,13 +74,20 @@ body.game-page {
   font-size: 1.05rem;
 }
 
-.piece-dot {
+.side-dot {
   width: 1.1rem;
   height: 1.1rem;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #e07070, #a82828);
   box-shadow: inset -2px -2px 3px rgba(0, 0, 0, 0.25),
     inset 2px 2px 3px rgba(255, 255, 255, 0.25);
+}
+
+.side-dot.south {
+  background: radial-gradient(circle at 35% 30%, #e07070, #a82828);
+}
+
+.side-dot.north {
+  background: radial-gradient(circle at 35% 30%, #6a9ad8, #2a4a8a);
 }
 
 .badge {
@@ -91,7 +102,7 @@ body.game-page {
 .meta {
   display: grid;
   gap: 0.35rem;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--ink-soft);
 }
 
@@ -99,7 +110,15 @@ body.game-page {
   min-height: 1.4em;
   margin-top: 0.7rem;
   font-size: 0.92rem;
+  color: var(--danger);
+}
+
+.message.info {
   color: var(--accent-soft);
+}
+
+.message.warn {
+  color: var(--danger);
 }
 
 .controls {
@@ -108,101 +127,49 @@ body.game-page {
   gap: 0.55rem;
 }
 
-.bn_box {
-  display: grid;
-}
-
-.bn_box button,
-.menu-link {
+button {
   appearance: none;
   border: none;
   border-radius: 12px;
   padding: 0.7rem 0.85rem;
   background: var(--accent);
   color: #f7fff9;
-  font-family: var(--font-body);
+  font-family: inherit;
   font-size: 0.95rem;
   letter-spacing: 0.04em;
   cursor: pointer;
-  transition: transform 160ms ease, background 160ms ease;
+  transition: transform 160ms ease, background 160ms ease, opacity 160ms ease;
 }
 
-.bn_box button:hover,
-.menu-link:hover {
+button:hover:not(:disabled) {
   background: var(--accent-soft);
   transform: translateY(-1px);
 }
 
-.bn_box button.secondary,
-.menu-link.secondary {
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.secondary {
   background: transparent;
   color: var(--ink-soft);
   border: 1px solid rgba(61, 47, 38, 0.28);
 }
 
-.menu_init,
-.menu_dy,
-.menu_qj {
-  display: none;
-  gap: 0.65rem;
+button.secondary:hover:not(:disabled) {
+  background: rgba(61, 47, 38, 0.06);
 }
 
-.menu_init {
-  display: grid;
+button.danger {
+  background: var(--danger);
 }
 
-.menu-link {
-  width: 100%;
-  text-align: center;
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  letter-spacing: 0.12em;
-}
-
-.menu_info {
-  background: rgba(15, 92, 76, 0.08);
-  border: 1px solid rgba(15, 92, 76, 0.14);
-  border-radius: 12px;
+.hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
   color: var(--ink-soft);
-  padding: 0.85rem 1rem;
-  text-align: left;
-  display: grid;
-  gap: 0.45rem;
-  position: relative;
-  margin-bottom: 0.75rem;
-}
-
-.menu_info label {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  cursor: pointer;
-}
-
-.field-title {
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
-  margin-bottom: 0.15rem;
-}
-
-.menu_fh {
-  position: absolute;
-  right: 0.7rem;
-  top: 0.7rem;
-  width: 1.5rem;
-  height: 1.5rem;
-  border: none;
-  border-radius: 999px;
-  background: rgba(61, 47, 38, 0.15);
-  cursor: pointer;
-  padding: 0;
-}
-
-.menu_fh::before {
-  content: "×";
-  color: var(--ink-soft);
-  font-size: 1.1rem;
-  line-height: 1.4rem;
 }
 
 .help {
@@ -217,17 +184,29 @@ body.game-page {
   margin-bottom: 0.25rem;
 }
 
-/* 对局中：操作卡可见；菜单卡可收起由 JS 控制 */
-body.is-playing #opsCard {
-  opacity: 1;
+.combat-log {
+  max-height: 140px;
+  overflow: auto;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
 }
 
-body:not(.is-playing) #opsCard {
-  opacity: 0.55;
+.result-banner {
+  display: none;
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  background: linear-gradient(120deg, rgba(15, 92, 76, 0.14), rgba(196, 138, 58, 0.18));
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  animation: pulseIn 420ms ease both;
 }
 
-body:not(.is-playing) #opsCard button {
-  pointer-events: none;
+.result-banner.show {
+  display: block;
 }
 
 @keyframes rise {
@@ -241,6 +220,17 @@ body:not(.is-playing) #opsCard button {
   }
 }
 
+@keyframes pulseIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @media (max-width: 860px) {
   .layout {
     grid-template-columns: 1fr;
@@ -249,5 +239,9 @@ body:not(.is-playing) #opsCard button {
   .topbar {
     flex-direction: column;
     align-items: start;
+  }
+
+  .app {
+    width: min(100% - 1.25rem, 720px);
   }
 }

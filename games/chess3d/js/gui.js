@@ -40,16 +40,10 @@
 	function initGUI() {
 		var $gui = $("<div>")
 			.css("position","absolute")
-			.position({
-				of:$("body"),
-				my:"left top",
-				at:"left top"
-			})
-			.width(280)
 			.attr("id","gui");
 
 		$("<p>")
-			.text("菜单")
+			.text("新对局 / 操作")
 			.appendTo($gui);
 
 		var $menudiv = $("<div>").appendTo($gui);
