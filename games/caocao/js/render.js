@@ -19,11 +19,15 @@ export function createRenderer(canvas) {
     canvas.height = state.height * TILE;
   }
 
-  function draw(state, hover) {
+  function draw(state, hover, fx = null) {
     if (!state) return;
+    const shake = fx?.getShake?.() || { x: 0, y: 0 };
+    ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = false;
+    ctx.translate(shake.x, shake.y);
 
+    // 地形
     for (let y = 0; y < state.height; y++) {
       for (let x = 0; x < state.width; x++) {
         const kind = state.tiles[y][x] || "plain";
@@ -33,51 +37,166 @@ export function createRenderer(canvas) {
       }
     }
 
+    // 细网格（增强战棋读感）
+    ctx.strokeStyle = "rgba(20,12,8,0.12)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= state.width; x++) {
+      ctx.beginPath();
+      ctx.moveTo(x * TILE + 0.5, 0);
+      ctx.lineTo(x * TILE + 0.5, state.height * TILE);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= state.height; y++) {
+      ctx.beginPath();
+      ctx.moveTo(0, y * TILE + 0.5);
+      ctx.lineTo(state.width * TILE, y * TILE + 0.5);
+      ctx.stroke();
+    }
+
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 280);
+
+    // 移动范围
     if (state.mode === "move") {
       for (const c of state.moveCells) {
-        ctx.fillStyle = "rgba(60,150,220,0.32)";
-        ctx.fillRect(c.x * TILE, c.y * TILE, TILE, TILE);
-        ctx.strokeStyle = "rgba(120,200,255,0.55)";
-        ctx.strokeRect(c.x * TILE + 3, c.y * TILE + 3, TILE - 6, TILE - 6);
+        paintCellOverlay(
+          ctx,
+          c.x,
+          c.y,
+          `rgba(50,140,210,${0.22 + pulse * 0.12})`,
+          `rgba(140,210,255,${0.45 + pulse * 0.25})`
+        );
       }
     }
 
-    if (state.mode === "attack" || state.mode === "action") {
+    // 攻击 / 计策范围（行动阶段预览可打目标；攻击/计策模式加深）
+    if (
+      (state.mode === "attack" || state.mode === "magic" || state.mode === "action") &&
+      state.attackTargets?.length
+    ) {
+      const isMagic = state.mode === "magic";
+      const preview = state.mode === "action";
       for (const t of state.attackTargets) {
-        ctx.fillStyle = "rgba(220,50,40,0.32)";
-        ctx.fillRect(t.x * TILE, t.y * TILE, TILE, TILE);
-        ctx.strokeStyle = "rgba(255,120,80,0.7)";
-        ctx.strokeRect(t.x * TILE + 3, t.y * TILE + 3, TILE - 6, TILE - 6);
+        paintCellOverlay(
+          ctx,
+          t.x,
+          t.y,
+          isMagic
+            ? `rgba(140,80,200,${0.24 + pulse * 0.12})`
+            : `rgba(210,45,40,${(preview ? 0.16 : 0.28) + pulse * 0.1})`,
+          isMagic
+            ? `rgba(200,140,255,${0.55 + pulse * 0.2})`
+            : `rgba(255,120,80,${(preview ? 0.4 : 0.65) + pulse * 0.2})`
+        );
+        if (!preview) {
+          const cx = t.x * TILE + TILE / 2;
+          const cy = t.y * TILE + TILE / 2;
+          ctx.strokeStyle = isMagic
+            ? `rgba(220,180,255,${0.5 + pulse * 0.3})`
+            : `rgba(255,200,160,${0.55 + pulse * 0.3})`;
+          ctx.lineWidth = 1.5;
+          const r = 8 + pulse * 3;
+          ctx.beginPath();
+          ctx.moveTo(cx - r, cy);
+          ctx.lineTo(cx + r, cy);
+          ctx.moveTo(cx, cy - r);
+          ctx.lineTo(cx, cy + r);
+          ctx.stroke();
+        }
       }
     }
 
+    // 部署空位
+    if (state.deploySlots?.length) {
+      for (const s of state.deploySlots) {
+        paintCellOverlay(
+          ctx,
+          s.x,
+          s.y,
+          s.generalId ? "rgba(60,140,90,0.3)" : `rgba(220,180,60,${0.28 + pulse * 0.12})`,
+          "rgba(255,220,120,0.85)"
+        );
+      }
+    }
+
+    // 悬停
     if (hover) {
-      ctx.strokeStyle = "rgba(255,240,180,0.9)";
+      ctx.strokeStyle = `rgba(255,240,180,${0.75 + pulse * 0.2})`;
       ctx.lineWidth = 2;
       ctx.strokeRect(hover.x * TILE + 2, hover.y * TILE + 2, TILE - 4, TILE - 4);
       ctx.lineWidth = 1;
+      ctx.fillStyle = "rgba(255,245,200,0.08)";
+      ctx.fillRect(hover.x * TILE, hover.y * TILE, TILE, TILE);
     }
 
-    // 部署空位高亮
-    if (state.deploySlots?.length) {
-      for (const s of state.deploySlots) {
-        ctx.fillStyle = s.generalId
-          ? "rgba(60,140,90,0.28)"
-          : "rgba(220,180,60,0.35)";
-        ctx.fillRect(s.x * TILE, s.y * TILE, TILE, TILE);
-        ctx.strokeStyle = "rgba(255,220,120,0.8)";
-        ctx.strokeRect(s.x * TILE + 3, s.y * TILE + 3, TILE - 6, TILE - 6);
+    // 选中武将脚下光环脉冲
+    if (state.selectedId) {
+      const sel = state.units.find((u) => u.id === state.selectedId && u.alive);
+      if (sel) {
+        const cx = sel.x * TILE + TILE / 2;
+        const cy = sel.y * TILE + TILE / 2 + 10;
+        ctx.strokeStyle = `rgba(243,212,138,${0.35 + pulse * 0.4})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 18 + pulse * 3, 7 + pulse, 0, 0, Math.PI * 2);
+        ctx.stroke();
       }
     }
 
+    // 氛围：暖色天光 + 暗角
+    const g = ctx.createRadialGradient(
+      canvas.width * 0.5,
+      canvas.height * 0.15,
+      20,
+      canvas.width * 0.5,
+      canvas.height * 0.55,
+      Math.max(canvas.width, canvas.height) * 0.75
+    );
+    g.addColorStop(0, "rgba(255,230,170,0.07)");
+    g.addColorStop(0.55, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(20,10,6,0.28)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 单位（含特效追踪中的刚击破单位）
     const t = performance.now() / 400;
-    const units = state.units.filter((u) => u.alive).sort((a, b) => a.y - b.y || a.x - b.x);
+    const units = state.units
+      .filter((u) => u.alive || fx?.isTracked?.(u.id))
+      .sort((a, b) => a.y - b.y || a.x - b.x);
     for (const u of units) {
       const bob = u.done ? 0 : Math.sin(t + u.id) * 1.5;
-      const cx = u.x * TILE + TILE / 2;
-      const cy = u.y * TILE + TILE / 2 - 4 + bob;
-      drawUnitSprite(ctx, u, cx, cy, TILE, state.selectedId === u.id);
+      const uf = fx?.getUnitDraw?.(u.id) || { ox: 0, oy: 0, flash: 0, alpha: 1 };
+      const cx = u.x * TILE + TILE / 2 + uf.ox;
+      const cy = u.y * TILE + TILE / 2 - 4 + bob + uf.oy;
+      ctx.globalAlpha = uf.alpha ?? 1;
+      drawUnitSprite(ctx, u, cx, cy, TILE, state.selectedId === u.id, {
+        flash: uf.flash || 0,
+      });
+      ctx.globalAlpha = 1;
     }
+
+    // 特效层
+    fx?.draw?.(ctx);
+
+    ctx.restore();
+  }
+
+  function paintCellOverlay(ctx, x, y, fill, stroke) {
+    const px = x * TILE;
+    const py = y * TILE;
+    ctx.fillStyle = fill;
+    ctx.fillRect(px, py, TILE, TILE);
+    // 内斜切高亮，更有战棋感
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.beginPath();
+    ctx.moveTo(px + 4, py + 4);
+    ctx.lineTo(px + TILE - 4, py + 4);
+    ctx.lineTo(px + TILE - 4, py + 10);
+    ctx.lineTo(px + 4, py + 10);
+    ctx.fill();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(px + 3, py + 3, TILE - 6, TILE - 6);
+    ctx.lineWidth = 1;
   }
 
   function drawDeployPreview(stage, deploy, hoverCell) {
@@ -92,7 +211,6 @@ export function createRenderer(canvas) {
       selectedId: null,
       deploySlots: [...deploy.locked.map((p) => ({ ...p, locked: true })), ...deploy.slots],
     };
-    // parse tiles
     const rows = stage.map;
     fake.tiles = rows.map((row) =>
       [...row].map((ch) => {
@@ -100,7 +218,6 @@ export function createRenderer(canvas) {
         return m[ch] || "plain";
       })
     );
-    // ghost units
     for (const p of deploy.locked) {
       const tpl = GENERALS[p.generalId];
       fake.units.push({
