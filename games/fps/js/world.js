@@ -350,7 +350,7 @@ function populateOuterBlocks(ctx, half) {
   for (const { cx, cz } of cells) {
     // 每个街区 2 栋楼 + 巷道
     for (let k = 0; k < 2; k++) {
-      const ox = cx + (k === 0 ? -8 : 8) + (Math.abs(cx * 0.01) % 2) - 0.5;
+      const ox = cx + (k === 0 ? -8 : 8);
       const oz = cz + (k === 0 ? 6 : -6);
       const w = 10 + (n % 3) * 2;
       const d = 8 + (n % 2) * 2;
