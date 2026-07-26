@@ -99,40 +99,46 @@ function startBattle() {
 
 function cellGeom() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const cssW = Math.min(canvas.parentElement.clientWidth - 4, 560);
-  const cssH = cssW * 1.72;
+  const parentW = canvas.parentElement.clientWidth - 4;
+  // 经典棋纸偏竖长，接近实物比例
+  const cssW = Math.min(parentW, 480);
+  const cssH = cssW * 1.85;
   canvas.style.width = `${cssW}px`;
   canvas.style.height = `${cssH}px`;
   canvas.width = Math.floor(cssW * dpr);
   canvas.height = Math.floor(cssH * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const padX = cssW * 0.08;
-  const padY = cssH * 0.045;
+  const padX = cssW * 0.1;
+  const padY = cssH * 0.05;
   const spanX = cssW - padX * 2;
   const spanY = cssH - padY * 2;
+  const mountainGap = spanY * 0.07;
   const cw = spanX / (COLS - 1);
-  const ch = spanY / (ROWS - 1);
-  return { padX, padY, cw, ch, cssW, cssH };
+  const ch = (spanY - mountainGap) / (ROWS - 1);
+  return { padX, padY, cw, ch, cssW, cssH, mountainGap };
 }
 
 function nodeXY(r, c, geom) {
+  const yExtra = r >= 6 ? geom.mountainGap : 0;
   return {
     x: geom.padX + c * geom.cw,
-    y: geom.padY + r * geom.ch,
+    y: geom.padY + r * geom.ch + yExtra,
   };
 }
 
-function drawDashedRail(x1, y1, x2, y2, width) {
+/** 经典铁路：粗黑轨 + 白虚线中心 */
+function drawRailSegment(x1, y1, x2, y2, width) {
   ctx.save();
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#222";
   ctx.lineWidth = width;
-  ctx.strokeStyle = "#1a1a1a";
   ctx.beginPath();
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.stroke();
-  ctx.strokeStyle = "#f5f0e4";
-  ctx.setLineDash([6, 6]);
-  ctx.lineWidth = width * 0.45;
+  ctx.strokeStyle = "#f7efd8";
+  ctx.lineWidth = width * 0.38;
+  ctx.setLineDash([width * 1.1, width * 0.9]);
   ctx.beginPath();
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
@@ -141,106 +147,133 @@ function drawDashedRail(x1, y1, x2, y2, width) {
 }
 
 function drawBoardBase(geom) {
-  const { cssW, cssH } = geom;
-  const g = ctx.createLinearGradient(0, 0, 0, cssH);
-  g.addColorStop(0, "#f3e6c8");
-  g.addColorStop(0.5, "#e8d4a8");
-  g.addColorStop(1, "#dfc896");
-  ctx.fillStyle = g;
+  const { cssW, cssH, padX, cw } = geom;
+
+  // 棋纸底色
+  const paper = ctx.createLinearGradient(0, 0, 0, cssH);
+  paper.addColorStop(0, "#f8edd0");
+  paper.addColorStop(0.5, "#f3e4c2");
+  paper.addColorStop(1, "#edd8b0");
+  ctx.fillStyle = paper;
   ctx.fillRect(0, 0, cssW, cssH);
 
-  // 朱红双框
-  ctx.strokeStyle = "#9a2a2a";
-  ctx.lineWidth = 4;
-  ctx.strokeRect(6, 6, cssW - 12, cssH - 12);
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(12, 12, cssW - 24, cssH - 24);
+  // 轻微纸纹
+  ctx.fillStyle = "rgba(120, 80, 40, 0.03)";
+  for (let i = 0; i < cssH; i += 3) {
+    ctx.fillRect(0, i, cssW, 1);
+  }
 
-  // 先画公路（细线）
-  const drawn = new Set();
-  ctx.strokeStyle = "#6b4a2e";
-  ctx.lineWidth = 1.6;
+  // 朱红双框（棋纸外框）
+  ctx.strokeStyle = "#b33a2e";
+  ctx.lineWidth = Math.max(3, cssW * 0.012);
+  ctx.strokeRect(5, 5, cssW - 10, cssH - 10);
+  ctx.lineWidth = Math.max(1.2, cssW * 0.004);
+  ctx.strokeRect(11, 11, cssW - 22, cssH - 22);
+
+  // 山界带（中间加宽）
+  const y5 = nodeXY(5, 0, geom).y;
+  const y6 = nodeXY(6, 0, geom).y;
+  const midY = (y5 + y6) / 2;
+  const bandH = Math.max(18, (y6 - y5) * 0.72);
+  ctx.fillStyle = "rgba(90, 120, 70, 0.16)";
+  ctx.fillRect(padX - 6, midY - bandH / 2, cw * 4 + 12, bandH);
+  // 山丘示意
+  ctx.fillStyle = "rgba(70, 100, 55, 0.22)";
+  ctx.beginPath();
+  ctx.moveTo(padX + cw * 0.7, midY + bandH * 0.2);
+  ctx.quadraticCurveTo(padX + cw * 1.3, midY - bandH * 0.45, padX + cw * 1.9, midY + bandH * 0.15);
+  ctx.quadraticCurveTo(padX + cw * 2.5, midY - bandH * 0.35, padX + cw * 3.3, midY + bandH * 0.2);
+  ctx.lineTo(padX + cw * 3.3, midY + bandH * 0.35);
+  ctx.lineTo(padX + cw * 0.7, midY + bandH * 0.35);
+  ctx.fill();
+
+  ctx.fillStyle = "#6a3a1e";
+  ctx.font = `600 ${Math.floor(cw * 0.28)}px "ZCOOL XiaoWei", "Noto Serif SC", serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("山　界", padX + cw * 2, midY);
+
+  // 公路（细朱红线）——跳过纯铁路段，避免与粗轨叠成乱线
+  const hwyDrawn = new Set();
+  ctx.strokeStyle = "#8a3a28";
+  ctx.lineWidth = Math.max(1.2, cssW * 0.0035);
+  ctx.lineCap = "round";
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
-      const { x, y } = nodeXY(r, c, geom);
+      const a = nodeXY(r, c, geom);
       for (const [nr, nc] of highwayNeighbors(r, c)) {
-        const k = [keyEdge(r, c, nr, nc)];
-        if (drawn.has(k[0])) continue;
-        drawn.add(k[0]);
-        // 铁路段稍后加粗覆盖，公路也画（铁路点之间若是公路邻接仍画细线作底）
-        const a = nodeXY(nr, nc, geom);
+        const ek = keyEdge(r, c, nr, nc);
+        if (hwyDrawn.has(ek)) continue;
+        hwyDrawn.add(ek);
+        // 两侧跨山界只画铁路，不画公路
+        if ((r === 5 && nr === 6) || (r === 6 && nr === 5)) continue;
+        const b = nodeXY(nr, nc, geom);
         ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(a.x, a.y);
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
         ctx.stroke();
       }
     }
   }
 
-  // 铁路粗线
+  // 铁路粗轨
+  const railW = Math.max(5, cssW * 0.014);
   const railDrawn = new Set();
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       if (!isRail(r, c)) continue;
-      const { x, y } = nodeXY(r, c, geom);
+      const a = nodeXY(r, c, geom);
       for (const [nr, nc] of railNeighbors(r, c)) {
         const ek = keyEdge(r, c, nr, nc);
         if (railDrawn.has(ek)) continue;
         railDrawn.add(ek);
-        const a = nodeXY(nr, nc, geom);
-        drawDashedRail(x, y, a.x, a.y, 5.5);
+        const b = nodeXY(nr, nc, geom);
+        drawRailSegment(a.x, a.y, b.x, b.y, railW);
       }
     }
   }
 
-  // 山界
-  const midY = (nodeXY(5, 0, geom).y + nodeXY(6, 0, geom).y) / 2;
-  ctx.fillStyle = "rgba(70, 90, 50, 0.18)";
-  ctx.fillRect(geom.padX - 10, midY - 10, geom.cw * 4 + 20, 20);
-  ctx.strokeStyle = "rgba(80, 50, 20, 0.45)";
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(geom.padX - 8, midY);
-  ctx.lineTo(geom.padX + geom.cw * 4 + 8, midY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = "#5a3a1e";
-  ctx.font = `600 ${Math.floor(geom.cw * 0.22)}px "ZCOOL XiaoWei", "Noto Serif SC", serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("山　界", geom.padX + geom.cw * 2, midY);
-
-  // 落点：兵站 / 行营 / 大本营
+  // 落点：兵站胶囊 / 行营双红圈 / 大本营方框
+  const unit = Math.min(geom.cw, geom.ch);
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const { x, y } = nodeXY(r, c, geom);
       if (isCamp(r, c)) {
+        const R = unit * 0.3;
         ctx.beginPath();
-        ctx.fillStyle = "rgba(40, 110, 70, 0.16)";
-        ctx.arc(x, y, Math.min(geom.cw, geom.ch) * 0.32, 0, Math.PI * 2);
+        ctx.fillStyle = "#f8edd0";
+        ctx.arc(x, y, R, 0, Math.PI * 2);
         ctx.fill();
-        ctx.lineWidth = 2.2;
-        ctx.strokeStyle = "#1f6b45";
+        ctx.strokeStyle = "#c0392b";
+        ctx.lineWidth = Math.max(2, unit * 0.045);
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(x, y, Math.min(geom.cw, geom.ch) * 0.24, 0, Math.PI * 2);
+        ctx.arc(x, y, R * 0.72, 0, Math.PI * 2);
         ctx.stroke();
       } else if (isHQ(r, c)) {
-        const w = geom.cw * 0.42;
-        const h = geom.ch * 0.34;
-        ctx.fillStyle = "rgba(180, 80, 30, 0.18)";
-        ctx.strokeStyle = "#b45a20";
-        ctx.lineWidth = 2;
-        roundRect(ctx, x - w, y - h, w * 2, h * 2, 4);
+        const w = geom.cw * 0.38;
+        const h = geom.ch * 0.32;
+        ctx.fillStyle = "#f3d9a8";
+        ctx.strokeStyle = "#c0392b";
+        ctx.lineWidth = Math.max(1.8, unit * 0.04);
+        roundRect(ctx, x - w, y - h, w * 2, h * 2, 3);
         ctx.fill();
         ctx.stroke();
+        // 无子时标「大本营」
+        if (!state.board?.[r]?.[c]) {
+          ctx.fillStyle = "rgba(160, 50, 30, 0.55)";
+          ctx.font = `600 ${Math.floor(unit * 0.18)}px "Noto Serif SC", serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("大本营", x, y);
+        }
       } else {
-        const w = geom.cw * 0.22;
-        const h = geom.ch * 0.16;
-        ctx.fillStyle = "#f7efe0";
-        ctx.strokeStyle = "#6b4a2e";
-        ctx.lineWidth = 1.2;
-        roundRect(ctx, x - w, y - h, w * 2, h * 2, 8);
+        const w = geom.cw * 0.2;
+        const h = geom.ch * 0.14;
+        ctx.fillStyle = "#fff8e8";
+        ctx.strokeStyle = "#7a4a2e";
+        ctx.lineWidth = 1.1;
+        roundRect(ctx, x - w, y - h, w * 2, h * 2, unit * 0.08);
         ctx.fill();
         ctx.stroke();
       }
@@ -260,9 +293,9 @@ function isFaceUp(p) {
 }
 
 function drawStandingPiece(x, y, isSouth, selected, geom) {
-  const w = geom.cw * 0.28;
-  const h = geom.ch * 0.38;
-  const depth = Math.min(geom.cw, geom.ch) * 0.08;
+  const w = geom.cw * 0.24;
+  const h = geom.ch * 0.3;
+  const depth = Math.min(geom.cw, geom.ch) * 0.06;
   const base = isSouth ? "#a82828" : "#1e4f9a";
   const side = isSouth ? "#7a1c1c" : "#14366e";
   const top = isSouth ? "#d25555" : "#3d74c4";
@@ -319,8 +352,8 @@ function drawStandingPiece(x, y, isSouth, selected, geom) {
 
 function drawFlatPiece(x, y, p, selected, geom) {
   const isSouth = p.side === SIDE.SOUTH;
-  const w = geom.cw * 0.34;
-  const h = geom.ch * 0.26;
+  const w = geom.cw * 0.28;
+  const h = geom.ch * 0.22;
   const grad = ctx.createLinearGradient(x - w, y - h, x + w, y + h);
   if (isSouth) {
     grad.addColorStop(0, "#e07070");
