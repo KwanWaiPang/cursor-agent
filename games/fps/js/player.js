@@ -22,6 +22,10 @@ export class Player {
     this.maxHp = 100;
     this.alive = true;
     this.radius = 0.45;
+    /** 受伤后若干秒再开始回血（仅玩家；敌人无此逻辑） */
+    this.regenDelay = 4;
+    this.regenRate = 14;
+    this._timeSinceDamage = 999;
     this.yawObject = this.controls.getObject();
     this.yawObject.position.set(0, this.eyeHeight, 16);
 
@@ -76,6 +80,7 @@ export class Player {
   damage(amount) {
     if (!this.alive) return;
     this.hp = Math.max(0, this.hp - amount);
+    this._timeSinceDamage = 0;
     if (this.hp <= 0) {
       this.alive = false;
       this.hp = 0;
@@ -86,8 +91,18 @@ export class Player {
     this.hp = Math.min(this.maxHp, this.hp + amount);
   }
 
+  /** 脱战后自动回血 */
+  applyRegen(dt) {
+    if (!this.alive || this.hp >= this.maxHp) return;
+    this._timeSinceDamage += dt;
+    if (this._timeSinceDamage < this.regenDelay) return;
+    this.hp = Math.min(this.maxHp, this.hp + this.regenRate * dt);
+  }
+
   update(dt) {
     if (!this.alive) return;
+
+    this.applyRegen(dt);
 
     const speed = (this.keys.sprint ? 11 : 6.5) * dt;
     this.direction.set(0, 0, 0);
