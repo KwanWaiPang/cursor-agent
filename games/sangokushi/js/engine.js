@@ -108,7 +108,8 @@ function paintOpeningTerritories(map, factions) {
   const jobs = [];
   for (const f of Object.values(factions)) {
     for (const cid of f.cities) {
-      paintCityVoronoi(map, cid, f.id);
+      // 开局只涂城周势力圈，边陲远端留白供行军涂色（更接近三志14）
+      paintCityVoronoi(map, cid, f.id, 12);
       for (const r of map.regions.filter((r) => r.cityId === cid)) {
         map.cells[r.cell].owner = f.id;
         map.cells[r.cell].hasFort = true;
@@ -120,21 +121,17 @@ function paintOpeningTerritories(map, factions) {
   for (const job of jobs) {
     (byFaction[job.factionId] ||= []).push(job.cityId);
   }
-  // 轮转扩散，避免先手吞掉邻接空地
-  for (let step = 0; step < 5; step++) {
-    for (const job of jobs) {
-      expandFromCity(map, job.cityId, job.factionId, 1, byFaction[job.factionId]);
-    }
-  }
-  // 轮转保底：按「距本城最近」归属计数，每城目标约 85 格大色块
-  for (let guard = 0; guard < 50; guard++) {
+  // 轮转扩散至目标色块；硬顶防止边陲势力淹没整图
+  for (let guard = 0; guard < 55; guard++) {
     let grew = false;
     for (const job of jobs) {
       const city = cityById(job.cityId);
-      const target = 85 + (city?.regionCount || 2) * 3;
       const fids = byFaction[job.factionId];
+      // 小势力每城目标略高，开局色块更可读
+      const target = (fids.length <= 2 ? 120 : 90) + (city?.regionCount || 2) * 3;
+      const hardCap = 145;
       const before = countAttributed(map, job.cityId, job.factionId, fids);
-      if (before >= target) continue;
+      if (before >= target || before >= hardCap) continue;
       expandFromCity(map, job.cityId, job.factionId, 1, fids);
       if (countAttributed(map, job.cityId, job.factionId, fids) > before) grew = true;
     }
@@ -166,11 +163,16 @@ function countAttributed(map, cityId, factionId, factionCityIds) {
   return n;
 }
 
-function paintCityVoronoi(map, cityId, factionId) {
+function paintCityVoronoi(map, cityId, factionId, maxRadius = null) {
   const idx = map.cityCells[cityId];
   if (idx == null) return;
+  const c0 = map.cells[idx];
   for (const c of map.cells) {
     if (!c.land || c.cityId !== cityId) continue;
+    if (maxRadius != null) {
+      const d = Math.abs(c.x - c0.x) + Math.abs(c.y - c0.y);
+      if (d > maxRadius) continue;
+    }
     c.owner = factionId;
   }
   map.cells[idx].owner = factionId;
@@ -179,7 +181,8 @@ function paintCityVoronoi(map, cityId, factionId) {
 function claimCityTerritory(map, cityId, factionId, state = null) {
   const idx = map.cityCells[cityId];
   if (idx == null) return;
-  paintCityVoronoi(map, cityId, factionId);
+  // 攻占后吃满整座势力圈
+  paintCityVoronoi(map, cityId, factionId, null);
   const city = cityById(cityId);
   const steps =
     city?.scale === "巨大" ? 8 : city?.scale === "大" ? 7 : city?.scale === "中" ? 6 : 5;

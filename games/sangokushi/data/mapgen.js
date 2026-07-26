@@ -30,13 +30,23 @@ function mulberry(seed) {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
+function cityWeight(c) {
+  // 大城势力圈略大，缓解中原城密导致的碎格
+  if (c.scale === "巨大") return 1.35;
+  if (c.scale === "大") return 1.18;
+  if (c.scale === "中") return 1.05;
+  return 1;
+}
+
 function nearestCity(nx, ny) {
   let best = null;
   let bestD = Infinity;
   for (const c of CITIES) {
     const dx = c.x - nx;
     const dy = c.y - ny;
-    const d = dx * dx + dy * dy;
+    const w = cityWeight(c);
+    // 加权距离：大城「更近」
+    const d = (dx * dx + dy * dy) / (w * w);
     if (d < bestD) {
       bestD = d;
       best = c;
