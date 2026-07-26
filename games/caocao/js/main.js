@@ -1,4 +1,5 @@
-import { STAGES, getStage } from "../data/stages.js";
+import { CAMPAIGN, choiceBeforeStage } from "../data/campaign.js";
+import { STAGES, getStage, stagesForMenu } from "../data/stages.js";
 import {
   createBattleState,
   selectUnit,
@@ -15,11 +16,14 @@ import {
 import { createRenderer, describeTile, formatUnit } from "./render.js";
 import { TERRAIN } from "../data/classes.js";
 
+const SAVE_KEY = "caocao_campaign_v2";
+
 const els = {
   menu: document.getElementById("menu"),
   battle: document.getElementById("battle"),
   canvas: document.getElementById("board"),
   stageList: document.getElementById("stageList"),
+  campaignMeta: document.getElementById("campaignMeta"),
   turnLabel: document.getElementById("turnLabel"),
   phaseLabel: document.getElementById("phaseLabel"),
   objective: document.getElementById("objective"),
@@ -36,38 +40,94 @@ const els = {
   dialogSpeaker: document.getElementById("dialogSpeaker"),
   dialogText: document.getElementById("dialogText"),
   dialogNext: document.getElementById("dialogNext"),
+  dialogChoices: document.getElementById("dialogChoices"),
   result: document.getElementById("result"),
   resultTitle: document.getElementById("resultTitle"),
   resultBody: document.getElementById("resultBody"),
   btnResultOk: document.getElementById("btnResultOk"),
+  btnResetSave: document.getElementById("btnResetSave"),
 };
 
-const CLEARED_KEY = "caocao_cleared_stages";
 const renderer = createRenderer(els.canvas);
 
 let state = null;
 let hover = null;
 let talkQueue = [];
-let talkMode = null; // intro | victory
+let talkMode = null; // intro | victory | choice | battleChoice | branch
 let pendingStageId = null;
+let pendingChoice = null;
 
-function clearedSet() {
+function defaultSave() {
+  return {
+    cleared: [],
+    red: 0,
+    blue: 0,
+    route: null, // null | 'red' | 'blue'
+    inventory: [{ id: "yitian", name: "倚天剑", slot: "weapon", atk: 4 }],
+    choicesDone: [],
+  };
+}
+
+function loadSave() {
   try {
-    return new Set(JSON.parse(localStorage.getItem(CLEARED_KEY) || "[]"));
+    const raw = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+    if (!raw) return defaultSave();
+    return { ...defaultSave(), ...raw };
   } catch {
-    return new Set();
+    return defaultSave();
   }
 }
 
-function markCleared(id) {
-  const s = clearedSet();
-  s.add(id);
-  localStorage.setItem(CLEARED_KEY, JSON.stringify([...s]));
+function writeSave(save) {
+  localStorage.setItem(SAVE_KEY, JSON.stringify(save));
 }
 
-function isUnlocked(stage) {
+function clearedSet(save = loadSave()) {
+  return new Set(save.cleared || []);
+}
+
+function markCleared(id) {
+  const save = loadSave();
+  if (!save.cleared.includes(id)) save.cleared.push(id);
+  writeSave(save);
+}
+
+function addLoot(items) {
+  if (!items?.length) return;
+  const save = loadSave();
+  for (const item of items) {
+    if (!save.inventory.some((g) => g.id === item.id)) {
+      save.inventory.push(item);
+    }
+  }
+  writeSave(save);
+}
+
+function applyChoiceDelta(opt) {
+  const save = loadSave();
+  if (opt.color === "red") save.red += opt.delta ?? 1;
+  else if (opt.color === "blue") save.blue += opt.delta ?? 1;
+  writeSave(save);
+}
+
+function resolveRoute() {
+  const save = loadSave();
+  if (save.route) return save.route;
+  // 原作：红多走奸臣，蓝多走忠臣；平局偏蓝（忠臣）
+  save.route = save.red > save.blue ? "red" : "blue";
+  writeSave(save);
+  return save.route;
+}
+
+function isUnlocked(stage, save = loadSave()) {
+  const cleared = clearedSet(save);
+  if (stage.route) {
+    if (!save.route) return false;
+    if (stage.route !== save.route) return false;
+  }
   if (!stage.unlockAfter) return true;
-  return clearedSet().has(stage.unlockAfter);
+  // 第一章首关前可有开场选择，但仍可进
+  return cleared.has(stage.unlockAfter);
 }
 
 function show(el) {
@@ -77,30 +137,145 @@ function hide(el) {
   el.classList.add("hidden");
 }
 
+function updateCampaignMeta() {
+  const save = loadSave();
+  const routeLabel =
+    save.route === "red"
+      ? "奸臣路线"
+      : save.route === "blue"
+        ? "忠臣路线"
+        : "尚未分歧（马超战后）";
+  const cleared = save.cleared.length;
+  const total = stagesForMenu(save.route).length;
+  els.campaignMeta.innerHTML = `
+    <span class="chip">忠 ${save.blue} · 奸 ${save.red}</span>
+    <span class="chip">${routeLabel}</span>
+    <span class="chip">通关 ${cleared}/${total}</span>
+    <span class="chip">宝物 ${save.inventory.length}</span>
+  `;
+}
+
 function renderMenu() {
-  const cleared = clearedSet();
+  const save = loadSave();
+  updateCampaignMeta();
   els.stageList.innerHTML = "";
-  for (const stage of STAGES) {
-    const unlocked = isUnlocked(stage);
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "stage-card" + (unlocked ? "" : " locked");
-    card.disabled = !unlocked;
-    card.innerHTML = `
-      <span class="chapter">${stage.chapter}</span>
-      <strong>${stage.name}</strong>
-      <p>${stage.objective}</p>
-      <span class="flag">${cleared.has(stage.id) ? "已通关" : unlocked ? "可出征" : "未解锁"}</span>
-    `;
-    if (unlocked) card.addEventListener("click", () => startStage(stage.id));
-    els.stageList.appendChild(card);
+
+  const chapters = CAMPAIGN.chapters.filter((ch) => {
+    if (!ch.route) return true;
+    return save.route === ch.route;
+  });
+
+  for (const ch of chapters) {
+    const head = document.createElement("h3");
+    head.className = "chapter-head";
+    head.textContent = ch.name;
+    els.stageList.appendChild(head);
+
+    for (const id of ch.stages) {
+      const stage = getStage(id);
+      if (!stage) continue;
+      const unlocked = isUnlocked(stage, save);
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "stage-card" + (unlocked ? "" : " locked");
+      card.disabled = !unlocked;
+      const badge =
+        stage.status === "playable" ? "精修" : stage.optional ? "可选" : "可通";
+      card.innerHTML = `
+        <span class="chapter">第 ${stage.no} 关 · ${badge}</span>
+        <strong>${stage.name}</strong>
+        <p>${stage.objective}</p>
+        <span class="flag">${
+          clearedSet(save).has(stage.id)
+            ? "已通关"
+            : unlocked
+              ? "可出征"
+              : "未解锁"
+        }</span>
+      `;
+      if (unlocked) card.addEventListener("click", () => tryStartStage(stage.id));
+      els.stageList.appendChild(card);
+    }
   }
+}
+
+function tryStartStage(id) {
+  const choice = choiceBeforeStage(id);
+  const save = loadSave();
+  if (choice && !save.choicesDone.includes(choice.id)) {
+    pendingStageId = id;
+    showChoiceDialog(choice, "choice");
+    return;
+  }
+  startStage(id);
+}
+
+function showChoiceDialog(choice, mode) {
+  talkMode = mode;
+  pendingChoice = choice;
+  hide(els.dialogNext);
+  els.dialogSpeaker.textContent = choice.title || "抉择";
+  els.dialogText.textContent = choice.prompt;
+  els.dialogChoices.innerHTML = "";
+  show(els.dialogChoices);
+  for (const opt of choice.options) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `btn choice-btn choice-${opt.color || "neutral"}`;
+    btn.textContent = opt.text;
+    btn.addEventListener("click", () => onChoicePicked(opt));
+    els.dialogChoices.appendChild(btn);
+  }
+  show(els.dialog);
+}
+
+function onChoicePicked(opt) {
+  applyChoiceDelta(opt);
+  if (pendingChoice?.id) {
+    const save = loadSave();
+    if (!save.choicesDone.includes(pendingChoice.id)) {
+      save.choicesDone.push(pendingChoice.id);
+      writeSave(save);
+    }
+  }
+  hide(els.dialogChoices);
+  show(els.dialogNext);
+  els.dialogChoices.innerHTML = "";
+  pendingChoice = null;
+
+  if (talkMode === "battleChoice") {
+    talkMode = null;
+    hide(els.dialog);
+    refresh();
+    return;
+  }
+
+  if (talkMode === "branch") {
+    const route = resolveRoute();
+    talkMode = null;
+    hide(els.dialog);
+    els.resultTitle.textContent = "路线分歧";
+    els.resultBody.textContent =
+      route === "red"
+        ? "奸臣之气更盛——自此走向称霸之路（奸臣路线）。"
+        : "忠义之心更重——自此辅佐汉室（忠臣路线）。";
+    show(els.result);
+    // 复用结果按钮返回选关
+    talkMode = "branchDone";
+    return;
+  }
+
+  const id = pendingStageId;
+  talkMode = null;
+  hide(els.dialog);
+  if (id) startStage(id);
 }
 
 function startStage(id) {
   pendingStageId = id;
   const stage = getStage(id);
-  state = createBattleState(stage);
+  const save = loadSave();
+  state = createBattleState(stage, { gear: save.inventory });
   renderer.resize(state);
   hide(els.menu);
   hide(els.result);
@@ -108,20 +283,47 @@ function startStage(id) {
   els.objective.textContent = stage.objective;
   els.log.innerHTML = "";
   pushLog(`出征：${stage.name}`);
-  if (stage.intro?.length) {
-    talkMode = "intro";
-    talkQueue = [...stage.intro];
-    showTalk();
-  } else {
+
+  const runIntro = () => {
+    if (stage.intro?.length) {
+      talkMode = "intro";
+      talkQueue = [...stage.intro];
+      showTalk();
+    } else {
+      maybeBattleChoice();
+    }
+  };
+
+  runIntro();
+}
+
+function maybeBattleChoice() {
+  const bc = state?.stage?.battleChoice;
+  if (!bc) {
     refresh();
+    return;
   }
+  showChoiceDialog(
+    {
+      id: `battle_${state.stage.id}`,
+      title: "战前计议",
+      prompt: bc.prompt,
+      options: bc.options,
+    },
+    "battleChoice"
+  );
 }
 
 function showTalk() {
+  hide(els.dialogChoices);
+  show(els.dialogNext);
   if (!talkQueue.length) {
     hide(els.dialog);
     if (talkMode === "victory") {
-      finishVictory();
+      afterVictoryTalk();
+    } else if (talkMode === "intro") {
+      talkMode = null;
+      maybeBattleChoice();
     } else {
       talkMode = null;
       refresh();
@@ -134,12 +336,42 @@ function showTalk() {
   show(els.dialog);
 }
 
-function finishVictory() {
+function afterVictoryTalk() {
   talkMode = null;
-  if (state?.stage) markCleared(state.stage.id);
+  if (state?.stage) {
+    markCleared(state.stage.id);
+    if (state.lootGained?.length) addLoot(state.lootGained);
+    if (state.stage.branchAfter) {
+      hide(els.battle);
+      const save = loadSave();
+      showChoiceDialog(
+        {
+          id: "route_branch",
+          title: "马超既破",
+          prompt: `累计倾向：忠 ${save.blue} / 奸 ${save.red}。确认进入分歧路线？`,
+          options: [
+            { text: "依对话倾向决定路线", color: "red", delta: 0 },
+            { text: "仍依倾向决定（忠多走忠臣）", color: "blue", delta: 0 },
+          ],
+        },
+        "branch"
+      );
+      return;
+    }
+  }
   hide(els.battle);
   show(els.menu);
   renderMenu();
+}
+
+function finishVictory() {
+  if (state?.stage?.victoryTalk?.length) {
+    talkMode = "victory";
+    talkQueue = [...state.stage.victoryTalk];
+    showTalk();
+  } else {
+    afterVictoryTalk();
+  }
 }
 
 function pushLog(text) {
@@ -153,7 +385,11 @@ function refresh() {
   renderer.draw(state, hover);
   els.turnLabel.textContent = `第 ${state.turn} 回合`;
   els.phaseLabel.textContent =
-    state.phase === "player" ? "我军阶段" : state.phase === "enemy" ? "敌军阶段" : "—";
+    state.phase === "player"
+      ? "我军阶段"
+      : state.phase === "enemy"
+        ? "敌军阶段"
+        : "—";
 
   const sel = getUnit(state, state.selectedId);
   if (sel) {
@@ -179,7 +415,11 @@ function refresh() {
   els.actionBar.classList.toggle("hidden", !inAction && state.mode !== "move");
   els.btnAttack.disabled = !(state.mode === "action" && state.attackTargets.length);
   els.btnWait.disabled = !(state.mode === "action" || state.mode === "attack");
-  els.btnCancel.disabled = !(state.mode === "move" || state.mode === "action" || state.mode === "attack");
+  els.btnCancel.disabled = !(
+    state.mode === "move" ||
+    state.mode === "action" ||
+    state.mode === "attack"
+  );
 
   if (state.result) {
     els.resultTitle.textContent = state.result.win ? "胜利" : "败北";
@@ -265,6 +505,7 @@ els.btnEndTurn.addEventListener("click", () => {
 els.btnMenu.addEventListener("click", () => {
   if (!confirm("返回战役选择？当前战斗进度将丢失。")) return;
   state = null;
+  talkMode = null;
   hide(els.battle);
   hide(els.result);
   hide(els.dialog);
@@ -275,11 +516,14 @@ els.btnMenu.addEventListener("click", () => {
 els.dialogNext.addEventListener("click", () => showTalk());
 els.btnResultOk.addEventListener("click", () => {
   hide(els.result);
-  if (state?.result?.win && state.stage.victoryTalk?.length) {
-    talkMode = "victory";
-    talkQueue = [...state.stage.victoryTalk];
-    showTalk();
-  } else if (state?.result?.win) {
+  if (talkMode === "branchDone") {
+    talkMode = null;
+    hide(els.battle);
+    show(els.menu);
+    renderMenu();
+    return;
+  }
+  if (state?.result?.win) {
     finishVictory();
   } else {
     hide(els.battle);
@@ -288,4 +532,31 @@ els.btnResultOk.addEventListener("click", () => {
   }
 });
 
+els.btnResetSave?.addEventListener("click", () => {
+  if (!confirm("清空战役进度、忠奸值与宝物？")) return;
+  writeSave(defaultSave());
+  renderMenu();
+});
+
+// 迁移旧存档键
+try {
+  const old = localStorage.getItem("caocao_cleared_stages");
+  if (old && !localStorage.getItem(SAVE_KEY)) {
+    const save = defaultSave();
+    save.cleared = JSON.parse(old);
+    // 旧两关 id 映射
+    save.cleared = save.cleared.map((id) => {
+      if (id === "s01_yingchuan") return "yingchuan";
+      if (id === "s02_sishui") return "sishui";
+      return id;
+    });
+    writeSave(save);
+  }
+} catch {
+  /* ignore */
+}
+
 renderMenu();
+
+// 避免未使用告警（调试时可在控制台查看）
+void STAGES;

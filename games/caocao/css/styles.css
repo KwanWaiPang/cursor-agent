@@ -110,9 +110,52 @@ body.caocao-body {
   font-size: 0.95rem;
 }
 
+.top-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.campaign-meta {
+  margin: 0 0 1rem;
+}
+
+.chapter-head {
+  margin: 1.1rem 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
+  font-weight: 400;
+  color: #5a3a22;
+}
+
+.chapter-head:first-child {
+  margin-top: 0.25rem;
+}
+
 .stage-list {
   display: grid;
   gap: 0.75rem;
+}
+
+.dialog-choices {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+
+.choice-btn {
+  justify-content: center;
+  width: 100%;
+}
+
+.choice-red {
+  background: #8b2e2e;
+}
+
+.choice-blue {
+  background: #2a4a6b;
 }
 
 .stage-card {
