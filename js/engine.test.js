@@ -69,8 +69,58 @@ function testScore() {
   assert(res.result.blackScore === 0, "black 0 empty");
 }
 
+function testUndoPassAndScoring() {
+  const g = new GoEngine(9, 7.5);
+  assert(g.play(0, 0).ok, "play");
+  assert(g.pass().ok, "pass1");
+  assert(g.consecutivePasses === 1, "one pass");
+  assert(g.pass().ok, "pass2");
+  assert(g.phase === "scoring", "scoring");
+  assert(g.undo().ok, "undo scoring");
+  assert(g.phase === "playing", "back to playing");
+  assert(g.consecutivePasses === 0, "passes cleared");
+}
+
+function testCaptureWithSharedGroup() {
+  const g = new GoEngine(9, 7.5);
+  // 白两子竖连，黑围而提
+  g.play(1, 0); // B
+  g.play(1, 1); // W
+  g.play(0, 1); // B
+  g.play(1, 2); // W
+  g.play(0, 2); // B
+  g.play(8, 8); // W
+  g.play(2, 1); // B
+  g.play(8, 7); // W
+  g.play(2, 2); // B
+  g.play(8, 6); // W
+  const res = g.play(1, 3); // B captures both
+  assert(res.ok, "multi capture ok");
+  assert(res.captured.length === 2, `captured 2 got ${res.captured.length}`);
+  assert(g.board[1][1] === 0 && g.board[2][1] === 0, "both gone");
+}
+
+function testResignUndo() {
+  const g = new GoEngine(9, 7.5);
+  g.resign(BLACK);
+  assert(g.phase === "finished", "finished");
+  assert(g.undo().ok, "undo resign");
+  assert(g.phase === "playing", "playing again");
+  assert(g.toPlay === BLACK, "black to play");
+}
+
+function testStarPoints() {
+  assert(new GoEngine(9).starPoints().length === 5, "9 stars");
+  assert(new GoEngine(13).starPoints().length === 9, "13 stars");
+  assert(new GoEngine(19).starPoints().length === 9, "19 stars");
+}
+
 testCapture();
 testSuicide();
 testKo();
 testScore();
+testUndoPassAndScoring();
+testCaptureWithSharedGroup();
+testResignUndo();
+testStarPoints();
 console.log("All engine tests passed.");

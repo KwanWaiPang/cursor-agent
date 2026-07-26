@@ -117,13 +117,17 @@ export class GoEngine {
     next[y][x] = color;
     const opp = opponent(color);
     const captured = [];
+    const removed = new Set();
 
     for (const [nx, ny] of this.neighbors(x, y)) {
       if (next[ny][nx] !== opp) continue;
+      const nk = keyOf(nx, ny);
+      if (removed.has(nk)) continue;
       const group = this.getGroup(nx, ny, next);
       if (group.liberties.size === 0) {
         for (const [gx, gy] of group.stones) {
           next[gy][gx] = 0;
+          removed.add(keyOf(gx, gy));
           captured.push([gx, gy]);
         }
       }
@@ -396,10 +400,14 @@ export class GoEngine {
     if (s === 13) {
       return [
         [3, 3],
+        [3, 6],
         [3, 9],
-        [9, 3],
-        [9, 9],
+        [6, 3],
         [6, 6],
+        [6, 9],
+        [9, 3],
+        [9, 6],
+        [9, 9],
       ];
     }
     // 19
