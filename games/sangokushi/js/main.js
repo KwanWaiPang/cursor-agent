@@ -30,6 +30,7 @@ const els = {
   goalChip: document.getElementById("goalChip"),
   factionChip: document.getElementById("factionChip"),
   btnFocus: document.getElementById("btnFocus"),
+  factionLegend: document.getElementById("factionLegend"),
   goldChip: document.getElementById("goldChip"),
   foodChip: document.getElementById("foodChip"),
   cityInfo: document.getElementById("cityInfo"),
@@ -150,6 +151,7 @@ function refresh() {
 
   renderOfficers();
   renderLog();
+  renderFactionLegend();
 
   els.btnForm.disabled = !state.selectedCityId || selectedOfficers.size === 0;
   els.btnRecall.disabled = !state.selectedArmyId;
@@ -280,6 +282,19 @@ function renderLog() {
     d.textContent = line.text;
     els.log.appendChild(d);
   }
+}
+
+function renderFactionLegend() {
+  if (!els.factionLegend || !state) return;
+  const rows = Object.values(state.factions)
+    .filter((f) => f.alive)
+    .sort((a, b) => b.cities.length - a.cities.length);
+  els.factionLegend.innerHTML = rows
+    .map((f) => {
+      const mine = f.id === state.playerId ? " mine" : "";
+      return `<div class="faction-legend-row${mine}"><span class="swatch" style="background:${f.color}"></span><span>${f.name}</span><span class="muted">${f.cities.length}城</span></div>`;
+    })
+    .join("");
 }
 
 function loop() {

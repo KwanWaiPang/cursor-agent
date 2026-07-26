@@ -428,6 +428,37 @@ body.sk-body {
   line-height: 1.5;
 }
 
+.faction-legend {
+  display: grid;
+  gap: 0.28rem;
+  max-height: 11rem;
+  overflow: auto;
+}
+
+.faction-legend-row {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.faction-legend-row.mine {
+  font-weight: 600;
+}
+
+.faction-legend-row .muted {
+  color: #7a6a58;
+}
+
+.faction-legend-row .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+  border: 1px solid rgba(20, 12, 8, 0.35);
+}
+
 @media (max-width: 960px) {
   .game-layout {
     grid-template-columns: 1fr;
