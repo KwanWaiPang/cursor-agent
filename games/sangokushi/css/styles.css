@@ -257,7 +257,7 @@ body.sk-body {
 .officer-list {
   display: grid;
   gap: 0.4rem;
-  max-height: 260px;
+  max-height: 320px;
   overflow: auto;
 }
 
@@ -320,6 +320,19 @@ body.sk-body {
   font-family: var(--font-display);
   font-size: 1.1rem;
   font-weight: 600;
+}
+
+.belong {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+}
+
+.relations {
+  margin: 0.35rem 0 0.15rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  max-height: 4.5em;
+  overflow: auto;
 }
 
 .officer-row.active {
