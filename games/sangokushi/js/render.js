@@ -1,8 +1,8 @@
 /**
- * 中国战略大地绘制（轮廓 + 江河 + 城池外观）
+ * 中国战略大地绘制（轮廓 + 州界 + 山脉 + 江河 + 城池）
  */
 
-import { biomeStyle } from "../data/mapgen.js";
+import { biomeStyle, zhouTint } from "../data/mapgen.js";
 import { CITIES } from "../data/cities.js";
 import { cityOwner } from "./engine.js";
 import { getCitySprite } from "./city_sprites.js";
@@ -78,23 +78,53 @@ export function createMapRenderer(canvas) {
       ctx.fillStyle = g;
       ctx.fillRect(px, py, cellW + 0.6, cellH + 0.6);
 
+      // 州界淡色底（未涂色时凸显行政区）
+      if (!c.owner) {
+        const tint = zhouTint(c.zhou);
+        if (tint) {
+          ctx.fillStyle = tint;
+          ctx.fillRect(px, py, cellW + 0.6, cellH + 0.6);
+        }
+      }
+
       if (c.owner && factions[c.owner]) {
         ctx.fillStyle = hexAlpha(factions[c.owner].color, c.isCity ? 0.42 : 0.32);
         ctx.fillRect(px, py, cellW + 0.6, cellH + 0.6);
       }
     }
 
-    // 轻微内陆阴影（沿海拔）
+    // 海拔阴影 + 山地肌理
     for (const c of cells) {
-      if (!c.land || c.elev < 0.55) continue;
-      ctx.fillStyle = `rgba(40,30,20,${(c.elev - 0.55) * 0.25})`;
+      if (!c.land || c.elev < 0.4) continue;
+      const a = (c.elev - 0.4) * 0.32;
+      ctx.fillStyle = `rgba(40,30,20,${a})`;
       ctx.fillRect(c.x * cellW, c.y * cellH, cellW + 0.5, cellH + 0.5);
+      if (c.biome === "mountain" && c.elev > 0.55) {
+        ctx.strokeStyle = `rgba(60,45,30,${0.12 + (c.elev - 0.55) * 0.25})`;
+        ctx.lineWidth = 0.8;
+        const px = c.x * cellW;
+        const py = c.y * cellH;
+        ctx.beginPath();
+        ctx.moveTo(px + cellW * 0.15, py + cellH * 0.75);
+        ctx.lineTo(px + cellW * 0.5, py + cellH * 0.2);
+        ctx.lineTo(px + cellW * 0.85, py + cellH * 0.75);
+        ctx.stroke();
+      }
     }
+
+    // 山脉脊线
+    drawMountains(ctx, geo.mountains, mapW, mapH, cellW);
 
     // 江河
     drawPolyline(ctx, geo.yellow, mapW, mapH, "rgba(200,160,80,0.55)", Math.max(1.5, cellW * 0.35));
+    drawPolyline(ctx, geo.huai, mapW, mapH, "rgba(120,160,170,0.4)", Math.max(1.2, cellW * 0.22));
+    drawPolyline(ctx, geo.pearl, mapW, mapH, "rgba(80,150,140,0.45)", Math.max(1.2, cellW * 0.22));
     drawPolyline(ctx, geo.yangtze, mapW, mapH, "rgba(70,140,180,0.65)", Math.max(2, cellW * 0.45));
     drawPolyline(ctx, geo.yangtze, mapW, mapH, "rgba(160,210,230,0.25)", Math.max(1, cellW * 0.2));
+
+    // 州界（行政区划）
+    drawZhouBorders(ctx, state.map.zhouBorders, cellW, cellH);
+    drawZhouLabels(ctx, state.map.zhouLabels, cellW, cellH, view.zoom);
 
     // 中国轮廓描边（识别度关键）
     drawCoast(ctx, geo.mainland, mapW, mapH);
@@ -274,6 +304,88 @@ export function createMapRenderer(canvas) {
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
+  }
+
+  function drawZhouBorders(ctx, edges, cw, ch) {
+    if (!edges?.length) return;
+    ctx.save();
+    ctx.strokeStyle = "rgba(50,36,22,0.42)";
+    ctx.lineWidth = Math.max(1.1, cw * 0.12);
+    ctx.setLineDash([Math.max(3, cw * 0.35), Math.max(2.5, cw * 0.28)]);
+    ctx.beginPath();
+    for (const e of edges) {
+      ctx.moveTo(e.x1 * cw, e.y1 * ch);
+      ctx.lineTo(e.x2 * cw, e.y2 * ch);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(230,210,160,0.18)";
+    ctx.lineWidth = Math.max(0.6, cw * 0.06);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  function drawZhouLabels(ctx, labels, cw, ch, zoom) {
+    if (!labels?.length || zoom < 0.85) return;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const lb of labels) {
+      const x = lb.x * cw;
+      const y = lb.y * ch;
+      const size = Math.max(11, Math.min(16, cw * 1.05));
+      ctx.font = `600 ${size}px "ZCOOL XiaoWei", "Noto Serif SC", serif`;
+      ctx.fillStyle = "rgba(248,236,214,0.28)";
+      ctx.fillText(lb.name, x + 1, y + 1);
+      ctx.globalAlpha = 0.48;
+      ctx.fillStyle = lb.ink || "#6a5a48";
+      ctx.fillText(lb.name, x, y);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  function drawMountains(ctx, ranges, mapW, mapH, cellW) {
+    if (!ranges?.length) return;
+    ctx.save();
+    for (const r of ranges) {
+      const pts = r.path;
+      if (!pts?.length) continue;
+      const w = Math.max(1.4, cellW * (0.28 + r.width * 0.12));
+      // 阴影脊
+      ctx.strokeStyle = "rgba(40,28,16,0.35)";
+      ctx.lineWidth = w + 1.5;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const x = p.x * mapW;
+        const y = p.y * mapH;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      // 岩脊亮边
+      ctx.strokeStyle = "rgba(120,95,65,0.55)";
+      ctx.lineWidth = w * 0.55;
+      ctx.stroke();
+      // 峰尖
+      for (let i = 1; i < pts.length - 1; i += 1) {
+        if (i % 2 === 0) continue;
+        const p = pts[i];
+        const x = p.x * mapW;
+        const y = p.y * mapH;
+        const h = w * 1.8;
+        ctx.fillStyle = "rgba(70,52,36,0.45)";
+        ctx.beginPath();
+        ctx.moveTo(x - h * 0.55, y + h * 0.15);
+        ctx.lineTo(x, y - h * 0.85);
+        ctx.lineTo(x + h * 0.55, y + h * 0.15);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    ctx.restore();
   }
 
   function roundRect(ctx, x, y, w, h, r) {
