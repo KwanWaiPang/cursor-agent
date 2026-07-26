@@ -180,8 +180,10 @@ export function clearSelection(state) {
 
 export function tryMove(state, x, y) {
   const unit = getUnit(state, state.selectedId);
-  if (!unit || state.mode !== "move") return false;
-  if (!state.moveCells.some((c) => c.x === x && c.y === y)) return false;
+  if (!unit || state.mode !== "move") return null;
+  if (!state.moveCells.some((c) => c.x === x && c.y === y)) return null;
+  const from = { x: unit.x, y: unit.y };
+  const to = { x, y };
   unit.x = x;
   unit.y = y;
   state.mode = "action";
@@ -189,7 +191,7 @@ export function tryMove(state, x, y) {
   state.attackTargets = computeAttackTargets(unit, state.units);
   state.magicList = magicsForUnit(unit).filter((m) => unit.mp >= m.mp);
   runScriptChecks(state);
-  return true;
+  return { unit, from, to };
 }
 
 export function cancelMove(state) {
@@ -350,7 +352,7 @@ export function maybeEndPlayerTurn(state) {
     (u) => u.alive && u.team === "player" && !u.done
   );
   if (pending) return;
-  runEnemyPhase(state);
+  state.queueEnemyPhase = true;
 }
 
 export function endPlayerTurnManual(state) {
@@ -358,20 +360,26 @@ export function endPlayerTurnManual(state) {
     if (u.team === "player") u.done = true;
   }
   clearSelection(state);
-  runEnemyPhase(state);
+  state.queueEnemyPhase = true;
 }
 
-function runEnemyPhase(state) {
+/**
+ * 异步敌军/友军阶段；playEvent(evt) 可播放移动/攻击演出
+ */
+export async function runEnemyPhaseAsync(state, playEvent) {
+  state.queueEnemyPhase = false;
   state.phase = "ally";
   if (state.units.some((u) => u.alive && u.team === "ally")) {
     state.log.push({ turn: state.turn, text: "友军行动" });
-    allyTurn(state, () => {});
+    await playEvent?.({ type: "banner", text: "友军阶段", tone: "ally" });
+    await allyTurn(state, playEvent);
     runScriptChecks(state);
     if (state.result) return;
   }
   state.phase = "enemy";
   state.log.push({ turn: state.turn, text: "敌军行动" });
-  enemyTurn(state, () => {});
+  await playEvent?.({ type: "banner", text: "敌军阶段", tone: "enemy" });
+  await enemyTurn(state, playEvent);
   runScriptChecks(state);
   if (!state.result) {
     tickConditions(state);
@@ -388,6 +396,11 @@ function runEnemyPhase(state) {
     }
     state.phase = "player";
     state.log.push({ turn: state.turn, text: `第 ${state.turn} 回合` });
+    await playEvent?.({
+      type: "banner",
+      text: `第 ${state.turn} 回合`,
+      tone: "player",
+    });
     runScriptChecks(state);
   }
 }

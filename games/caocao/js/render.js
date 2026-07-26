@@ -34,6 +34,8 @@ export function createRenderer(canvas) {
         const tile = getTerrainTile(kind, TILE, x, y);
         ctx.drawImage(tile, x * TILE, y * TILE);
         drawTileEdges(ctx, state.tiles, x, y, TILE);
+        if (kind === "water") paintWaterShimmer(ctx, x, y, TILE);
+        if (kind === "forest") paintForestSparkle(ctx, x, y, TILE);
       }
     }
 
@@ -161,12 +163,23 @@ export function createRenderer(canvas) {
     const t = performance.now() / 400;
     const units = state.units
       .filter((u) => u.alive || fx?.isTracked?.(u.id))
-      .sort((a, b) => a.y - b.y || a.x - b.x);
+      .sort((a, b) => {
+        const pa = fx?.getUnitPos?.(a.id, a.x, a.y, TILE);
+        const pb = fx?.getUnitPos?.(b.id, b.x, b.y, TILE);
+        const ay = pa ? (pa.cy + 4) / TILE : a.y;
+        const by = pb ? (pb.cy + 4) / TILE : b.y;
+        return ay - by || a.x - b.x;
+      });
     for (const u of units) {
-      const bob = u.done ? 0 : Math.sin(t + u.id) * 1.5;
       const uf = fx?.getUnitDraw?.(u.id) || { ox: 0, oy: 0, flash: 0, alpha: 1 };
-      const cx = u.x * TILE + TILE / 2 + uf.ox;
-      const cy = u.y * TILE + TILE / 2 - 4 + bob + uf.oy;
+      const pos = fx?.getUnitPos?.(u.id, u.x, u.y, TILE) || {
+        cx: u.x * TILE + TILE / 2,
+        cy: u.y * TILE + TILE / 2 - 4,
+        moving: false,
+      };
+      const bob = u.done || pos.moving ? 0 : Math.sin(t + u.id) * 1.5;
+      const cx = pos.cx + uf.ox;
+      const cy = pos.cy + bob + uf.oy;
       ctx.globalAlpha = uf.alpha ?? 1;
       drawUnitSprite(ctx, u, cx, cy, TILE, state.selectedId === u.id, {
         flash: uf.flash || 0,
@@ -178,6 +191,39 @@ export function createRenderer(canvas) {
     fx?.draw?.(ctx);
 
     ctx.restore();
+  }
+
+  function paintWaterShimmer(ctx, x, y, tile) {
+    const t = performance.now() / 700;
+    const px = x * tile;
+    const py = y * tile;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(px, py, tile, tile);
+    ctx.clip();
+    for (let i = 0; i < 3; i++) {
+      const yy = py + ((t * 14 + i * 18 + x * 7 + y * 3) % tile);
+      ctx.strokeStyle = `rgba(220,245,255,${0.12 + 0.08 * Math.sin(t + i)})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(px, yy);
+      ctx.quadraticCurveTo(px + tile * 0.5, yy - 3, px + tile, yy + 1);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function paintForestSparkle(ctx, x, y, tile) {
+    const t = performance.now() / 900;
+    const n = 1 + ((x * 13 + y * 7) % 2);
+    for (let i = 0; i < n; i++) {
+      const px = x * tile + 10 + ((x + i * 17) % 36);
+      const py = y * tile + 8 + ((y + i * 11) % 30);
+      const a = 0.15 + 0.15 * Math.sin(t + x + i * 2);
+      if (a < 0.18) continue;
+      ctx.fillStyle = `rgba(210,240,140,${a})`;
+      ctx.fillRect(px, py, 2, 2);
+    }
   }
 
   function paintCellOverlay(ctx, x, y, fill, stroke) {

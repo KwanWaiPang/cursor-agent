@@ -2,10 +2,15 @@
  * 战场视觉特效（自研）：攻击冲刺、受击闪白、伤害飘字、计策粒子
  */
 
+function easeInOut(t) {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
 export function createFx() {
   const floats = [];
   const particles = [];
   const unitFx = new Map();
+  const slides = new Map();
   let slash = null;
   let burst = null;
   let shake = 0;
@@ -50,7 +55,67 @@ export function createFx() {
 
   function isTracked(id) {
     const f = unitFx.get(id);
-    return !!(f && now() <= f.until);
+    if (f && now() <= f.until) return true;
+    const s = slides.get(id);
+    return !!(s && now() <= s.born + s.life);
+  }
+
+  /**
+   * 走格：逻辑坐标已在终点时，绘制插值 from→to
+   */
+  function getUnitPos(id, logicalX, logicalY, tile) {
+    const s = slides.get(id);
+    if (!s) {
+      return {
+        cx: logicalX * tile + tile / 2,
+        cy: logicalY * tile + tile / 2 - 4,
+        moving: false,
+      };
+    }
+    const t = now();
+    const u = Math.max(0, Math.min(1, (t - s.born) / s.life));
+    if (u >= 1) {
+      slides.delete(id);
+      return {
+        cx: logicalX * tile + tile / 2,
+        cy: logicalY * tile + tile / 2 - 4,
+        moving: false,
+      };
+    }
+    const e = easeInOut(u);
+    const gx = s.x0 + (s.x1 - s.x0) * e;
+    const gy = s.y0 + (s.y1 - s.y0) * e;
+    const hop = Math.sin(e * Math.PI) * 5;
+    return {
+      cx: gx * tile + tile / 2,
+      cy: gy * tile + tile / 2 - 4 - hop,
+      moving: true,
+    };
+  }
+
+  async function playMove(unitId, from, to, tile) {
+    if (!from || !to) return;
+    if (from.x === to.x && from.y === to.y) return;
+    const dist = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
+    const life = Math.min(720, 220 + dist * 90);
+    busyUntil = Math.max(busyUntil, now() + life);
+    slides.set(unitId, {
+      x0: from.x,
+      y0: from.y,
+      x1: to.x,
+      y1: to.y,
+      born: now(),
+      life,
+    });
+    // 路径烟尘
+    const steps = Math.max(2, dist);
+    for (let i = 0; i <= steps; i++) {
+      const u = i / steps;
+      const px = (from.x + (to.x - from.x) * u) * tile + tile / 2;
+      const py = (from.y + (to.y - from.y) * u) * tile + tile / 2 + 10;
+      addParticles(px, py, "rgba(180,160,120,0.9)", 3, 0.45);
+    }
+    await sleep(life);
   }
 
   function addFloat(x, y, text, color, opts = {}) {
@@ -282,6 +347,9 @@ export function createFx() {
     for (const [id, f] of unitFx) {
       if (t > f.until) unitFx.delete(id);
     }
+    for (const [id, s] of slides) {
+      if (t > s.born + s.life) slides.delete(id);
+    }
   }
 
   function getShake() {
@@ -366,7 +434,8 @@ export function createFx() {
       slash ||
       burst ||
       shake > 0 ||
-      unitFx.size > 0
+      unitFx.size > 0 ||
+      slides.size > 0
     );
   }
 
@@ -374,12 +443,15 @@ export function createFx() {
     update,
     draw,
     getUnitDraw,
+    getUnitPos,
     isTracked,
     getShake,
     playAttack,
     playMagic,
+    playMove,
     isBusy,
     hasVisuals,
     addFloat,
+    sleep,
   };
 }
