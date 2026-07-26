@@ -39,8 +39,7 @@ body.game-page {
 .board-wrap canvas,
 #chess {
   display: block;
-  max-width: 100%;
-  width: 100%;
+  width: min(100%, 560px);
   height: auto;
   margin: 0 auto;
   border-radius: 10px;
@@ -48,6 +47,8 @@ body.game-page {
   background:
     radial-gradient(circle at 30% 20%, rgba(255, 240, 200, 0.25), transparent 40%),
     #e2b56a;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 .panel {
