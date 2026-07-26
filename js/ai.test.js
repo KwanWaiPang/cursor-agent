@@ -1,5 +1,5 @@
 import { BLACK, WHITE, GoEngine } from "./engine.js";
-import { GoAI } from "./ai.js";
+import { GoAI, AI_DIFFICULTIES } from "./ai.js";
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -24,11 +24,17 @@ async function testCapturePreference() {
   g.toPlay = BLACK;
   g.positionHistory = [g.serialize()];
 
-  const ai = new GoAI("hard");
-  ai.cfg.thinkMs = 0;
-  const move = await ai.chooseMove(g);
-  assert(move.type === "play", "should play capture");
-  assert(move.x === 1 && move.y === 2, `should capture at 1,2 got ${move.x},${move.y}`);
+  for (const diff of ["medium", "hard", "expert"]) {
+    const ai = new GoAI(diff);
+    ai.cfg.thinkMs = 0;
+    if (ai.cfg.sims) ai.cfg.sims = Math.min(ai.cfg.sims, 120);
+    const move = await ai.chooseMove(g);
+    assert(move.type === "play", `${diff} should play capture`);
+    assert(
+      move.x === 1 && move.y === 2,
+      `${diff} should capture at 1,2 got ${move.x},${move.y}`
+    );
+  }
 }
 
 async function testReplyAfterHuman() {
@@ -44,6 +50,21 @@ async function testReplyAfterHuman() {
   }
 }
 
+async function testDifficultiesExist() {
+  assert(AI_DIFFICULTIES.includes("easy"), "easy");
+  assert(AI_DIFFICULTIES.includes("medium"), "medium");
+  assert(AI_DIFFICULTIES.includes("hard"), "hard");
+  assert(AI_DIFFICULTIES.includes("expert"), "expert");
+  const easy = new GoAI("easy");
+  const expert = new GoAI("expert");
+  assert(expert.cfg.sims > easy.cfg.sims, "expert has more sims");
+  assert(expert.scaledSims(9) > hardScaled(), "scaled expert > hard");
+  function hardScaled() {
+    return new GoAI("hard").scaledSims(9);
+  }
+}
+
+await testDifficultiesExist();
 await testOpeningMove();
 await testCapturePreference();
 await testReplyAfterHuman();

@@ -77,11 +77,12 @@
                 </select>
               </div>
               <div class="field">
-                <label for="difficultySelect">AI 难度</label>
+                <label for="difficultySelect">AI 难度（可选）</label>
                 <select id="difficultySelect">
-                  <option value="easy">入门</option>
-                  <option value="medium" selected>普通</option>
-                  <option value="hard">进阶</option>
+                  <option value="easy">入门 · 轻松</option>
+                  <option value="medium">普通 · 启发式</option>
+                  <option value="hard" selected>进阶 · MCTS</option>
+                  <option value="expert">专家 · 更深搜索</option>
                 </select>
               </div>
             </div>
@@ -114,7 +115,7 @@
               <li>禁止同形再现（含劫争）。</li>
               <li>双方连续停着后进入点目，点击棋子标记死子。</li>
               <li>计分采用中国规则：子空皆地，白贴目。</li>
-              <li>AI 为浏览器本地启发式引擎，非职业级；9 路更合适。</li>
+              <li>AI 为浏览器本地引擎：入门/普通偏启发式，进阶/专家用 MCTS 搜索；9 路棋力最强。</li>
             </ul>
           </section>
         </aside>
