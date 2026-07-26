@@ -412,10 +412,11 @@ export function createMapRenderer(canvas) {
       const owner = cityOwner(state, city.id);
       const col = owner && factions[owner] ? factions[owner].color : "#c4a574";
       const spr = getCitySprite(city, col);
-      const scale = Math.max(0.55, Math.min(1.4, (cw * 3.4) / spr.width));
+      // 城塞略放大，远景也能认作「城」
+      const scale = Math.max(0.62, Math.min(1.55, (cw * 3.9) / spr.width));
       const dw = spr.width * scale;
       const dh = spr.height * scale;
-      g.drawImage(spr, px - dw / 2, py - dh * 0.72, dw, dh);
+      g.drawImage(spr, px - dw / 2, py - dh * 0.78, dw, dh);
 
       const owned = !!owner;
       // 三志习惯：大城常显名，小城随缩放
