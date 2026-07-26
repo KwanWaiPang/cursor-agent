@@ -91,18 +91,26 @@ export class Game {
     this._onResize = () => this.onResize();
     this._onMouseDown = (e) => {
       if (e.button === 0) this.shooting = true;
+      // 右键换弹
+      if (e.button === 2) {
+        e.preventDefault();
+        tryReload(this.loadout, performance.now(), this.sfx);
+      }
     };
     this._onMouseUp = (e) => {
       if (e.button === 0) this.shooting = false;
     };
-    this._onKey = (e) => this.onKey(e);
+    this._onContextMenu = (e) => {
+      // 锁定指针时屏蔽浏览器右键菜单
+      if (this.player?.controls?.isLocked) e.preventDefault();
+    };
     this._onLock = () => this.onLock();
     this._onUnlock = () => this.onUnlock();
 
     window.addEventListener("resize", this._onResize);
     document.addEventListener("mousedown", this._onMouseDown);
     document.addEventListener("mouseup", this._onMouseUp);
-    document.addEventListener("keydown", this._onKey);
+    document.addEventListener("contextmenu", this._onContextMenu);
     this.player.controls.addEventListener("lock", this._onLock);
     this.player.controls.addEventListener("unlock", this._onUnlock);
 
@@ -124,13 +132,6 @@ export class Game {
     if (!this.running || this._ended) return;
     this.paused = true;
     document.getElementById("pause")?.classList.remove("hidden");
-  }
-
-  onKey(e) {
-    if (!this.running) return;
-    if (e.code === "KeyR") {
-      tryReload(this.loadout, performance.now(), this.sfx);
-    }
   }
 
   onResize() {
@@ -299,7 +300,7 @@ export class Game {
     window.removeEventListener("resize", this._onResize);
     document.removeEventListener("mousedown", this._onMouseDown);
     document.removeEventListener("mouseup", this._onMouseUp);
-    document.removeEventListener("keydown", this._onKey);
+    document.removeEventListener("contextmenu", this._onContextMenu);
     this.hud.hide();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
