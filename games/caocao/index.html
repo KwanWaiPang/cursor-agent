@@ -33,7 +33,7 @@
       <section class="panel">
         <h2>战役选择</h2>
         <p class="roadmap-note">
-          目标：原作约 55 关全剧本移植（颍川→马超→忠臣/奸臣终章），单机无联机。第一章关名与推进已对齐原作；二、三章与分歧线已全部可通（模板地图持续精修对白/宝物/单挑）。详见
+          单机全剧本（约 55 关）。地形与武将棋子为<strong>自研像素风</strong>（致敬光荣战棋观感，不含原作素材）。第一章已手绘关键地图与具名武将（张角三兄弟、华雄、吕布、友军孙坚/刘关张等）。详见
           <code>ROADMAP.md</code>。
         </p>
         <div id="campaignMeta" class="meta campaign-meta"></div>
@@ -56,8 +56,13 @@
         </div>
         <div class="panel">
           <h3>武将</h3>
-          <p id="unitInfo" style="margin: 0; font-size: 0.9rem; line-height: 1.5">—</p>
-          <p id="tileInfo" style="margin: 0.45rem 0 0; font-size: 0.85rem; color: #5a4a3a">—</p>
+          <div class="unit-card">
+            <canvas id="portrait" width="96" height="112" aria-hidden="true"></canvas>
+            <div>
+              <p id="unitInfo" style="margin: 0; font-size: 0.9rem; line-height: 1.5">—</p>
+              <p id="tileInfo" style="margin: 0.45rem 0 0; font-size: 0.85rem; color: #5a4a3a">—</p>
+            </div>
+          </div>
         </div>
         <div class="panel actions" id="actionBar">
           <button class="btn" id="btnAttack" type="button">攻击</button>

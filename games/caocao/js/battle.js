@@ -1,4 +1,5 @@
 import { CLASSES, TERRAIN, classAdvantage } from "../data/classes.js";
+import { isHostile } from "../data/generals.js";
 
 export function calcDamage(attacker, defender, terrainId) {
   const terrain = TERRAIN[terrainId] || TERRAIN.plain;
@@ -57,9 +58,9 @@ export function computeMoveRange(unit, tiles, units, width, height) {
       const left = cur.left - c;
       if (left < 0) continue;
       if (occ) {
-        // 只能穿过友军
+        // 只能穿过友方
         const blocker = units.find((u) => u.alive && u.x === nx && u.y === ny);
-        if (!blocker || blocker.team !== unit.team) continue;
+        if (!blocker || isHostile(unit, blocker)) continue;
       }
       const prev = best.get(key);
       if (prev !== undefined && prev >= left) continue;
@@ -72,10 +73,15 @@ export function computeMoveRange(unit, tiles, units, width, height) {
   for (const key of best.keys()) {
     const [x, y] = key.split(",").map(Number);
     const occEnemy = units.some(
-      (u) => u.alive && u.team !== unit.team && u.x === x && u.y === y
+      (u) => u.alive && isHostile(unit, u) && u.x === x && u.y === y
     );
     const occFriendOther = units.some(
-      (u) => u.alive && u.id !== unit.id && u.team === unit.team && u.x === x && u.y === y
+      (u) =>
+        u.alive &&
+        u.id !== unit.id &&
+        !isHostile(unit, u) &&
+        u.x === x &&
+        u.y === y
     );
     if (occEnemy || occFriendOther) continue;
     cells.push({ x, y });
@@ -84,7 +90,5 @@ export function computeMoveRange(unit, tiles, units, width, height) {
 }
 
 export function computeAttackTargets(unit, units) {
-  return units.filter(
-    (u) => u.alive && u.team !== unit.team && inRange(unit, u.x, u.y)
-  );
+  return units.filter((u) => u.alive && isHostile(unit, u) && inRange(unit, u.x, u.y));
 }

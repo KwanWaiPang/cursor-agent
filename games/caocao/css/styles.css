@@ -158,6 +158,22 @@ body.caocao-body {
   background: #2a4a6b;
 }
 
+.unit-card {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 0.65rem;
+  align-items: start;
+}
+
+#portrait {
+  width: 96px;
+  height: 112px;
+  border-radius: 10px;
+  border: 1px solid rgba(61, 47, 38, 0.25);
+  background: #1a1410;
+  image-rendering: pixelated;
+}
+
 .stage-card {
   appearance: none;
   width: 100%;
