@@ -242,18 +242,6 @@ function expandFromCity(map, cityId, factionId, steps, factionCityIds = null) {
   }
 }
 
-function countNearCity(map, cityId, factionId, radius = 18) {
-  const idx = map.cityCells[cityId];
-  if (idx == null) return 0;
-  const c0 = map.cells[idx];
-  let n = 0;
-  for (const c of map.cells) {
-    if (!c.land || c.owner !== factionId) continue;
-    if (Math.abs(c.x - c0.x) + Math.abs(c.y - c0.y) <= radius) n++;
-  }
-  return n;
-}
-
 function ensureMinTerritory(map, cityId, factionId, minCells, factionCityIds = null) {
   const idx = map.cityCells[cityId];
   if (idx == null) return;
@@ -297,8 +285,18 @@ export function landCount(state, factionId) {
   return state.map.cells.filter((c) => c.land && c.owner === factionId).length;
 }
 
+function regionsOfCity(state, cityId) {
+  if (!state.regionsByCity) {
+    state.regionsByCity = Object.create(null);
+    for (const r of state.map.regions) {
+      (state.regionsByCity[r.cityId] ||= []).push(r);
+    }
+  }
+  return state.regionsByCity[cityId] || [];
+}
+
 export function regionControl(state, cityId, factionId) {
-  const regs = state.map.regions.filter((r) => r.cityId === cityId);
+  const regs = regionsOfCity(state, cityId);
   if (!regs.length) return 0;
   let owned = 0;
   for (const r of regs) {
@@ -462,11 +460,12 @@ function stepArmy(state, army) {
     else if (dy) army.y += dy;
     else army.x += dx;
 
-    paintTrail(state, army);
+    paintTrail(state, army, { dirty: false });
   }
+  markPaintDirty(state);
 }
 
-function paintTrail(state, army) {
+function paintTrail(state, army, opts = {}) {
   const radius = 1 + Math.min(2, Math.floor(army.paintBonus / 3));
   for (let y = army.y - radius; y <= army.y + radius; y++) {
     for (let x = army.x - radius; x <= army.x + radius; x++) {
@@ -491,7 +490,7 @@ function paintTrail(state, army) {
       cell.hasFort = true;
     }
   }
-  markPaintDirty(state);
+  if (opts.dirty !== false) markPaintDirty(state);
 }
 
 function arrive(state, army) {
@@ -594,7 +593,7 @@ function captureCity(state, cityId, winnerId, loserId) {
     if (c.land && c.cityId === cityId) c.owner = null;
   }
   claimCityTerritory(state.map, cityId, winnerId, state);
-  for (const r of state.map.regions.filter((r) => r.cityId === cityId)) {
+  for (const r of regionsOfCity(state, cityId)) {
     state.map.cells[r.cell].owner = winnerId;
   }
   // 新占城分驻几名闲置武将
@@ -684,7 +683,7 @@ function pickBorderCity(state, factionId) {
   return best;
 }
 
-/** 优先近距无主城，其次弱小敌城 */
+/** 优先近距无主城，其次弱小敌城；过远目标忽略以防雪球乱飞 */
 function pickAiTarget(state, factionId, x, y) {
   let best = null;
   let bestScore = Infinity;
@@ -694,10 +693,13 @@ function pickAiTarget(state, factionId, x, y) {
     const cell = state.map.cells[state.map.cityCells[c.id]];
     if (!cell) continue;
     const d = Math.abs(cell.x - x) + Math.abs(cell.y - y);
-    const neutralBonus = owner ? 0 : -10;
+    if (d > 42) continue;
+    const neutralBonus = owner ? 0 : -12;
     const scalePenalty =
-      c.scale === "巨大" ? 8 : c.scale === "大" ? 4 : c.scale === "中" ? 1 : 0;
-    const score = d + neutralBonus + scalePenalty;
+      c.scale === "巨大" ? 10 : c.scale === "大" ? 5 : c.scale === "中" ? 2 : 0;
+    // 略偏向攻击玩家边境，增加压迫感
+    const vsPlayer = owner === state.playerId ? -4 : 0;
+    const score = d + neutralBonus + scalePenalty + vsPlayer;
     if (score < bestScore) {
       bestScore = score;
       best = c.id;

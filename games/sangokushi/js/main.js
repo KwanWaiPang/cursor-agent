@@ -27,7 +27,9 @@ const els = {
   landChip: document.getElementById("landChip"),
   cityChip: document.getElementById("cityChip"),
   modeChip: document.getElementById("modeChip"),
+  goalChip: document.getElementById("goalChip"),
   factionChip: document.getElementById("factionChip"),
+  btnFocus: document.getElementById("btnFocus"),
   goldChip: document.getElementById("goldChip"),
   foodChip: document.getElementById("foodChip"),
   cityInfo: document.getElementById("cityInfo"),
@@ -118,6 +120,10 @@ function refresh() {
       : state.selectedCityId
         ? "模式 选城"
         : "模式 眺望";
+  }
+  if (els.goalChip) {
+    const need = Math.max(24, Math.ceil(CITY_COUNT * 0.25));
+    els.goalChip.textContent = `目标 ${f.cities.length}/${need}`;
   }
   els.factionChip.textContent = f.name;
   els.goldChip.textContent = `金 ${f.gold}`;
@@ -293,7 +299,21 @@ els.map.addEventListener("mousemove", (e) => {
     lastPan = { x: e.clientX, y: e.clientY };
     return;
   }
-  hover = renderer.screenToCell(state, e.clientX, e.clientY);
+  const next = renderer.screenToCell(state, e.clientX, e.clientY);
+  hover = next;
+  // 悬停城池时轻量刷新城情
+  if (next) {
+    const mc = state.map.cells[next.y * state.map.cols + next.x];
+    if (mc?.isCity) {
+      const city = cityById(mc.cityId);
+      const owner = cityOwner(state, mc.cityId);
+      const who = owner ? state.factions[owner]?.name : "无主";
+      const ctrl = Math.floor(siegeControlOf(state, mc.cityId, state.playerId) * 100);
+      els.map.title = `${city.name} · ${who} · 控制${ctrl}%`;
+    } else {
+      els.map.title = mc?.zhou ? `${mc.zhou}` : "";
+    }
+  }
 });
 
 els.map.addEventListener("mousedown", (e) => {
@@ -380,10 +400,30 @@ els.btnRecall.addEventListener("click", () => {
   refresh();
 });
 
+els.btnFocus?.addEventListener("click", () => {
+  if (!state) return;
+  renderer.focusFaction(state, state.playerId);
+  refresh();
+});
+
 els.btnEnd.addEventListener("click", () => {
   if (!state || state.result) return;
   endTurn(state);
   refresh();
+});
+
+window.addEventListener("keydown", (e) => {
+  if (!state || state.result) return;
+  if (e.key === "Enter" && !e.repeat) {
+    endTurn(state);
+    refresh();
+  } else if (e.key === "f" || e.key === "F") {
+    renderer.focusFaction(state, state.playerId);
+    refresh();
+  } else if (e.key === "Escape" && state.selectedArmyId) {
+    state.selectedArmyId = null;
+    refresh();
+  }
 });
 
 els.btnMenu.addEventListener("click", () => {

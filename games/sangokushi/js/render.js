@@ -142,6 +142,25 @@ export function createMapRenderer(canvas) {
       }
     }
 
+    // 攻城目标光环
+    const selArmy = state.armies.find((a) => a.id === state.selectedArmyId);
+    if (selArmy?.order?.type === "siege" && selArmy.order.targetCity) {
+      const idx = state.map.cityCells[selArmy.order.targetCity];
+      const cell = state.map.cells[idx];
+      if (cell) {
+        const px = cell.x * cellW + cellW / 2;
+        const py = cell.y * cellH + cellH / 2;
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 200);
+        ctx.strokeStyle = `rgba(200,60,40,${0.45 + pulse * 0.4})`;
+        ctx.lineWidth = 2.4;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.arc(px, py - 4, cellW * (2.8 + pulse * 0.4), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
     ctx.restore();
 
     // 暗角
@@ -266,18 +285,17 @@ export function createMapRenderer(canvas) {
       const col = factions[cell.owner].color;
       const px = cell.x * cw;
       const py = cell.y * ch;
-      g.fillStyle = hexAlpha(col, cell.isCity ? 0.66 : 0.54);
-      g.fillRect(px - 0.55, py - 0.55, cw + 1.2, ch + 1.2);
+      // 内填充略透，城心更沉，接近三志14色块层次
+      g.fillStyle = hexAlpha(col, cell.isCity ? 0.72 : 0.58);
+      g.fillRect(px - 0.6, py - 0.6, cw + 1.3, ch + 1.3);
     }
-    // 势力交界线（邻格不同 owner）
-    g.lineWidth = Math.max(1, Math.min(cw, ch) * 0.18);
+    // 势力交界：深色描边 + 本色细线
     for (const cell of state.map.cells) {
       if (!cell.land || !cell.owner) continue;
       const px = cell.x * cw;
       const py = cell.y * ch;
       const col = factions[cell.owner]?.color;
       if (!col) continue;
-      g.strokeStyle = hexAlpha(col, 0.35);
       const neigh = [
         [1, 0, px + cw, py, px + cw, py + ch],
         [0, 1, px, py + ch, px + cw, py + ch],
@@ -288,6 +306,14 @@ export function createMapRenderer(canvas) {
         if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
         const n = state.map.cells[ny * cols + nx];
         if (!n?.land || n.owner === cell.owner) continue;
+        g.strokeStyle = "rgba(20,12,8,0.45)";
+        g.lineWidth = Math.max(1.2, Math.min(cw, ch) * 0.22);
+        g.beginPath();
+        g.moveTo(x1, y1);
+        g.lineTo(x2, y2);
+        g.stroke();
+        g.strokeStyle = hexAlpha(col, 0.55);
+        g.lineWidth = Math.max(0.8, Math.min(cw, ch) * 0.12);
         g.beginPath();
         g.moveTo(x1, y1);
         g.lineTo(x2, y2);
