@@ -119,6 +119,11 @@ body.sk-body {
   color: #3d2f26;
 }
 
+.menu-map-note {
+  margin: 0 0 0.75rem;
+  max-width: 40rem;
+}
+
 .faction-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -423,8 +428,54 @@ body.sk-body {
   line-height: 1.5;
 }
 
+.faction-legend {
+  display: grid;
+  gap: 0.28rem;
+  max-height: 11rem;
+  overflow: auto;
+}
+
+.faction-legend-row {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.faction-legend-row.mine {
+  font-weight: 600;
+}
+
+.faction-legend-row .muted {
+  color: #7a6a58;
+}
+
+.faction-legend-row .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+  border: 1px solid rgba(20, 12, 8, 0.35);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.actions .btn {
+  flex: 1 1 auto;
+  min-width: 6.5rem;
+}
+
 @media (max-width: 960px) {
   .game-layout {
     grid-template-columns: 1fr;
+  }
+
+  .map-wrap {
+    min-height: 52vh;
   }
 }

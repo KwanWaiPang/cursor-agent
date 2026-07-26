@@ -15,6 +15,7 @@ export const FACTION_COLORS = {
   gongsunzan: "#2a6a6a",
   liubiao: "#5a6a3a",
   mateng: "#7a5a3a",
+  liuyan: "#6a5038",
   shixie: "#3a6a5a",
   neutral: "#6a6558",
 };
@@ -25,6 +26,7 @@ const POWER = {
   liubei: 2,
   sunjian: 3,
   mateng: 4,
+  liuyan: 5,
   dongzhuo: 6,
   liubiao: 7,
   yuanshao: 8,
@@ -138,6 +140,15 @@ export const SCENARIO_190 = {
       powerId: POWER.mateng,
       cities: ["tianshui", "anding", "wuwei", "jincheng", "longxi", "hanyang"],
       officers: roster(POWER.mateng, ["韩遂"], "马腾"),
+    },
+    liuyan: {
+      id: "liuyan",
+      name: "刘焉军",
+      color: FACTION_COLORS.liuyan,
+      ruler: officerByName("刘焉")?.id,
+      powerId: POWER.liuyan,
+      cities: ["chengdu", "hanzhong", "zitong", "jiangzhou", "guanghan", "baxi"],
+      officers: roster(POWER.liuyan, ["刘璋", "张松", "法正"], "刘焉"),
     },
     shixie: {
       id: "shixie",

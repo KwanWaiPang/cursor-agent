@@ -35,7 +35,7 @@
         </p>
         <h3>选择势力</h3>
         <div id="factionPick" class="faction-grid"></div>
-        <p class="hint">操作：点选己城 → 勾选武将出征 → 在地图点目标进军/攻城 → 结束旬月。拖拽平移，滚轮缩放。</p>
+        <p class="hint">操作：点选己城 → 一键精锐/勾选武将 → 出征 → 点敌城或无主城攻略 → 结束旬月（Enter）。F 镜头归位 · 推荐目标可跳转最近空城。</p>
       </section>
     </div>
 
@@ -47,6 +47,8 @@
             <span class="chip" id="dateChip">190年1月</span>
             <span class="chip" id="landChip">领地 0</span>
             <span class="chip" id="cityChip">都市 0</span>
+            <span class="chip" id="modeChip">模式 选城</span>
+            <span class="chip" id="goalChip">目标 0/49</span>
           </div>
         </div>
         <aside class="side">
@@ -77,10 +79,17 @@
             </div>
             <div class="actions" style="margin-top: 0.55rem">
               <button class="btn" id="btnForm" type="button">出征（已选武将）</button>
+              <button class="btn secondary" id="btnElite" type="button">一键精锐</button>
+              <button class="btn secondary" id="btnSuggest" type="button">推荐目标</button>
               <button class="btn secondary" id="btnRecall" type="button">撤回部队</button>
+              <button class="btn secondary" id="btnFocus" type="button">镜头归位</button>
               <button class="btn danger" id="btnEnd" type="button">结束旬月</button>
               <button class="btn secondary" id="btnMenu" type="button">返回选势</button>
             </div>
+          </div>
+          <div class="panel">
+            <h3>群雄</h3>
+            <div id="factionLegend" class="faction-legend"></div>
           </div>
           <div class="panel">
             <h3>军情</h3>
