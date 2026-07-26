@@ -1,6 +1,6 @@
 # 游戏馆
 
-统一风格的网页游戏集合：围棋、中国象棋、3D 国际象棋、3D 战术射击、曹操传战棋。可部署到 GitHub Pages，从大厅任选开玩。
+统一风格的网页游戏集合：围棋、中国象棋、3D 国际象棋、3D 战术射击。可部署到 GitHub Pages，从大厅任选开玩。
 
 ## 在线地址
 
@@ -18,7 +18,6 @@ games/go/               # 围棋
 games/xiangqi/          # 中国象棋
 games/chess3d/          # 3D 国际象棋
 games/fps/              # 3D 战术射击（据点清剿 / 迷你大逃杀）
-games/caocao/           # 曹操传 · 战棋演义（分阶段完整复刻）
 THIRD_PARTY_NOTICES.md  # 第三方许可说明
 ```
 
