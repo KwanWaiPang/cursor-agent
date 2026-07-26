@@ -21,16 +21,21 @@ const els = {
   btnPass: document.getElementById("btnPass"),
   btnResign: document.getElementById("btnResign"),
   btnUndo: document.getElementById("btnUndo"),
+  btnAutoDead: document.getElementById("btnAutoDead"),
   btnScore: document.getElementById("btnScore"),
   btnNew: document.getElementById("btnNew"),
 };
 
-let engine = new GoEngine(19, 7.5);
-let ai = new GoAI("medium");
+let engine = new GoEngine(
+  Number(document.getElementById("sizeSelect").value) || 19,
+  Number(document.getElementById("komiSelect").value) || 7.5
+);
+let ai = new GoAI(document.getElementById("difficultySelect").value || "hard");
 let hover = null;
 let dpr = Math.max(1, window.devicePixelRatio || 1);
 let aiThinking = false;
 let aiToken = 0;
+let lastTouchAt = 0;
 
 function isAiMode() {
   return els.modeSelect.value === "ai";
@@ -93,6 +98,7 @@ function updatePanel() {
   const humanCanAct = engine.phase === "playing" && isHumanTurn() && !aiThinking;
   els.btnPass.disabled = !humanCanAct;
   els.btnResign.disabled = engine.phase !== "playing" || aiThinking;
+  els.btnAutoDead.disabled = engine.phase !== "scoring" || aiThinking;
   els.btnScore.disabled = engine.phase !== "scoring" || aiThinking;
   els.btnUndo.disabled =
     aiThinking ||
@@ -300,7 +306,11 @@ async function maybeAiMove() {
         return;
       }
       if (res.scoring) {
-        refresh("AI 停着。双方停着，请标记死子后确认点目。", true);
+        const n = engine.deadMarks.size;
+        refresh(
+          `AI 停着，进入点目：已自动标记 ${n} 个死子，可手动调整后确认点目。`,
+          true
+        );
       } else {
         refresh("AI 停着", true);
       }
@@ -309,9 +319,8 @@ async function maybeAiMove() {
 
     const res = engine.play(move.x, move.y);
     if (!res.ok) {
-      // 极端情况下回退为停着
-      engine.pass();
-      refresh("AI 改判停着", true);
+      // 避免非法着法被改成停着，导致误进入点目
+      refresh("AI 着法无效，请悔棋或新开一局");
       return;
     }
     const cap = res.captured?.length || 0;
@@ -337,7 +346,7 @@ function onBoardClick(evt) {
   if (engine.phase === "scoring") {
     const res = engine.toggleDead(coord.x, coord.y);
     if (!res.ok) showMessage(res.reason || "");
-    else showMessage("已更新死子标记。确认后请点击「确认点目」。", true);
+    else showMessage("已手动更新死子。可再点「自动标死子」重算，或确认点目。", true);
     refresh();
     return;
   }
@@ -396,11 +405,25 @@ els.btnPass.addEventListener("click", () => {
     return;
   }
   if (res.scoring) {
-    refresh("双方停着，进入点目：点击棋子标记死子，再确认点目。", true);
+    const n = engine.deadMarks.size;
+    refresh(
+      `双方停着，进入点目：已自动标记 ${n} 个死子，可点击棋子修改，或按「自动标死子」重算。`,
+      true
+    );
   } else {
     refresh(`${colorName(opponent(engine.toPlay))}方停着`, true);
     maybeAiMove();
   }
+});
+
+els.btnAutoDead.addEventListener("click", () => {
+  if (engine.phase !== "scoring") return;
+  const res = engine.autoMarkDead();
+  if (!res.ok) {
+    showMessage(res.reason || "");
+    return;
+  }
+  refresh(`已重新自动标记 ${res.count} 个死子，可手动微调后确认点目。`, true);
 });
 
 els.btnResign.addEventListener("click", () => {
@@ -414,29 +437,43 @@ els.btnResign.addEventListener("click", () => {
 els.btnUndo.addEventListener("click", () => {
   if (aiThinking) return;
   if (isAiMode()) {
-    // 回到到轮到你下棋的状态：通常撤销 AI 一手 + 你一手
+    // 回到轮到你下棋的状态：通常撤销 AI 一手 + 你一手
     if (engine.phase === "scoring" || engine.phase === "finished") {
       const res = engine.undo();
-      if (!res.ok) showMessage(res.reason);
-      else refresh("已回到对局", true);
-      // 若回到 AI 行棋，再撤一步
+      if (!res.ok) {
+        showMessage(res.reason);
+        return;
+      }
       if (engine.phase === "playing" && engine.toPlay === aiColor()) {
         engine.undo();
       }
       refresh("已悔棋", true);
+      maybeAiMove();
       return;
     }
-    let undos = 0;
-    if (engine.toPlay === humanColor()) {
-      // 刚轮到你：撤销 AI 应手 + 你的上一手
-      if (engine.undo().ok) undos += 1;
-      if (engine.undo().ok) undos += 1;
-    } else {
-      // 理论上 AI 思考中不会进这里；若轮到 AI，撤你上一手
-      if (engine.undo().ok) undos += 1;
+    if (engine.toPlay === aiColor()) {
+      // AI 尚未落下时：优先撤销你的上一手；否则让 AI 重走
+      if (engine.undo().ok) {
+        refresh("已悔棋", true);
+        if (engine.toPlay === aiColor()) maybeAiMove();
+      } else {
+        refresh("AI 重新思考…", true);
+        maybeAiMove();
+      }
+      return;
     }
-    if (!undos) showMessage("没有可悔的棋");
-    else refresh("已悔棋", true);
+
+    let undos = 0;
+    // 刚轮到你：撤销 AI 应手 + 你的上一手
+    if (engine.undo().ok) undos += 1;
+    if (engine.undo().ok) undos += 1;
+    if (!undos) {
+      showMessage("没有可悔的棋");
+      return;
+    }
+    // 若仍轮到 AI（例如你执白、撤销了开局），让 AI 重新走
+    refresh("已悔棋", true);
+    maybeAiMove();
     return;
   }
 
@@ -460,9 +497,39 @@ els.btnNew.addEventListener("click", () => {
 
 els.modeSelect.addEventListener("change", () => {
   syncAiOptionVisibility();
+  if (!engine.moveHistory.length) {
+    showMessage("设置已更新，点击「开始新对局」生效", true);
+  }
 });
 
-canvas.addEventListener("click", onBoardClick);
+for (const el of [
+  els.sizeSelect,
+  els.komiSelect,
+  els.humanColorSelect,
+  els.difficultySelect,
+]) {
+  el.addEventListener("change", () => {
+    if (engine.moveHistory.length || aiThinking) {
+      showMessage("新设置将在下一局生效，请点击「开始新对局」", true);
+      return;
+    }
+    // 尚未落子：立即同步棋盘规格/贴目，避免界面与内部状态不一致
+    engine = new GoEngine(
+      Number(els.sizeSelect.value),
+      Number(els.komiSelect.value)
+    );
+    ai.setDifficulty(els.difficultySelect.value);
+    hover = null;
+    refresh("设置已同步。人机对战请点击「开始新对局」。", true);
+    resizeCanvas();
+  });
+}
+
+canvas.addEventListener("click", (e) => {
+  // 忽略 touch 后合成的 click，避免移动端连下两手
+  if (Date.now() - lastTouchAt < 600) return;
+  onBoardClick(e);
+});
 canvas.addEventListener("mousemove", onMove);
 canvas.addEventListener("mouseleave", () => {
   hover = null;
@@ -471,6 +538,7 @@ canvas.addEventListener("mouseleave", () => {
 canvas.addEventListener(
   "touchstart",
   (e) => {
+    lastTouchAt = Date.now();
     onBoardClick(e);
   },
   { passive: false }
