@@ -11,6 +11,7 @@ import {
   consumeShot,
 } from "./weapons.js";
 import { createAssaultMode, createRoyaleMode } from "./modes.js";
+import { createAK47ViewModel, createPistolViewModel } from "./viewmodel.js";
 
 export class Game {
   constructor({ mode, onEnd, onQuit }) {
@@ -46,7 +47,16 @@ export class Game {
 
     this.world = createWorld(this.scene, mode === "royale" ? 100 : 90);
     this.player = new Player(this.camera, this.renderer.domElement, this.world);
-    this.loadout = createLoadout(mode === "royale" ? "pistol" : "rifle");
+    this.loadout = createLoadout("rifle");
+
+    // 第一人称武器（默认 AK-47）
+    this.viewAk = createAK47ViewModel();
+    this.viewPistol = createPistolViewModel();
+    this.camera.add(this.viewAk.root);
+    this.camera.add(this.viewPistol.root);
+    this.scene.add(this.camera);
+    this.activeView = this.viewAk;
+    this.syncViewModel();
 
     this.raycaster = new THREE.Raycaster();
     this.bulletLine = null;
@@ -133,6 +143,13 @@ export class Game {
     this.player.lock();
   }
 
+  syncViewModel() {
+    const useAk = this.loadout?.def?.view !== "pistol";
+    this.viewAk.setVisible(useAk);
+    this.viewPistol.setVisible(!useAk);
+    this.activeView = useAk ? this.viewAk : this.viewPistol;
+  }
+
   shoot(now) {
     if (!this.player.alive) return;
     if (!this.player.controls.isLocked) return;
@@ -143,6 +160,7 @@ export class Game {
     }
     consumeShot(this.loadout, now);
     this.sfx.shoot(this.loadout.def.heavy);
+    this.activeView?.kick();
     this.hud.flashFire();
 
     const origin = this.camera.getWorldPosition(new THREE.Vector3());
@@ -233,6 +251,14 @@ export class Game {
       updateReload(this.loadout, now);
       this.player.update(dt);
       if (this.shooting) this.shoot(now);
+
+      const moving =
+        this.player.keys.forward ||
+        this.player.keys.back ||
+        this.player.keys.left ||
+        this.player.keys.right;
+      this.syncViewModel();
+      this.activeView?.update(dt, moving, this.loadout.reloading);
 
       for (const e of this.enemies) {
         e.update(dt, this.player, (dmg) => {

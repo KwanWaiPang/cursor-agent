@@ -92,24 +92,24 @@ export function createWorld(scene, size = 90) {
   const meshes = [];
   const half = size / 2;
 
-  // 地面
+  // 地面（更亮的沙土色，便于辨认敌人）
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(size, size, 1, 1),
-    makeMat(0x6b5a3e, 1)
+    makeMat(0xc2b089, 1)
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
   meshes.push(ground);
 
-  // 雾与氛围
-  scene.fog = new THREE.FogExp2(0x2a3220, 0.018);
-  scene.background = new THREE.Color(0x2a3220);
+  // 更亮的天空与更淡的雾
+  scene.fog = new THREE.Fog(0xd7e6f0, 45, 140);
+  scene.background = new THREE.Color(0xc8d9e8);
 
-  const hemi = new THREE.HemisphereLight(0xc9d6b0, 0x3a3220, 0.75);
+  const hemi = new THREE.HemisphereLight(0xf2f6ff, 0xb8a888, 1.15);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff1d0, 1.05);
-  sun.position.set(40, 60, 20);
+  const sun = new THREE.DirectionalLight(0xfff6e0, 1.45);
+  sun.position.set(40, 70, 30);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.near = 1;
@@ -123,7 +123,7 @@ export function createWorld(scene, size = 90) {
   // 边界墙
   const wallH = 4;
   const wallT = 1.2;
-  const wallColor = 0x555348;
+  const wallColor = 0x8a8678;
   addBox(scene, colliders, meshes, {
     w: size + 2,
     h: wallH,
@@ -163,25 +163,25 @@ export function createWorld(scene, size = 90) {
 
   // 建筑与掩体（军事基地感）
   const buildings = [
-    { w: 14, h: 6, d: 10, x: -22, y: 3, z: -18, color: 0x7a776c },
-    { w: 12, h: 5, d: 12, x: 24, y: 2.5, z: -16, color: 0x6f6c60 },
-    { w: 16, h: 7, d: 9, x: 18, y: 3.5, z: 20, color: 0x757266 },
-    { w: 10, h: 4.5, d: 14, x: -26, y: 2.25, z: 16, color: 0x68655a },
-    { w: 8, h: 3.5, d: 8, x: 0, y: 1.75, z: -28, color: 0x5e6550 },
-    { w: 9, h: 4, d: 7, x: -8, y: 2, z: 28, color: 0x6a675b },
+    { w: 14, h: 6, d: 10, x: -22, y: 3, z: -18, color: 0xb0aea2 },
+    { w: 12, h: 5, d: 12, x: 24, y: 2.5, z: -16, color: 0xa8a496 },
+    { w: 16, h: 7, d: 9, x: 18, y: 3.5, z: 20, color: 0xb5b29f },
+    { w: 10, h: 4.5, d: 14, x: -26, y: 2.25, z: 16, color: 0x9e9b8e },
+    { w: 8, h: 3.5, d: 8, x: 0, y: 1.75, z: -28, color: 0xa3aa90 },
+    { w: 9, h: 4, d: 7, x: -8, y: 2, z: 28, color: 0xada99a },
   ];
   for (const b of buildings) addBox(scene, colliders, meshes, b);
 
-  // 沙袋 / 集装箱掩体
+  // 沙袋 / 集装箱掩体（稍提亮）
   const covers = [
-    { w: 3.5, h: 1.2, d: 1.2, x: -6, y: 0.6, z: -4, color: 0x8a7a4a },
-    { w: 3.5, h: 1.2, d: 1.2, x: 6, y: 0.6, z: 5, color: 0x8a7a4a },
-    { w: 1.4, h: 2.2, d: 4.5, x: 10, y: 1.1, z: -2, color: 0x3f5a3a },
-    { w: 4.5, h: 2.2, d: 1.4, x: -12, y: 1.1, z: 8, color: 0x3f5a3a },
-    { w: 2.2, h: 1.6, d: 2.2, x: 4, y: 0.8, z: 14, color: 0x4a5538 },
-    { w: 2.2, h: 1.6, d: 2.2, x: -16, y: 0.8, z: -8, color: 0x4a5538 },
-    { w: 5, h: 1.1, d: 1.1, x: 0, y: 0.55, z: 10, color: 0x8a7a4a },
-    { w: 1.1, h: 1.1, d: 5, x: -3, y: 0.55, z: -12, color: 0x8a7a4a },
+    { w: 3.5, h: 1.2, d: 1.2, x: -6, y: 0.6, z: -4, color: 0xc4a86a },
+    { w: 3.5, h: 1.2, d: 1.2, x: 6, y: 0.6, z: 5, color: 0xc4a86a },
+    { w: 1.4, h: 2.2, d: 4.5, x: 10, y: 1.1, z: -2, color: 0x6a8a55 },
+    { w: 4.5, h: 2.2, d: 1.4, x: -12, y: 1.1, z: 8, color: 0x6a8a55 },
+    { w: 2.2, h: 1.6, d: 2.2, x: 4, y: 0.8, z: 14, color: 0x7a8f5a },
+    { w: 2.2, h: 1.6, d: 2.2, x: -16, y: 0.8, z: -8, color: 0x7a8f5a },
+    { w: 5, h: 1.1, d: 1.1, x: 0, y: 0.55, z: 10, color: 0xc4a86a },
+    { w: 1.1, h: 1.1, d: 5, x: -3, y: 0.55, z: -12, color: 0xc4a86a },
   ];
   for (const c of covers) addBox(scene, colliders, meshes, c);
 
