@@ -246,7 +246,8 @@ function drawInfantry(ctx, cx, cy, scale, body, accent, st, bulk) {
       ctx.closePath();
       ctx.fill();
     }
-  } else if (st.spear || true) {
+  } else {
+    // 长矛
     ctx.strokeStyle = "#8a6a40";
     ctx.lineWidth = 2.2 * scale;
     ctx.beginPath();
