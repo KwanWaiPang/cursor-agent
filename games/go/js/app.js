@@ -30,7 +30,7 @@ let engine = new GoEngine(
   Number(document.getElementById("sizeSelect").value) || 19,
   Number(document.getElementById("komiSelect").value) || 7.5
 );
-let ai = new GoAI(document.getElementById("difficultySelect").value || "hard");
+let ai = new GoAI(document.getElementById("difficultySelect").value || "expert");
 let hover = null;
 let dpr = Math.max(1, window.devicePixelRatio || 1);
 let aiThinking = false;

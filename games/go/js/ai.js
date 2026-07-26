@@ -1,56 +1,56 @@
 /**
  * 浏览器端围棋 AI（支持 9 / 13 / 19 路）
- * - 入门/普通：启发式 + 浅层搜索
- * - 进阶/专家：启发式先验 + 限时蒙特卡洛树搜索（MCTS）
+ * - 入门：启发式（偏随机）
+ * - 普通及以上：启发式先验 + 限时 MCTS（越高等级搜索越深）
  */
 
-import { BLACK, WHITE, opponent } from "./engine.js";
+import { BLACK, WHITE, opponent, GoEngine } from "./engine.js";
 
 /**
  * 难度配置
  * sims: MCTS 基准模拟次数（大棋盘会提高，并由 timeMs 封顶）
- * timeMs: 大棋盘思考时间预算
+ * timeMs: 思考时间预算（毫秒）
  */
 const DIFFICULTY = {
   easy: {
     label: "入门",
-    noise: 0.65,
-    topN: 10,
+    noise: 0.55,
+    topN: 8,
     depth: 0,
     sims: 0,
     priorTop: 28,
-    thinkMs: 160,
-    timeMs: { 9: 200, 13: 260, 19: 320 },
+    thinkMs: 120,
+    timeMs: { 9: 180, 13: 220, 19: 280 },
   },
   medium: {
     label: "普通",
-    noise: 0.18,
-    topN: 3,
+    noise: 0.1,
+    topN: 2,
     depth: 1,
-    sims: 0,
-    priorTop: 40,
-    thinkMs: 220,
-    timeMs: { 9: 280, 13: 380, 19: 480 },
+    sims: 600,
+    priorTop: 32,
+    thinkMs: 80,
+    timeMs: { 9: 900, 13: 1400, 19: 2000 },
   },
   hard: {
     label: "进阶",
-    noise: 0.04,
+    noise: 0.02,
     topN: 1,
     depth: 1,
-    sims: 700,
-    priorTop: 36,
-    thinkMs: 120,
-    timeMs: { 9: 900, 13: 1600, 19: 2600 },
+    sims: 2200,
+    priorTop: 40,
+    thinkMs: 60,
+    timeMs: { 9: 2200, 13: 3500, 19: 5000 },
   },
   expert: {
     label: "专家",
     noise: 0,
     topN: 1,
-    depth: 1,
-    sims: 1800,
-    priorTop: 44,
-    thinkMs: 80,
-    timeMs: { 9: 1600, 13: 2800, 19: 4200 },
+    depth: 2,
+    sims: 4500,
+    priorTop: 48,
+    thinkMs: 40,
+    timeMs: { 9: 4000, 13: 6500, 19: 9000 },
   },
 };
 
@@ -72,8 +72,9 @@ function countStones(engine) {
   return n;
 }
 
+/** 搜索用轻量局面（不拷贝完整棋谱，显著加快 MCTS） */
 function applyTrial(engine, trial, color, x, y) {
-  const next = engine.clone();
+  const next = new GoEngine(engine.size, engine.komi);
   next.board = trial.board;
   next.captures = {
     [BLACK]:
@@ -81,11 +82,32 @@ function applyTrial(engine, trial, color, x, y) {
     [WHITE]:
       engine.captures[WHITE] + (color === WHITE ? trial.captured.length : 0),
   };
-  next.positionHistory = engine.positionHistory.concat([trial.serialized]);
+  const hist = engine.positionHistory;
+  next.positionHistory =
+    hist.length > 12
+      ? hist.slice(-8).concat([trial.serialized])
+      : hist.concat([trial.serialized]);
   next.toPlay = opponent(color);
   next.consecutivePasses = 0;
   next.lastMove = { x, y, color };
   next.phase = "playing";
+  next.moveHistory = [];
+  return next;
+}
+
+function lightState(engine) {
+  const next = new GoEngine(engine.size, engine.komi);
+  next.board = engine.cloneBoard();
+  next.captures = {
+    [BLACK]: engine.captures[BLACK],
+    [WHITE]: engine.captures[WHITE],
+  };
+  next.toPlay = engine.toPlay;
+  next.consecutivePasses = engine.consecutivePasses;
+  next.positionHistory = engine.positionHistory.slice(-8);
+  next.lastMove = engine.lastMove ? { ...engine.lastMove } : null;
+  next.phase = "playing";
+  next.moveHistory = [];
   return next;
 }
 
@@ -121,14 +143,14 @@ export class GoAI {
       };
     }
 
-    // 13/19 提高模拟上限，用时间预算防止卡死
-    const simScale = sk === 9 ? 1 : sk === 13 ? 1.35 : 1.7;
-    const priorBoost = sk === 9 ? 0 : sk === 13 ? 8 : 14;
+    // 大棋盘提高候选与模拟上限；用时间预算封顶避免卡死
+    const simScale = sk === 9 ? 1 : sk === 13 ? 1.15 : 1.25;
+    const priorBoost = sk === 9 ? 0 : sk === 13 ? 6 : 10;
     return {
       sims: Math.round(this.cfg.sims * simScale),
       timeMs,
       priorTop: this.cfg.priorTop + priorBoost,
-      candLimit: sk === 19 ? 120 : sk === 13 ? 96 : 72,
+      candLimit: sk === 19 ? 140 : sk === 13 ? 110 : 80,
     };
   }
 
@@ -203,7 +225,8 @@ export class GoAI {
       if (!trial.ok) continue;
       let score = this.evaluateMove(engine, x, y, color, trial);
       if (this.cfg.depth >= 1) {
-        score -= 0.9 * this.bestOpponentReply(engine, trial, color, x, y);
+        const oppBest = this.bestOpponentReply(engine, trial, color, x, y);
+        score -= (this.cfg.depth >= 2 ? 1.05 : 0.92) * oppBest;
       }
       if (m.urgent) score += m.urgent;
       scored.push({
@@ -252,20 +275,39 @@ export class GoAI {
         if (seenGroups.has(gk)) continue;
         const g = engine.getGroup(x, y);
         for (const [sx, sy] of g.stones) seenGroups.add(keyOf(sx, sy));
-        if (g.liberties.size !== 1) continue;
-        const [lx, ly] = [...g.liberties][0].split(",").map(Number);
-        if (c === opp) {
-          out.push({ x: lx, y: ly, urgent: 40 + g.stones.length * 3 });
-        } else {
-          out.push({ x: lx, y: ly, urgent: 28 + g.stones.length * 2 });
-          for (const [ax, ay] of g.stones) {
-            for (const [nx, ny] of engine.neighbors(ax, ay)) {
-              if (board[ny][nx] !== opp) continue;
-              const og = engine.getGroup(nx, ny);
-              if (og.liberties.size === 1) {
-                const [ox, oy] = [...og.liberties][0].split(",").map(Number);
-                out.push({ x: ox, y: oy, urgent: 45 + og.stones.length * 3 });
+
+        if (g.liberties.size === 1) {
+          const [lx, ly] = [...g.liberties][0].split(",").map(Number);
+          if (c === opp) {
+            out.push({ x: lx, y: ly, urgent: 55 + g.stones.length * 4 });
+          } else {
+            out.push({ x: lx, y: ly, urgent: 40 + g.stones.length * 3 });
+            for (const [ax, ay] of g.stones) {
+              for (const [nx, ny] of engine.neighbors(ax, ay)) {
+                if (board[ny][nx] !== opp) continue;
+                const og = engine.getGroup(nx, ny);
+                if (og.liberties.size === 1) {
+                  const [ox, oy] = [...og.liberties][0].split(",").map(Number);
+                  out.push({
+                    x: ox,
+                    y: oy,
+                    urgent: 60 + og.stones.length * 4,
+                  });
+                }
               }
+            }
+          }
+          continue;
+        }
+
+        // 二气：叫吃 / 逃二气，显著提高战术意识
+        if (g.liberties.size === 2) {
+          for (const lk of g.liberties) {
+            const [lx, ly] = lk.split(",").map(Number);
+            if (c === opp) {
+              out.push({ x: lx, y: ly, urgent: 18 + g.stones.length });
+            } else {
+              out.push({ x: lx, y: ly, urgent: 12 + g.stones.length * 0.6 });
             }
           }
         }
@@ -522,23 +564,23 @@ export class GoAI {
     const size = engine.size;
     const stones = countStones(engine);
 
-    score += trial.captured.length * 18;
+    score += trial.captured.length * 26;
 
     const self = engine.getGroup(x, y, after);
-    score += Math.min(self.liberties.size, 5) * 1.1;
-    if (self.liberties.size === 1) score -= 12;
-    if (self.liberties.size === 2) score -= 2.2;
+    score += Math.min(self.liberties.size, 6) * 1.35;
+    if (self.liberties.size === 1) score -= 18;
+    if (self.liberties.size === 2) score -= 3.5;
 
     for (const [nx, ny] of engine.neighbors(x, y)) {
       if (before[ny][nx] !== color) continue;
       const gBefore = engine.getGroup(nx, ny, before);
       if (gBefore.liberties.size === 1 && gBefore.liberties.has(keyOf(x, y))) {
-        score += 16 + gBefore.stones.length * 2;
+        score += 28 + gBefore.stones.length * 3;
       } else if (
         gBefore.liberties.size === 2 &&
         gBefore.liberties.has(keyOf(x, y))
       ) {
-        score += 3 + gBefore.stones.length * 0.4;
+        score += 6 + gBefore.stones.length * 0.7;
       }
     }
 
@@ -549,11 +591,14 @@ export class GoAI {
       if (seenOpp.has(k)) continue;
       const g = engine.getGroup(nx, ny, after);
       for (const [sx, sy] of g.stones) seenOpp.add(keyOf(sx, sy));
-      if (g.liberties.size === 1) score += 12 + g.stones.length * 1.4;
-      else if (g.liberties.size === 2) score += 4 + g.stones.length * 0.35;
+      if (g.liberties.size === 1) score += 20 + g.stones.length * 2.2;
+      else if (g.liberties.size === 2) score += 7 + g.stones.length * 0.55;
     }
 
-    score += this.localTerritoryDelta(engine, after, x, y, color) * 0.85;
+    // 切断：落子后让对方相邻子不再同块连通
+    score += this.cutBonus(before, after, x, y, color) * 1.2;
+
+    score += this.localTerritoryDelta(engine, after, x, y, color) * 1.15;
 
     // 布局评估：9/13/19 通用，大棋盘权重更高
     const openingHorizon = size >= 19 ? 48 : size >= 13 ? 28 : 14;
@@ -608,16 +653,75 @@ export class GoAI {
       else emptyN += 1;
     }
     if (ownN >= 3 && trial.captured.length === 0 && self.liberties.size <= 2) {
-      score -= 8;
+      score -= 12;
     }
-    if (ownN === 4 && trial.captured.length === 0) score -= 25;
+    if (ownN === 4 && trial.captured.length === 0) score -= 30;
 
-    score += ownN * 0.55;
-    score += oppN * 0.25;
-    score += emptyN * 0.08;
+    // 连通己方、贴紧对方（分断/靠压）
+    score += ownN * 0.7;
+    score += oppN * 0.45;
+    score += emptyN * 0.1;
     score += ((x * 13 + y * 7) % 5) * 0.01;
 
     return score;
+  }
+
+  cutBonus(before, after, x, y, color) {
+    const opp = opponent(color);
+    let bonus = 0;
+    const oppNeighbors = [];
+    for (const [nx, ny] of [
+      [x + 1, y],
+      [x - 1, y],
+      [x, y + 1],
+      [x, y - 1],
+    ]) {
+      if (
+        ny >= 0 &&
+        nx >= 0 &&
+        ny < before.length &&
+        nx < before.length &&
+        before[ny][nx] === opp
+      ) {
+        oppNeighbors.push([nx, ny]);
+      }
+    }
+    if (oppNeighbors.length < 2) return 0;
+    // 若原先两点同块，落子后不再同块 → 分断
+    const [a, b] = oppNeighbors;
+    const ga = this._sameGroup(before, a[0], a[1], b[0], b[1]);
+    if (!ga) return 0;
+    const still = this._sameGroup(after, a[0], a[1], b[0], b[1]);
+    if (!still) bonus += 5.5;
+    return bonus;
+  }
+
+  _sameGroup(board, x1, y1, x2, y2) {
+    if (board[y1][x1] === 0 || board[y1][x1] !== board[y2][x2]) return false;
+    const color = board[y1][x1];
+    const size = board.length;
+    const seen = new Set([`${x1},${y1}`]);
+    const stack = [[x1, y1]];
+    while (stack.length) {
+      const [cx, cy] = stack.pop();
+      if (cx === x2 && cy === y2) return true;
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const nx = cx + dx;
+        const ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+        if (board[ny][nx] !== color) continue;
+        const k = `${nx},${ny}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        stack.push([nx, ny]);
+      }
+    }
+    return false;
   }
 
   emptyCornerBonus(engine, x, y) {
@@ -727,8 +831,8 @@ export class GoAI {
       m.prior = Math.exp(((m.prior ?? m.score) - maxP) / 3.5);
     }
 
-    const playoutLen = engine.size >= 19 ? 22 : engine.size >= 13 ? 30 : 40;
-    const childPrior = engine.size >= 19 ? 14 : 18;
+    const playoutLen = engine.size >= 19 ? 36 : engine.size >= 13 ? 48 : 64;
+    const childPrior = engine.size >= 19 ? 16 : 22;
 
     for (let i = 0; i < sims; i++) {
       if (performance.now() > deadline) break;
@@ -779,19 +883,17 @@ export class GoAI {
         cur = cur.parent;
       }
 
-      if (i % 40 === 39) await sleep(0);
+      if (i % 32 === 31) await sleep(0);
     }
 
     if (!root.children.length) return priorMoves[0];
 
+    // 访问次数优先，专家再参考胜率
     root.children.sort((a, b) => {
-      if (this.difficulty === "expert") {
-        const va = a.visits ? a.value / a.visits : -1;
-        const vb = b.visits ? b.value / b.visits : -1;
-        if (b.visits !== a.visits) return b.visits - a.visits;
-        return vb - va;
-      }
-      return b.visits - a.visits;
+      if (b.visits !== a.visits) return b.visits - a.visits;
+      const va = a.visits ? a.value / a.visits : -1;
+      const vb = b.visits ? b.value / b.visits : -1;
+      return vb - va;
     });
 
     const best = root.children[0];
@@ -806,15 +908,21 @@ export class GoAI {
   }
 
   uctSelect(node) {
-    const c = this.difficulty === "expert" ? 1.15 : 1.35;
+    // PUCT：先验越强越优先尝试
+    const c =
+      this.difficulty === "expert"
+        ? 1.25
+        : this.difficulty === "hard"
+          ? 1.4
+          : 1.55;
     let best = null;
     let bestScore = -Infinity;
     for (const child of node.children) {
       const exploit = child.visits ? child.value / child.visits : 0;
       const explore =
         c *
-        Math.sqrt(Math.log(node.visits + 1) / (child.visits + 1e-6)) *
-        (0.5 + child.prior);
+        child.prior *
+        (Math.sqrt(node.visits + 1) / (1 + child.visits));
       const s = exploit + explore;
       if (s > bestScore) {
         bestScore = s;
@@ -862,10 +970,7 @@ export class GoAI {
   }
 
   playout(engine, rootColor, maxMoves) {
-    const state = engine.clone();
-    if (state.positionHistory.length > 8) {
-      state.positionHistory = state.positionHistory.slice(-8);
-    }
+    const state = lightState(engine);
 
     let passes = state.consecutivePasses;
     for (let i = 0; i < maxMoves; i++) {
@@ -885,7 +990,7 @@ export class GoAI {
       }
       if (passes >= 2) break;
       if (state.positionHistory.length > 10) {
-        state.positionHistory = state.positionHistory.slice(-8);
+        state.positionHistory = state.positionHistory.slice(-6);
       }
     }
 
@@ -900,22 +1005,45 @@ export class GoAI {
       ? captures
       : urgents.length
         ? urgents
-        : this.collectCandidates(engine, engine.size >= 19 ? 20 : 16);
+        : [
+            ...this.findLibertyTargets(engine, 2),
+            ...this.collectCandidates(engine, engine.size >= 19 ? 24 : 20),
+          ];
     const legal = [];
+    const seen = new Set();
     for (const m of pool) {
       const x = m.x ?? m[0];
       const y = m.y ?? m[1];
+      const k = keyOf(x, y);
+      if (seen.has(k)) continue;
+      seen.add(k);
       const trial = engine.tryPlay(x, y, color);
       if (!trial.ok) continue;
-      let s = trial.captured.length * 8 + (m.urgent || 0);
+      let s = trial.captured.length * 14 + (m.urgent || 0);
       const self = engine.getGroup(x, y, trial.board);
-      s += Math.min(self.liberties.size, 4);
+      s += Math.min(self.liberties.size, 5) * 1.2;
+      if (self.liberties.size === 1) s -= 10;
+      // 快速叫吃分
+      const opp = opponent(color);
+      for (const [nx, ny] of engine.neighbors(x, y)) {
+        if (trial.board[ny][nx] !== opp) continue;
+        const g = engine.getGroup(nx, ny, trial.board);
+        if (g.liberties.size === 1) s += 10 + g.stones.length;
+      }
       legal.push({ x, y, s });
     }
     if (!legal.length) return null;
     legal.sort((a, b) => b.s - a.s);
-    const top = legal.slice(0, Math.min(5, legal.length));
-    return top[Math.floor(Math.random() * top.length)];
+    const top = legal.slice(0, Math.min(4, legal.length));
+    // 偏置最强着，减少胡走
+    const weights = top.map((_, i) => Math.pow(0.55, i));
+    const sum = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * sum;
+    for (let i = 0; i < top.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return top[i];
+    }
+    return top[0];
   }
 
   quickScore(engine, rootColor) {
