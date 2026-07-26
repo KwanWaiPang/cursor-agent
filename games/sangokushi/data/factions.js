@@ -1,6 +1,6 @@
 /**
  * 开局剧本：公元 190 年群雄割据
- * 武将编制取自 R-C-Group 势力表（powerId）高能力武将
+ * 武将编制：R-C-Group 势力表（powerId）全量武将 + 历史关键客将
  */
 
 import { officersOfPower, officerByName, officerById } from "./officers.js";
@@ -32,16 +32,23 @@ const POWER = {
   gongsunzan: 12,
 };
 
-function roster(powerId, mustNames = [], limit = 14) {
-  const must = [];
-  for (const n of mustNames) {
-    const o = officerByName(n);
-    if (o) must.push(o.id);
+function idsOfNames(names) {
+  return names.map((n) => officerByName(n)?.id).filter(Boolean);
+}
+
+/** 全量势力武将 + 客将（去重，君主置顶） */
+function roster(powerId, extraNames = [], rulerName) {
+  const must = idsOfNames(extraNames);
+  const all = officersOfPower(powerId).map((o) => o.id);
+  const ruler = rulerName ? officerByName(rulerName)?.id : all[0];
+  const merged = [];
+  const seen = new Set();
+  for (const id of [ruler, ...must, ...all]) {
+    if (id == null || seen.has(id)) continue;
+    seen.add(id);
+    merged.push(id);
   }
-  const rest = officersOfPower(powerId, limit + 8)
-    .map((o) => o.id)
-    .filter((id) => !must.includes(id));
-  return [...must, ...rest].slice(0, limit);
+  return merged;
 }
 
 export const SCENARIO_190 = {
@@ -58,7 +65,7 @@ export const SCENARIO_190 = {
       ruler: officerByName("曹操")?.id,
       powerId: POWER.caocao,
       cities: ["chenliu", "puyang"],
-      officers: roster(POWER.caocao, ["曹操", "夏侯惇", "夏侯渊", "曹仁", "曹洪", "许褚", "典韦", "荀彧", "郭嘉", "乐进"], 14),
+      officers: roster(POWER.caocao, [], "曹操"),
     },
     liubei: {
       id: "liubei",
@@ -67,7 +74,7 @@ export const SCENARIO_190 = {
       ruler: officerByName("刘备")?.id,
       powerId: POWER.liubei,
       cities: ["xiaopei"],
-      officers: roster(POWER.liubei, ["刘备", "关羽", "张飞", "赵云", "徐庶"], 12),
+      officers: roster(POWER.liubei, [], "刘备"),
     },
     sunjian: {
       id: "sunjian",
@@ -76,7 +83,7 @@ export const SCENARIO_190 = {
       ruler: officerByName("孙坚")?.id,
       powerId: POWER.sunjian,
       cities: ["changsha", "lujiang"],
-      officers: roster(POWER.sunjian, ["孙坚", "孙策", "黄盖", "程普", "韩当", "周泰"], 12),
+      officers: roster(POWER.sunjian, [], "孙坚"),
     },
     yuanshao: {
       id: "yuanshao",
@@ -85,7 +92,8 @@ export const SCENARIO_190 = {
       ruler: officerByName("袁绍")?.id,
       powerId: POWER.yuanshao,
       cities: ["ye", "nanpi", "ji"],
-      officers: roster(POWER.yuanshao, ["袁绍", "颜良", "文丑", "郭图", "沮授", "张郃"], 14),
+      // 沮授、张郃等在数据中或属邻势力，按历史编入客将
+      officers: roster(POWER.yuanshao, ["沮授", "张郃", "田丰"], "袁绍"),
     },
     yuanshu: {
       id: "yuanshu",
@@ -94,7 +102,7 @@ export const SCENARIO_190 = {
       ruler: officerByName("袁术")?.id,
       powerId: POWER.yuanshu,
       cities: ["shouchun"],
-      officers: roster(POWER.yuanshu, ["袁术"], 8),
+      officers: roster(POWER.yuanshu, [], "袁术"),
     },
     dongzhuo: {
       id: "dongzhuo",
@@ -103,7 +111,7 @@ export const SCENARIO_190 = {
       ruler: officerByName("董卓")?.id,
       powerId: POWER.dongzhuo,
       cities: ["changan", "luoyang", "wan"],
-      officers: roster(POWER.dongzhuo, ["董卓", "吕布", "华雄", "贾诩", "貂蝉"], 12),
+      officers: roster(POWER.dongzhuo, ["吕布", "貂蝉", "贾诩"], "董卓"),
     },
     gongsunzan: {
       id: "gongsunzan",
@@ -112,7 +120,7 @@ export const SCENARIO_190 = {
       ruler: officerByName("公孙瓒")?.id,
       powerId: POWER.gongsunzan,
       cities: ["beiping", "xiangping"],
-      officers: roster(POWER.gongsunzan, ["公孙瓒"], 8),
+      officers: roster(POWER.gongsunzan, ["田豫"], "公孙瓒"),
     },
     liubiao: {
       id: "liubiao",
@@ -121,7 +129,7 @@ export const SCENARIO_190 = {
       ruler: officerByName("刘表")?.id,
       powerId: POWER.liubiao,
       cities: ["xiangyang", "jiangling", "jiangxia"],
-      officers: roster(POWER.liubiao, ["刘表"], 10),
+      officers: roster(POWER.liubiao, [], "刘表"),
     },
     mateng: {
       id: "mateng",
@@ -130,10 +138,7 @@ export const SCENARIO_190 = {
       ruler: officerByName("马腾")?.id,
       powerId: POWER.mateng,
       cities: ["tianshui", "anding", "wuwei"],
-      officers: [
-        ...roster(POWER.mateng, ["马腾", "马超"], 8),
-        ...(officerByName("韩遂") ? [officerByName("韩遂").id] : []),
-      ].slice(0, 10),
+      officers: roster(POWER.mateng, ["韩遂"], "马腾"),
     },
     shixie: {
       id: "shixie",
@@ -147,7 +152,6 @@ export const SCENARIO_190 = {
   },
 };
 
-// 校验编制存在
 for (const f of Object.values(SCENARIO_190.factions)) {
   f.officers = f.officers.filter((id) => officerById(id));
   if (!f.ruler) f.ruler = f.officers[0];

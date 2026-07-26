@@ -15,7 +15,7 @@ import {
   pushLog,
 } from "./engine.js";
 import { createMapRenderer } from "./render.js";
-import { officerById } from "../data/officers.js";
+import { officerById, relationNames } from "../data/officers.js";
 
 const els = {
   menu: document.getElementById("menu"),
@@ -33,8 +33,10 @@ const els = {
   officerDetail: document.getElementById("officerDetail"),
   officerPortrait: document.getElementById("officerPortrait"),
   officerName: document.getElementById("officerName"),
+  officerBelong: document.getElementById("officerBelong"),
   officerStats: document.getElementById("officerStats"),
   officerTraits: document.getElementById("officerTraits"),
+  officerRelations: document.getElementById("officerRelations"),
   officerDesc: document.getElementById("officerDesc"),
   btnForm: document.getElementById("btnForm"),
   btnRecall: document.getElementById("btnRecall"),
@@ -80,7 +82,7 @@ function renderMenu() {
       : "";
     btn.innerHTML = `
       <div class="faction-card-head">${face}<strong><span class="swatch" style="background:${f.color}"></span>${f.name}</strong></div>
-      <p class="hint" style="margin:0.35rem 0 0">君主 ${ruler?.name || "—"} · 初始都市 ${f.cities.length} · 武将 ${f.officers.length}</p>
+      <p class="hint" style="margin:0.35rem 0 0">君主 ${ruler?.name || "—"} · 都市 ${f.cities.length} · 武将全员 ${f.officers.length}</p>
     `;
     btn.addEventListener("click", () => startGame(id));
     els.factionPick.appendChild(btn);
@@ -183,6 +185,19 @@ function showOfficerDetail(id) {
     els.officerPortrait.hidden = true;
     els.officerPortrait.removeAttribute("src");
   }
+  const life =
+    view.birth || view.death
+      ? `${view.birth || "?"}–${view.death || "?"}`
+      : "";
+  els.officerBelong.textContent = [
+    `所属 ${view.powerName || "—"}`,
+    view.affinity != null ? `相性 ${view.affinity}` : "",
+    view.home ? `籍贯 ${view.home}` : "",
+    life,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   els.officerStats.innerHTML = `
     <div class="stat">统<strong>${view.lead}</strong></div>
     <div class="stat">武<strong>${view.force}</strong></div>
@@ -196,6 +211,28 @@ function showOfficerDetail(id) {
         `<span class="trait ${t.tier}" title="${t.desc}">${t.kind === "treasure" ? "宝·" : ""}${t.name}</span>`
     )
     .join("");
+
+  const father = view.fatherId ? officerById(view.fatherId)?.name : view.fatherName;
+  const children = relationNames(view.childIds || []);
+  const likes = relationNames(view.likeIds || []);
+  const hates = relationNames(view.hateIds || []);
+  const bondOnly = relationNames(
+    (view.bondIds || []).filter(
+      (id) => !(view.likeIds || []).includes(id) && !(view.hateIds || []).includes(id)
+    )
+  );
+  const relParts = [];
+  if (father) relParts.push(`父：${father}`);
+  if (children.length) relParts.push(`子：${children.join("、")}`);
+  if (likes.length) relParts.push(`亲爱：${likes.join("、")}`);
+  if (hates.length) relParts.push(`厌恶：${hates.join("、")}`);
+  if (!likes.length && !hates.length && (view.bondIds || []).length) {
+    relParts.push(`关系：${relationNames(view.bondIds).join("、")}`);
+  } else if (bondOnly.length) {
+    relParts.push(`关联：${bondOnly.join("、")}`);
+  }
+  els.officerRelations.textContent = relParts.length ? relParts.join(" ｜ ") : "关系：—";
+
   const apt = view.apt
     ? `适性 枪${view.apt.gun} 戟${view.apt.halberd} 弩${view.apt.crossbow} 骑${view.apt.ride} 兵器${view.apt.weapons} 水军${view.apt.water}`
     : "";
