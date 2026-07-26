@@ -17,25 +17,14 @@ var textures   = {};
 		// counter
 		var loaded = 0;
 		// list of all mesh and texture
+		// 棋子改为程序化几何，不再加载细模 JSON / AO
 		var resources = [
-			'3D/json/knight.json',
-			'3D/json/king.json',
-			'3D/json/queen.json',
-			'3D/json/bishop.json',
-			'3D/json/rook.json',
-			'3D/json/pawn.json',
 			'3D/json/board.json',
 			'3D/json/innerBoard.json',
 			'texture/wood-0.jpg',
 			'texture/wood-1.jpg',
 			'texture/wood_N.jpg',
 			'texture/wood_S.jpg',
-			'texture/knight-ao.jpg',
-			'texture/rook-ao.jpg',
-			'texture/king-ao.jpg',
-			'texture/bishop-ao.jpg',
-			'texture/queen-ao.jpg',
-			'texture/pawn-ao.jpg',
 			'texture/floor.jpg',
 			'texture/floor_N.jpg',
 			'texture/floor_S.jpg',
