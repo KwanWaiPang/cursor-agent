@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>中国象棋 · 游戏馆</title>
+    <meta
+      name="description"
+      content="网页版中国象棋：人机对弈与残局挑战，浏览器本地运行。"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,56 +20,96 @@
     <link rel="stylesheet" href="./css/shell.css" />
   </head>
   <body class="theme-yi game-page">
-    <div class="shell xiangqi-shell">
+    <audio src="../../assets/audio/click.wav" id="clickAudio" preload="auto"></audio>
+    <audio src="../../assets/audio/select.wav" id="selectAudio" preload="auto"></audio>
+    <div class="app xiangqi-shell">
       <header class="topbar">
         <div class="brand">
           <a href="../../"><h1>中国象棋</h1></a>
-          <p class="topbar-sub">游戏馆 · 人机对弈 / 残局挑战</p>
+          <p>游戏馆 · 人机对弈 / 残局挑战</p>
         </div>
         <div class="topbar-actions">
           <a class="btn secondary" href="../../">返回游戏馆</a>
         </div>
       </header>
 
-      <div id="chessBox" class="chess_box panel board-panel">
-        <canvas id="chess"></canvas>
-        <audio src="../../assets/audio/click.wav" id="clickAudio" preload="auto"></audio>
-        <audio src="../../assets/audio/select.wav" id="selectAudio" preload="auto"></audio>
-        <div class="bn_box" id="bnBox">
-          <button type="button" id="restartBtn">重新开始</button>
-          <button type="button" id="gohomeBtn" class="secondary">返回菜单</button>
-          <button type="button" id="regretBtn" class="secondary">悔棋</button>
-        </div>
-      </div>
+      <main class="layout">
+        <section class="board-wrap" id="chessBox" aria-label="棋盘">
+          <canvas id="chess"></canvas>
+        </section>
 
-      <div class="menu_box panel" id="menuBox">
-        <div class="menu_init" id="indexBox">
-          <button type="button" class="menu-link" id="indexDy">人机对弈</button>
-          <button type="button" class="menu-link" id="indexQj">挑战棋局</button>
-          <button type="button" class="menu-link secondary" id="stypeBtn">更换皮肤</button>
-        </div>
-        <div class="menu_dy" id="menuDy">
-          <div class="menu_info">
-            <button type="button" class="menu_fh" id="menuFh" aria-label="返回"></button>
-            <label><input name="depth" type="radio" value="2" /> 入门水平</label>
-            <label><input name="depth" type="radio" value="3" checked /> 普通水平</label>
-            <label><input name="depth" type="radio" value="4" /> 进阶水平</label>
-          </div>
-          <button type="button" class="menu-link" id="playBtn">开始对弈</button>
-        </div>
-        <div class="menu_qj" id="menuQj">
-          <div class="menu_info">
-            <button type="button" class="menu_fh" id="menuGb" aria-label="返回"></button>
-            <label><input name="clasli" type="radio" value="0" checked /> 八卦阵法</label>
-            <label><input name="clasli" type="radio" value="1" /> 很二棋局</label>
-            <label><input name="clasli" type="radio" value="2" /> 七星会阵</label>
-          </div>
-          <button type="button" class="menu-link" id="clasliBtn">开始挑战</button>
-        </div>
-      </div>
+        <aside class="panel">
+          <section class="card">
+            <h2>局势</h2>
+            <div class="status-row">
+              <div class="turn">
+                <span class="piece-dot" aria-hidden="true"></span>
+                <span id="statusLabel">请选择对局模式</span>
+              </div>
+              <span id="phaseBadge" class="badge">菜单</span>
+            </div>
+            <div class="meta">
+              <div>红方先手 · 本地 AI 对弈</div>
+            </div>
+            <div id="message" class="message info">从右侧「新对局」开始</div>
+          </section>
+
+          <section class="card" id="opsCard">
+            <h2>操作</h2>
+            <div class="controls bn_box" id="bnBox">
+              <button type="button" id="restartBtn">重新开始</button>
+              <button type="button" id="regretBtn" class="secondary">悔棋</button>
+              <button type="button" id="gohomeBtn" class="secondary">返回菜单</button>
+            </div>
+          </section>
+
+          <section class="card" id="menuBox">
+            <h2>新对局</h2>
+            <div class="menu_init" id="indexBox">
+              <button type="button" class="menu-link" id="indexDy">人机对弈</button>
+              <button type="button" class="menu-link" id="indexQj">挑战棋局</button>
+              <button type="button" class="menu-link secondary" id="stypeBtn">更换皮肤</button>
+            </div>
+            <div class="menu_dy" id="menuDy">
+              <div class="menu_info">
+                <button type="button" class="menu_fh" id="menuFh" aria-label="返回"></button>
+                <div class="field-title">难度</div>
+                <label><input name="depth" type="radio" value="2" /> 入门水平</label>
+                <label><input name="depth" type="radio" value="3" checked /> 普通水平</label>
+                <label><input name="depth" type="radio" value="4" /> 进阶水平</label>
+              </div>
+              <div class="controls" style="grid-template-columns: 1fr">
+                <button type="button" class="menu-link" id="playBtn">开始对弈</button>
+              </div>
+            </div>
+            <div class="menu_qj" id="menuQj">
+              <div class="menu_info">
+                <button type="button" class="menu_fh" id="menuGb" aria-label="返回"></button>
+                <div class="field-title">残局</div>
+                <label><input name="clasli" type="radio" value="0" checked /> 八卦阵法</label>
+                <label><input name="clasli" type="radio" value="1" /> 很二棋局</label>
+                <label><input name="clasli" type="radio" value="2" /> 七星会阵</label>
+              </div>
+              <div class="controls" style="grid-template-columns: 1fr">
+                <button type="button" class="menu-link" id="clasliBtn">开始挑战</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>规则说明</h2>
+            <ul class="help">
+              <li>红先黑后，按中国象棋规则行棋。</li>
+              <li>人机对弈可选难度；亦可挑战经典残局。</li>
+              <li>对局中可悔棋、重开或返回菜单换模式。</li>
+              <li>「更换皮肤」可切换棋盘与棋子样式。</li>
+            </ul>
+          </section>
+        </aside>
+      </main>
 
       <p class="footer-note">
-        基于开源「中国象棋 in HTML5」（MIT）适配 · 统一游戏馆风格
+        游戏馆 · 中国象棋 · 基于开源「中国象棋 in HTML5」（MIT）适配
       </p>
     </div>
 

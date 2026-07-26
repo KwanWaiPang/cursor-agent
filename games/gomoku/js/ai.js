@@ -1,10 +1,6 @@
 import {
-  BLACK,
-  WHITE,
   EMPTY,
   SIZE,
-  inBounds,
-  place,
   isWin,
   cloneBoard,
   opponent,
@@ -12,61 +8,82 @@ import {
 } from "./engine.js";
 
 /**
- * 简易威胁评估 AI
- * 对每个空点打分：成五 > 活四/冲四 > 活三 …
+ * 赢法数组评分 AI（参考 KwanWaiPang/Chess wuziqi.html）
+ * 预生成全部五连赢法，按攻防累计分选点。
  */
 
-function lineScore(board, x, y, color, dx, dy) {
-  let count = 1;
-  let open = 0;
-  let blocked = 0;
+let wins = null;
+let winCount = 0;
 
-  for (const sign of [1, -1]) {
-    let i = 1;
-    let continuous = true;
-    while (i <= 5) {
-      const nx = x + dx * sign * i;
-      const ny = y + dy * sign * i;
-      if (!inBounds(nx, ny)) {
-        blocked++;
-        break;
-      }
-      const v = board[ny][nx];
-      if (v === color && continuous) {
-        count++;
-        i++;
-        continue;
-      }
-      if (v === EMPTY) {
-        open++;
-        break;
-      }
-      blocked++;
-      break;
+function buildWins() {
+  if (wins) return;
+  wins = Array.from({ length: SIZE }, () =>
+    Array.from({ length: SIZE }, () => [])
+  );
+  winCount = 0;
+
+  // 横
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < 11; x++) {
+      for (let k = 0; k < 5; k++) wins[y][x + k][winCount] = true;
+      winCount++;
     }
   }
-
-  if (count >= 5) return 100000;
-  if (count === 4 && open === 2) return 10000;
-  if (count === 4 && open === 1) return 2500;
-  if (count === 3 && open === 2) return 800;
-  if (count === 3 && open === 1) return 180;
-  if (count === 2 && open === 2) return 80;
-  if (count === 2 && open === 1) return 20;
-  if (count === 1 && open === 2) return 8;
-  return 1;
+  // 竖
+  for (let x = 0; x < SIZE; x++) {
+    for (let y = 0; y < 11; y++) {
+      for (let k = 0; k < 5; k++) wins[y + k][x][winCount] = true;
+      winCount++;
+    }
+  }
+  // 正斜
+  for (let y = 0; y < 11; y++) {
+    for (let x = 0; x < 11; x++) {
+      for (let k = 0; k < 5; k++) wins[y + k][x + k][winCount] = true;
+      winCount++;
+    }
+  }
+  // 反斜
+  for (let y = 0; y < 11; y++) {
+    for (let x = 4; x < SIZE; x++) {
+      for (let k = 0; k < 5; k++) wins[y + k][x - k][winCount] = true;
+      winCount++;
+    }
+  }
 }
 
-const DIRS = [
-  [1, 0],
-  [0, 1],
-  [1, 1],
-  [1, -1],
-];
+function countWins(board, color) {
+  buildWins();
+  const tallies = new Array(winCount).fill(0);
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (board[y][x] !== color) continue;
+      const cell = wins[y][x];
+      for (let k = 0; k < winCount; k++) {
+        if (cell[k]) tallies[k]++;
+      }
+    }
+  }
+  // 已被对方挡住的赢法作废
+  const opp = opponent(color);
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (board[y][x] !== opp) continue;
+      const cell = wins[y][x];
+      for (let k = 0; k < winCount; k++) {
+        if (cell[k]) tallies[k] = 6;
+      }
+    }
+  }
+  return tallies;
+}
 
-function evaluateCell(board, x, y, me, opp) {
+const ATTACK = [0, 220, 420, 2100, 20000];
+const DEFEND = [0, 200, 400, 2000, 10000];
+
+function scoreCell(board, x, y, meTallies, oppTallies, me, opp) {
   if (board[y][x] !== EMPTY) return -1;
-  // 假落检验直接胜
+
   board[y][x] = me;
   if (isWin(board, x, y, me)) {
     board[y][x] = EMPTY;
@@ -81,41 +98,47 @@ function evaluateCell(board, x, y, me, opp) {
 
   let attack = 0;
   let defend = 0;
-  for (const [dx, dy] of DIRS) {
-    attack += lineScore(board, x, y, me, dx, dy);
-    defend += lineScore(board, x, y, opp, dx, dy);
+  const cell = wins[y][x];
+  for (let k = 0; k < winCount; k++) {
+    if (!cell[k]) continue;
+    const a = meTallies[k];
+    const d = oppTallies[k];
+    if (a < 5) attack += ATTACK[a] || 0;
+    if (d < 5) defend += DEFEND[d] || 0;
   }
-  // 中心加权
-  const cx = Math.abs(x - 7);
-  const cy = Math.abs(y - 7);
-  const center = (14 - cx - cy) * 2;
-  return attack * 1.1 + defend + center;
+  const center = (14 - Math.abs(x - 7) - Math.abs(y - 7)) * 3;
+  return attack + defend + center;
 }
 
 export function pickMove(board, color, difficulty = "normal") {
+  buildWins();
   const me = color;
   const opp = opponent(color);
-  const candidates = [];
+
   let anyStone = false;
-  for (let y = 0; y < SIZE; y++) {
+  for (let y = 0; y < SIZE && !anyStone; y++) {
     for (let x = 0; x < SIZE; x++) {
       if (board[y][x] !== EMPTY) {
         anyStone = true;
         break;
       }
     }
-    if (anyStone) break;
   }
   if (!anyStone) return { x: 7, y: 7 };
+
+  const meTallies = countWins(board, me);
+  const oppTallies = countWins(board, opp);
+  const candidates = [];
 
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
       if (board[y][x] !== EMPTY) continue;
       if (!hasNeighbor(board, x, y, 2)) continue;
-      const score = evaluateCell(board, x, y, me, opp);
+      const score = scoreCell(board, x, y, meTallies, oppTallies, me, opp);
       candidates.push({ x, y, score });
     }
   }
+
   if (!candidates.length) {
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
@@ -136,7 +159,6 @@ export function pickMove(board, color, difficulty = "normal") {
     const pool = candidates.filter((c) => c.score >= top * 0.85).slice(0, 4);
     return pool[Math.floor(Math.random() * pool.length)];
   }
-  // hard：取最优
   return candidates[0];
 }
 

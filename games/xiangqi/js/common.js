@@ -73,14 +73,42 @@ window.onload = function(){
 	//com.bg.show();
 	//play.init();
 	
+	function setHud(label, badge) {
+		var statusLabel = com.get("statusLabel");
+		var phaseBadge = com.get("phaseBadge");
+		var message = com.get("message");
+		if (statusLabel) statusLabel.textContent = label;
+		if (phaseBadge) phaseBadge.textContent = badge;
+		if (message) message.textContent = label;
+	}
+
+	function enterPlaying(modeLabel) {
+		document.body.classList.add("is-playing");
+		com.get("chessBox").style.display = "block";
+		com.get("menuBox").style.display = "block";
+		com.get("indexBox").style.display = "none";
+		com.get("menuQj").style.display = "none";
+		com.get("menuDy").style.display = "none";
+		setHud(modeLabel || "对局进行中", "对局中");
+	}
+
+	function enterMenu() {
+		document.body.classList.remove("is-playing");
+		com.get("chessBox").style.display = "block";
+		com.get("menuBox").style.display = "block";
+		com.get("indexBox").style.display = "grid";
+		com.get("menuQj").style.display = "none";
+		com.get("menuDy").style.display = "none";
+		setHud("请选择对局模式", "菜单");
+	}
+
 	//开始对弈
 	com.get("playBtn").addEventListener("click", function(e) {
 		play.isPlay=true ;
 		var depth = parseInt(getRadioValue("depth"), 10) || 3;
 
 		play.init( depth );
-		com.get("chessBox").style.display = "block";
-		com.get("menuBox").style.display = "none";
+		enterPlaying("人机对弈 · 红方行棋");
 	})
 	
 	//开始挑战
@@ -88,8 +116,7 @@ window.onload = function(){
 		play.isPlay=true ;
 		var clasli = parseInt(getRadioValue("clasli"), 10) || 0;
 		play.init( 4, com.clasli[clasli].map );
-		com.get("chessBox").style.display = "block";
-		com.get("menuBox").style.display = "none";
+		enterPlaying("残局挑战 · 红方行棋");
 	})
 	
 	// 悔棋
@@ -99,23 +126,20 @@ window.onload = function(){
 	
 	//返回首页
 	com.get("gohomeBtn").addEventListener("click", function(e) {
-		com.get("chessBox").style.display = "none";
-		com.get("menuBox").style.display = "block";
-		com.get("indexBox").style.display = "block";
-		com.get("menuQj").style.display = "none";
-		com.get("menuDy").style.display = "none";
+		play.isPlay=false;
+		enterMenu();
 	})
 	
 	//返回
 	com.get("menuFh").addEventListener("click", function(e) {
-		com.get("indexBox").style.display = "block";
+		com.get("indexBox").style.display = "grid";
 		com.get("menuQj").style.display = "none";
 		com.get("menuDy").style.display = "none";
 	})
 	
 	//返回关闭
 	com.get("menuGb").addEventListener("click", function(e) {
-		com.get("indexBox").style.display = "block";
+		com.get("indexBox").style.display = "grid";
 		com.get("menuQj").style.display = "none";
 		com.get("menuDy").style.display = "none";
 	})
@@ -125,6 +149,7 @@ window.onload = function(){
 		if (confirm("是否确定要重新开始？")){
 			play.isPlay=true ;
 			play.init( play.depth,play.nowMap );
+			setHud("已重新开始", "对局中");
 		}
 	})
 	
@@ -141,6 +166,10 @@ window.onload = function(){
 		com.get("menuQj").style.display = "block";
 		com.get("menuDy").style.display = "none";
 	})
+
+	// 初始：棋盘与菜单同屏（围棋式左右分栏）
+	enterMenu();
+	com.show();
 
 	//换肤
 	com.get("stypeBtn").addEventListener("click", function(e) {

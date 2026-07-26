@@ -15,6 +15,8 @@ const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 const turnDot = document.getElementById("turnDot");
 const turnLabel = document.getElementById("turnLabel");
+const phaseBadge = document.getElementById("phaseBadge");
+const moveCountEl = document.getElementById("moveCount");
 const messageEl = document.getElementById("message");
 const resultEl = document.getElementById("result");
 const modeSelect = document.getElementById("modeSelect");
@@ -23,6 +25,7 @@ const humanColorSelect = document.getElementById("humanColorSelect");
 const difficultySelect = document.getElementById("difficultySelect");
 const btnNew = document.getElementById("btnNew");
 const btnUndo = document.getElementById("btnUndo");
+const btnRedo = document.getElementById("btnRedo");
 const btnResign = document.getElementById("btnResign");
 const clickAudio = document.getElementById("clickAudio");
 const selectAudio = document.getElementById("selectAudio");
@@ -36,6 +39,7 @@ const state = {
   over: false,
   winner: null,
   history: [],
+  undone: [],
   lastMove: null,
   aiThinking: false,
 };
@@ -53,15 +57,22 @@ function syncModeUi() {
 
 function setMessage(text, warn = false) {
   messageEl.textContent = text;
-  messageEl.classList.toggle("warn", warn);
+  messageEl.className = warn ? "message warn" : "message info";
 }
 
 function colorName(c) {
   return c === BLACK ? "黑" : "白";
 }
 
+function syncButtons() {
+  btnUndo.disabled = state.aiThinking || state.history.length === 0;
+  btnRedo.disabled = state.aiThinking || state.undone.length === 0;
+}
+
 function updateHud() {
   turnDot.className = `stone-dot ${state.turn === BLACK ? "black" : "white"}`;
+  phaseBadge.textContent = state.over ? "已结束" : "对局中";
+  moveCountEl.textContent = `手数 ${state.history.length}`;
   if (state.over) {
     turnLabel.textContent = "对局结束";
   } else if (state.mode === "ai" && state.turn !== state.humanColor) {
@@ -69,6 +80,7 @@ function updateHud() {
   } else {
     turnLabel.textContent = `${colorName(state.turn)}方行棋`;
   }
+  syncButtons();
 }
 
 function draw() {
@@ -83,7 +95,10 @@ function draw() {
   const span = css - pad * 2;
   const cell = span / (SIZE - 1);
 
-  ctx.fillStyle = "#e2b56a";
+  const wood = ctx.createLinearGradient(0, 0, 0, css);
+  wood.addColorStop(0, "#e2b56a");
+  wood.addColorStop(1, "#c48a3a");
+  ctx.fillStyle = wood;
   ctx.fillRect(0, 0, css, css);
 
   ctx.strokeStyle = "rgba(40, 24, 12, 0.78)";
@@ -100,7 +115,6 @@ function draw() {
     ctx.stroke();
   }
 
-  // 星位
   for (const [sx, sy] of [
     [3, 3],
     [3, 11],
@@ -165,10 +179,24 @@ function posFromEvent(e) {
   return { x: gx, y: gy };
 }
 
+function rebuildFromHistory() {
+  state.board = createBoard();
+  for (const h of state.history) state.board[h.y][h.x] = h.color;
+  if (state.history.length) {
+    const last = state.history[state.history.length - 1];
+    state.turn = opponent(last.color);
+    state.lastMove = { x: last.x, y: last.y };
+  } else {
+    state.turn = BLACK;
+    state.lastMove = null;
+  }
+}
+
 function endGame(winner, text) {
   state.over = true;
   state.winner = winner;
   resultEl.textContent = text;
+  resultEl.classList.add("show");
   setMessage(text);
   updateHud();
   draw();
@@ -182,6 +210,7 @@ function applyMove(x, y) {
   }
   play(clickAudio);
   state.history.push({ x, y, color: state.turn });
+  state.undone = [];
   state.lastMove = { x, y };
   if (isWin(state.board, x, y, state.turn)) {
     endGame(state.turn, `${colorName(state.turn)}方五子连珠，获胜！`);
@@ -220,13 +249,15 @@ function newGame() {
   state.over = false;
   state.winner = null;
   state.history = [];
+  state.undone = [];
   state.lastMove = null;
   state.aiThinking = false;
   resultEl.textContent = "";
+  resultEl.classList.remove("show");
   setMessage(
     state.mode === "ai"
       ? `人机对战 · 你执${colorName(state.humanColor)}`
-      : "双人对战 · 黑先白后"
+      : "人人对战 · 黑先白后"
   );
   updateHud();
   draw();
@@ -236,25 +267,43 @@ function newGame() {
 
 function undo() {
   if (state.aiThinking || state.history.length === 0) return;
-  // 人机：悔两手；双人：悔一手
-  const steps = state.mode === "ai" ? 2 : 1;
-  for (let i = 0; i < steps && state.history.length; i++) state.history.pop();
-  state.board = createBoard();
-  for (const h of state.history) state.board[h.y][h.x] = h.color;
-  if (state.history.length) {
-    const last = state.history[state.history.length - 1];
-    state.turn = opponent(last.color);
-    state.lastMove = { x: last.x, y: last.y };
-  } else {
-    state.turn = BLACK;
-    state.lastMove = null;
+  const steps = state.mode === "ai" ? Math.min(2, state.history.length) : 1;
+  const batch = [];
+  for (let i = 0; i < steps; i++) batch.unshift(state.history.pop());
+  state.undone.push(batch);
+  rebuildFromHistory();
+  state.over = false;
+  state.winner = null;
+  resultEl.textContent = "";
+  resultEl.classList.remove("show");
+  setMessage("已悔棋");
+  updateHud();
+  draw();
+}
+
+function redo() {
+  if (state.aiThinking || state.undone.length === 0) return;
+  const batch = state.undone.pop();
+  for (const h of batch) state.history.push(h);
+  rebuildFromHistory();
+
+  const last = state.history[state.history.length - 1];
+  if (last && isWin(state.board, last.x, last.y, last.color)) {
+    endGame(last.color, `${colorName(last.color)}方五子连珠，获胜！`);
+    return;
+  }
+  if (isBoardFull(state.board)) {
+    endGame(null, "棋盘已满，和棋");
+    return;
   }
   state.over = false;
   state.winner = null;
   resultEl.textContent = "";
-  setMessage("已悔棋");
+  resultEl.classList.remove("show");
+  setMessage("已撤销悔棋");
   updateHud();
   draw();
+  maybeAi();
 }
 
 canvas.addEventListener("click", (e) => {
@@ -267,6 +316,7 @@ canvas.addEventListener("click", (e) => {
 
 btnNew.addEventListener("click", newGame);
 btnUndo.addEventListener("click", undo);
+btnRedo.addEventListener("click", redo);
 btnResign.addEventListener("click", () => {
   if (state.over) return;
   if (state.mode === "ai") {

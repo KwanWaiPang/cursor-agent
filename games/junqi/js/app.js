@@ -18,6 +18,8 @@ const ctx = canvas.getContext("2d");
 const messageEl = document.getElementById("message");
 const resultEl = document.getElementById("result");
 const turnLabel = document.getElementById("turnLabel");
+const phaseBadge = document.getElementById("phaseBadge");
+const sideDot = document.querySelector(".side-dot");
 const combatLog = document.getElementById("combatLog");
 const btnNew = document.getElementById("btnNew");
 const btnRedeploy = document.getElementById("btnRedeploy");
@@ -46,7 +48,17 @@ function play(a) {
 
 function setMsg(t, warn = false) {
   messageEl.textContent = t;
-  messageEl.classList.toggle("warn", warn);
+  messageEl.className = warn ? "message warn" : "message info";
+}
+
+function updatePhaseUi(label, badge) {
+  turnLabel.textContent = label;
+  if (phaseBadge) phaseBadge.textContent = badge;
+  if (sideDot) {
+    const north =
+      state.phase === "play" && state.turn === SIDE.NORTH;
+    sideDot.className = `side-dot ${north ? "north" : "south"}`;
+  }
 }
 
 function pushLog(line) {
@@ -68,8 +80,9 @@ function newDeploy() {
   state.log = [];
   combatLog.innerHTML = "";
   resultEl.textContent = "";
+  resultEl.classList.remove("show");
   setMsg("已自动布阵。可「打乱重排」，确认后「开始作战」。你执南方红方。");
-  turnLabel.textContent = "布阵阶段";
+  updatePhaseUi("南方（你）· 布阵", "布阵");
   draw();
   play(selectAudio);
 }
@@ -79,7 +92,7 @@ function startBattle() {
   state.phase = "play";
   state.turn = SIDE.SOUTH;
   setMsg("作战开始 · 轮到你行动：先点己方棋子，再点目标格。");
-  turnLabel.textContent = "南方（你）行动";
+  updatePhaseUi("南方（你）行动", "对局中");
   draw();
 }
 
@@ -294,7 +307,10 @@ function doMove(move, byAi = false) {
   }
 
   state.turn = next;
-  turnLabel.textContent = state.turn === SIDE.SOUTH ? "南方（你）行动" : "北方（AI）行动";
+  updatePhaseUi(
+    state.turn === SIDE.SOUTH ? "南方（你）行动" : "北方（AI）行动",
+    "对局中"
+  );
   setMsg(state.turn === SIDE.SOUTH ? "轮到你了" : "AI 思考中…");
   draw();
 
@@ -323,8 +339,9 @@ function endGame(side, text) {
   state.winner = side;
   state.busy = false;
   resultEl.textContent = text;
+  resultEl.classList.add("show");
   setMsg(text);
-  turnLabel.textContent = "对局结束";
+  updatePhaseUi("对局结束", "已结束");
   draw();
 }
 

@@ -33,6 +33,7 @@ body.chess3d-body #tips {
   z-index: 20;
 }
 
+/* 顶栏对齐围棋游戏页品牌区 */
 .chess3d-bar {
   position: fixed;
   z-index: 20;
@@ -43,9 +44,9 @@ body.chess3d-body #tips {
   align-items: end;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.9rem 1.25rem;
+  padding: 1rem 1.35rem 1.1rem;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(28, 20, 16, 0.62), transparent);
+  background: linear-gradient(180deg, rgba(28, 20, 16, 0.72), rgba(28, 20, 16, 0.2) 70%, transparent);
 }
 
 .chess3d-bar .brand,
@@ -56,11 +57,12 @@ body.chess3d-body #tips {
 .chess3d-bar .brand h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  font-size: clamp(2rem, 4vw, 2.8rem);
   font-weight: 400;
   letter-spacing: 0.12em;
   color: var(--cream);
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  line-height: 1;
 }
 
 .chess3d-bar .brand a {
@@ -69,19 +71,33 @@ body.chess3d-body #tips {
 }
 
 .chess3d-bar .brand p {
-  margin: 0.2rem 0 0;
+  margin: 0.25rem 0 0;
   color: rgba(248, 236, 214, 0.8);
-  font-size: 0.88rem;
-  letter-spacing: 0.05em;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
 }
 
-/* 侧边菜单加宽，并与游戏馆面板风格统一 */
+.chess3d-bar .btn.secondary {
+  background: transparent;
+  color: var(--cream);
+  border: 1px solid rgba(248, 236, 214, 0.35);
+  border-radius: 12px;
+  padding: 0.65rem 0.95rem;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  display: inline-flex;
+}
+
+/* 右侧面板：尽量贴近围棋侧栏卡片感 */
 #gui {
-  top: 5.6rem !important;
-  left: 1rem !important;
-  width: 300px !important;
+  top: 6.2rem !important;
+  right: 1.15rem !important;
+  left: auto !important;
+  width: min(300px, calc(100vw - 2rem)) !important;
   max-width: calc(100vw - 2rem);
-  background: rgba(255, 248, 235, 0.94) !important;
+  background: rgba(255, 248, 235, 0.92) !important;
   border: 1px solid rgba(255, 245, 220, 0.55) !important;
   border-radius: 18px !important;
   box-shadow: 0 14px 32px rgba(20, 12, 8, 0.3);
@@ -89,23 +105,26 @@ body.chess3d-body #tips {
   font-family: var(--font-body), "Noto Serif SC", serif !important;
   overflow: hidden;
   padding-bottom: 0.35rem;
+  backdrop-filter: blur(8px);
 }
 
 #gui .ui-accordion-header,
 #gui > p {
-  background: rgba(15, 92, 76, 0.14) !important;
+  background: rgba(15, 92, 76, 0.12) !important;
   color: #1c1410 !important;
   border: none !important;
   font-family: var(--font-display), "ZCOOL XiaoWei", serif !important;
-  letter-spacing: 0.1em;
+  font-size: 1.15rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.08em;
   margin: 0 !important;
-  padding: 0.7rem 0.9rem !important;
+  padding: 0.85rem 1rem !important;
 }
 
 #gui .ui-accordion-content {
   background: transparent !important;
   color: #3d2f26 !important;
-  padding: 0.75rem 0.85rem !important;
+  padding: 0.85rem 0.95rem !important;
   border: none !important;
   width: auto !important;
   overflow: visible !important;
@@ -115,15 +134,18 @@ body.chess3d-body #tips {
   padding: 0;
   margin: 0 0 0.55rem;
   list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
 }
 
 #gui li {
-  margin: 0 0 0.4rem;
+  margin: 0;
 }
 
 #gui label {
   display: block;
-  margin: 0.35rem 0 0.55rem;
+  margin: 0.45rem 0 0.55rem;
   color: #3d2f26;
   font-size: 0.92rem;
 }
@@ -142,8 +164,9 @@ body.chess3d-body #tips {
 }
 
 #gui textarea {
-  min-height: 10rem;
+  min-height: 9rem;
   resize: vertical;
+  margin-top: 0.35rem;
 }
 
 #gui button,
@@ -156,13 +179,13 @@ body.chess3d-body #tips {
   border-radius: 12px !important;
   font-family: var(--font-body), serif !important;
   letter-spacing: 0.04em;
+  padding: 0.55rem 0.4rem !important;
 }
 
 #gui .ui-button:hover {
   background: #1a7a66 !important;
 }
 
-/* 新对局弹窗与游戏馆风格对齐 */
 .ui-dialog {
   background: rgba(255, 248, 235, 0.97) !important;
   border: 1px solid rgba(255, 245, 220, 0.7) !important;
@@ -200,12 +223,17 @@ body.chess3d-body #tips {
 }
 
 #info {
-  top: 5.4rem !important;
-  right: 1.2rem !important;
+  top: 6rem !important;
+  left: 1.2rem !important;
+  right: auto !important;
   color: #f3c27a !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   font-family: var(--font-display), serif !important;
   letter-spacing: 0.08em;
+  background: rgba(28, 20, 16, 0.45);
+  border: 1px solid rgba(255, 245, 220, 0.2);
+  border-radius: 12px;
+  padding: 0.45rem 0.75rem;
 }
 
 #progressbar {
@@ -244,6 +272,16 @@ body.chess3d-body #tips {
 
 @media (max-width: 720px) {
   #gui {
-    width: min(300px, calc(100vw - 1.5rem)) !important;
+    top: auto !important;
+    bottom: 0.75rem !important;
+    right: 0.75rem !important;
+    left: 0.75rem !important;
+    width: auto !important;
+    max-height: 42vh;
+    overflow: auto;
+  }
+
+  #info {
+    top: 5.4rem !important;
   }
 }
