@@ -280,17 +280,18 @@ button.danger {
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
   }
+}
 
-  .topbar {
-    flex-direction: column;
-    align-items: start;
+@media (max-width: 480px) {
+  .board-wrap {
+    padding: 0.45rem;
   }
 
-  .app {
-    width: min(100% - 1.25rem, 720px);
+  .status-row {
+    flex-wrap: wrap;
   }
 }

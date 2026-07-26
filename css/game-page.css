@@ -5,6 +5,9 @@
   width: min(1180px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 1.25rem 0 2rem;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
 }
 
 .game-page .topbar {
@@ -118,9 +121,114 @@
   letter-spacing: 0.04em;
 }
 
-@media (max-width: 720px) {
+/* 棋类左右分栏：平板及以下改为单列，棋盘在上 */
+.game-page .layout {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .game-page .shell,
+  .game-page .app {
+    width: min(100% - 1rem, 720px);
+    padding-top: 0.85rem;
+    padding-bottom: calc(1.35rem + env(safe-area-inset-bottom));
+  }
+
   .game-page .topbar {
     flex-direction: column;
-    align-items: start;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .game-page .topbar-actions {
+    width: 100%;
+  }
+
+  .game-page .topbar-actions .btn {
+    flex: 1;
+    min-height: 44px;
+  }
+
+  .game-page .brand h1 {
+    font-size: clamp(1.65rem, 8.5vw, 2.35rem);
+    letter-spacing: 0.1em;
+  }
+
+  .game-page .brand p,
+  .game-page .topbar-sub {
+    font-size: 0.84rem;
+    line-height: 1.4;
+  }
+
+  .game-page .layout {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  .game-page .board-wrap {
+    padding: 0.55rem !important;
+    border-radius: 14px;
+  }
+
+  .game-page .board-wrap canvas,
+  .game-page #board,
+  .game-page #chess {
+    max-width: 100%;
+    width: 100%;
+    height: auto;
+    touch-action: none;
+  }
+
+  .game-page .panel {
+    gap: 0.7rem;
+  }
+
+  .game-page .card {
+    padding: 0.85rem 0.95rem;
+    border-radius: 14px;
+  }
+
+  .game-page .card h2 {
+    font-size: 1.1rem;
+  }
+
+  .game-page .controls {
+    gap: 0.45rem;
+  }
+
+  .game-page button:not(.ui-button):not(.ui-dialog-titlebar-close),
+  .game-page .btn,
+  .game-page .menu-link {
+    min-height: 44px;
+    padding: 0.72rem 0.85rem;
+  }
+
+  /* 避免 iOS 聚焦放大 */
+  .game-page select,
+  .game-page input[type="text"],
+  .game-page textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .game-page .footer-note {
+    font-size: 0.75rem;
+    margin-top: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-page .shell,
+  .game-page .app {
+    width: calc(100% - 0.75rem);
+  }
+
+  .game-page .controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .game-page .help {
+    font-size: 0.84rem;
   }
 }
