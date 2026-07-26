@@ -45,7 +45,11 @@ export function createHud() {
       const pct = player.hp / player.maxHp;
       els.hpBar.style.transform = `scaleX(${Math.max(0, pct)})`;
       els.hpText.textContent = `${Math.ceil(player.hp)}`;
-      const reload = loadout.reloading ? " 换弹…" : "";
+      let reload = "";
+      if (loadout.reloading) {
+        const left = Math.max(0, (loadout.reloadEnds - performance.now()) / 1000);
+        reload = ` 换弹 ${left.toFixed(1)}s`;
+      }
       els.ammoText.textContent = `${loadout.mag} / ${loadout.reserve}${reload}`;
       els.weaponName.textContent = loadout.def.name;
     },
