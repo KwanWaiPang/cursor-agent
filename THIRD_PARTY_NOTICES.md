@@ -31,3 +31,12 @@
 - 玩法与结构致敬《三国志 曹操传》，不包含光荣原作素材、音乐或程序代码
 - 战斗公式、兵种射程、地形消耗、计策与关卡脚本思路参考开源引擎 [wateret/mengde](https://github.com/wateret/mengde)（MIT License）；未使用其附带的原作衍生 BMP 素材
 - 详见 `games/caocao/ROADMAP.md`
+
+## 三国志 · 九州涂色（`games/sangokushi/`）
+
+- 战略地图、城池精灵与涂色引擎：本仓库原创
+- 玩法结构可参考开源项目 [中华三国志](https://github.com/kpxp/ZhongHuaSanGuoZhi-New-Code) 的系统设计（自行重写，不搬运其资源包）
+- 武将五维、特技、宝物数据：项目组 [R-C-Group/shuju](https://github.com/R-C-Group/shuju/tree/main/san11)
+- 武将头像：项目组 [R-C-Group/touxiang](https://github.com/R-C-Group/touxiang/tree/master/san/311_s)
+- 不包含光荣（KOEI）原作程序、官方素材包或未经授权的提取资源
+- 详见 `games/sangokushi/data/rc/SOURCE.md`

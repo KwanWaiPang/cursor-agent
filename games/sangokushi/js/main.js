@@ -31,6 +31,8 @@ const els = {
   cityInfo: document.getElementById("cityInfo"),
   officerList: document.getElementById("officerList"),
   officerDetail: document.getElementById("officerDetail"),
+  officerPortrait: document.getElementById("officerPortrait"),
+  officerName: document.getElementById("officerName"),
   officerStats: document.getElementById("officerStats"),
   officerTraits: document.getElementById("officerTraits"),
   officerDesc: document.getElementById("officerDesc"),
@@ -73,8 +75,11 @@ function renderMenu() {
     btn.type = "button";
     btn.className = "faction-card";
     const ruler = officerById(f.ruler);
+    const face = ruler?.portrait
+      ? `<img class="faction-face" src="${ruler.portrait}" alt="${ruler.name}" width="48" height="48" />`
+      : "";
     btn.innerHTML = `
-      <strong><span class="swatch" style="background:${f.color}"></span>${f.name}</strong>
+      <div class="faction-card-head">${face}<strong><span class="swatch" style="background:${f.color}"></span>${f.name}</strong></div>
       <p class="hint" style="margin:0.35rem 0 0">君主 ${ruler?.name || "—"} · 初始都市 ${f.cities.length} · 武将 ${f.officers.length}</p>
     `;
     btn.addEventListener("click", () => startGame(id));
@@ -140,9 +145,12 @@ function renderOfficers() {
     row.type = "button";
     row.className = "officer-row" + (selectedOfficers.has(o.id) ? " active" : "");
     row.disabled = o.status === "army";
-    row.innerHTML = `<strong>${tpl.name}</strong> · 统${tpl.lead} 武${tpl.force} · ${
+    const thumb = tpl.portrait
+      ? `<img src="${tpl.portrait}" alt="${tpl.name}" loading="lazy" />`
+      : `<span class="thumb-fallback">${tpl.name.slice(0, 1)}</span>`;
+    row.innerHTML = `${thumb}<span><strong>${tpl.name}</strong> · 统${tpl.lead} 武${tpl.force} · ${
       o.status === "army" ? "出征中" : "待命"
-    }`;
+    }</span>`;
     row.addEventListener("click", () => {
       focusOfficer = o.id;
       if (o.status === "idle") {
@@ -165,6 +173,15 @@ function showOfficerDetail(id) {
     return;
   }
   show(els.officerDetail);
+  els.officerName.textContent = view.name;
+  if (view.portrait) {
+    els.officerPortrait.hidden = false;
+    els.officerPortrait.src = view.portrait;
+    els.officerPortrait.alt = view.name;
+  } else {
+    els.officerPortrait.hidden = true;
+    els.officerPortrait.removeAttribute("src");
+  }
   els.officerStats.innerHTML = `
     <div class="stat">统<strong>${view.lead}</strong></div>
     <div class="stat">武<strong>${view.force}</strong></div>
@@ -173,10 +190,18 @@ function showOfficerDetail(id) {
     <div class="stat">魅<strong>${view.charm}</strong></div>
   `;
   els.officerTraits.innerHTML = view.traitDetails
-    .map((t) => `<span class="trait ${t.tier}" title="${t.desc}">${t.name}</span>`)
+    .map(
+      (t) =>
+        `<span class="trait ${t.tier}" title="${t.desc}">${t.kind === "treasure" ? "宝·" : ""}${t.name}</span>`
+    )
     .join("");
-  els.officerDesc.textContent = `${view.courtesy ? view.courtesy + " · " : ""}${view.home || "籍贯未详"} · 综合 ${view.power}
-${view.traitDetails.map((t) => `【${t.name}】${t.desc}`).join(" ")}`;
+  const apt = view.apt
+    ? `适性 枪${view.apt.gun} 戟${view.apt.halberd} 弩${view.apt.crossbow} 骑${view.apt.ride} 兵器${view.apt.weapons} 水军${view.apt.water}`
+    : "";
+  const bio = (view.bio || "").split("\n")[0];
+  els.officerDesc.textContent = `综合 ${view.power}${apt ? " · " + apt : ""}
+${view.traitDetails.map((t) => `【${t.name}】${t.desc}`).join(" ")}
+${bio}`;
 }
 
 function renderLog() {

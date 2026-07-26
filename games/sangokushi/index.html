@@ -30,8 +30,8 @@
       <section class="panel">
         <h2>190 年 · 群雄割据</h2>
         <p class="lead">
-          宏图之上分布 <strong>46</strong> 座都市与约 <strong>340</strong> 处地区。部队行军涂色、围府夺城；武将拥有统武智政魅五维，以及金 / 蓝 / 红个性。
-          地图与武将为历史向自研演绎，机制参考《三国志14》公开资料，不含原作素材。
+          宏图之上分布 <strong>46</strong> 座都市与约 <strong>340</strong> 处地区。部队行军涂色、围府夺城；武将拥有统武智政魅五维、特技与宝物。
+          地图为自研；武将数值与头像来自项目组 R-C-Group 数据仓，机制致敬《三国志14》，不含光荣原作素材。
         </p>
         <h3>选择势力</h3>
         <div id="factionPick" class="faction-grid"></div>
@@ -63,7 +63,13 @@
             <h3>武将</h3>
             <div id="officerList" class="officer-list"></div>
             <div id="officerDetail" class="hidden">
-              <div id="officerStats" class="stats"></div>
+              <div class="officer-hero">
+                <img id="officerPortrait" class="officer-portrait" alt="" width="96" height="96" />
+                <div>
+                  <h4 id="officerName">—</h4>
+                  <div id="officerStats" class="stats"></div>
+                </div>
+              </div>
               <div id="officerTraits" class="traits"></div>
               <p id="officerDesc" class="hint"></p>
             </div>
