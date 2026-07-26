@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>战术突击 · 3D · 游戏馆</title>
+    <meta
+      name="description"
+      content="写实军事风 3D 射击：据点清剿与迷你大逃杀，本地 AI，无血腥表现。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+SC:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../css/shared.css" />
+    <link rel="stylesheet" href="./css/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./vendor/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body class="fps-body">
+    <div id="menu" class="overlay-panel">
+      <header class="fps-brand">
+        <p class="eyebrow"><a href="../../">游戏馆</a> · 战术系列</p>
+        <h1>战术突击</h1>
+        <p class="tagline">写实军事训练场 · 无血腥 · 本地 AI</p>
+      </header>
+
+      <section class="mode-pick">
+        <h2>选择行动</h2>
+        <div class="mode-grid">
+          <button type="button" class="mode-card" data-mode="assault">
+            <span class="mode-code">ALPHA</span>
+            <strong>据点清剿</strong>
+            <p>占据中央战术区，抵御多波次敌方单位。完成占领即可撤离。</p>
+          </button>
+          <button type="button" class="mode-card" data-mode="royale">
+            <span class="mode-code">BRAVO</span>
+            <strong>迷你大逃杀</strong>
+            <p>安全区收缩，搜寻补给箱，淘汰场上全部 AI，成为最后存活者。</p>
+          </button>
+        </div>
+      </section>
+
+      <section class="controls-help">
+        <h2>操作</h2>
+        <ul>
+          <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动</li>
+          <li><kbd>鼠标</kbd> 瞄准 · <kbd>左键</kbd> 射击</li>
+          <li><kbd>R</kbd> 换弹 · <kbd>Shift</kbd> 冲刺 · <kbd>空格</kbd> 跳跃</li>
+          <li><kbd>Esc</kbd> 释放鼠标 / 暂停</li>
+        </ul>
+      </section>
+
+      <p class="menu-note">需要桌面浏览器与 WebGL。点击模式后锁定指针开始。</p>
+      <p class="back-link"><a href="../../">← 返回游戏馆</a></p>
+    </div>
+
+    <div id="hud" class="hud hidden" aria-hidden="true">
+      <div class="hud-top">
+        <div class="hud-chip" id="modeLabel">—</div>
+        <div class="hud-chip" id="objective">—</div>
+      </div>
+      <div class="crosshair" id="crosshair">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="hit-marker" id="hitMarker"></div>
+      <div class="damage-vignette" id="damageVignette"></div>
+      <div class="hud-bottom">
+        <div class="stat">
+          <label>生命</label>
+          <div class="bar"><i id="hpBar"></i></div>
+          <b id="hpText">100</b>
+        </div>
+        <div class="stat ammo">
+          <label>弹药</label>
+          <b id="ammoText">30 / 90</b>
+          <small id="weaponName">步枪</small>
+        </div>
+        <div class="stat">
+          <label>战况</label>
+          <b id="scoreText">0</b>
+        </div>
+      </div>
+      <div class="toast" id="toast"></div>
+    </div>
+
+    <div id="pause" class="overlay-panel hidden">
+      <h2>行动暂停</h2>
+      <p>点击继续或按 Esc 返回瞄准。</p>
+      <div class="pause-actions">
+        <button type="button" id="btnResume">继续</button>
+        <button type="button" id="btnQuit" class="secondary">返回菜单</button>
+      </div>
+    </div>
+
+    <div id="result" class="overlay-panel hidden">
+      <h2 id="resultTitle">行动结束</h2>
+      <p id="resultBody">—</p>
+      <div class="pause-actions">
+        <button type="button" id="btnAgain">再来一局</button>
+        <button type="button" id="btnMenu" class="secondary">返回菜单</button>
+      </div>
+    </div>
+
+    <div id="webgl-fail" class="overlay-panel hidden">
+      <h2>无法启动 3D 战场</h2>
+      <p>当前环境不支持 WebGL。请使用较新的 Chrome / Edge / Firefox。</p>
+      <p class="back-link"><a href="../../">← 返回游戏馆</a></p>
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>

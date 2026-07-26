@@ -1,6 +1,6 @@
 # 第三方组件说明
 
-本仓库「弈馆」聚合了多个开源棋类实现，并在统一界面下做了适配。
+本仓库「游戏馆」聚合了多个开源游戏实现，并在统一界面下做了适配。
 
 ## 中国象棋（`games/xiangqi/`）
 
@@ -17,3 +17,9 @@
 ## 围棋（`games/go/`）
 
 - 本仓库原创实现
+
+## 战术突击 3D（`games/fps/`）
+
+- 渲染库：[Three.js](https://github.com/mrdoob/three.js) r160（MIT）
+- 指针锁定控件：Three.js examples `PointerLockControls`（MIT）
+- 玩法、低模场景与程序化音效：本仓库原创

@@ -1,6 +1,6 @@
-# 弈馆
+# 游戏馆
 
-统一风格的网页棋类游戏集合：围棋、中国象棋、3D 国际象棋。可部署到 GitHub Pages，从大厅任选开玩。
+统一风格的网页游戏集合：围棋、中国象棋、3D 国际象棋、3D 战术射击。可部署到 GitHub Pages，从大厅任选开玩。
 
 ## 在线地址
 
@@ -11,12 +11,13 @@
 ## 目录
 
 ```
-index.html              # 游戏大厅入口
+index.html              # 游戏馆大厅入口
 css/                    # 统一视觉 / 大厅 / 游戏壳层
-assets/audio/           # 共用落子音效
-games/go/               # 围棋（见该目录 README）
-games/xiangqi/          # 中国象棋（见该目录 README）
-games/chess3d/          # 3D 国际象棋（见该目录 README）
+assets/audio/           # 共用音效
+games/go/               # 围棋
+games/xiangqi/          # 中国象棋
+games/chess3d/          # 3D 国际象棋
+games/fps/              # 3D 战术射击（据点清剿 / 迷你大逃杀）
 THIRD_PARTY_NOTICES.md  # 第三方许可说明
 ```
 
