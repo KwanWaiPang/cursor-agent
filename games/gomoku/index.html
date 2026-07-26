@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>五子棋 · 游戏馆</title>
+    <meta
+      name="description"
+      content="网页版五子棋：支持双人对弈与本地 AI，15 路自由规则。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=ZCOOL+XiaoWei&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../css/shared.css" />
+    <link rel="stylesheet" href="../../css/game-page.css" />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body class="theme-yi game-page">
+    <audio id="clickAudio" src="../../assets/audio/click.wav" preload="auto"></audio>
+    <audio id="selectAudio" src="../../assets/audio/select.wav" preload="auto"></audio>
+    <div class="app shell">
+      <header class="topbar">
+        <div class="brand">
+          <a href="../../"><h1>五子棋</h1></a>
+          <p>游戏馆 · 双人对战 / 人机对战 · 十五路</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn secondary" href="../../">返回游戏馆</a>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="board-wrap" aria-label="棋盘">
+          <canvas id="board" width="720" height="720" role="img" aria-label="五子棋棋盘"></canvas>
+        </section>
+
+        <aside class="panel">
+          <section class="card">
+            <h2>局势</h2>
+            <div class="status-row">
+              <div class="turn">
+                <span id="turnDot" class="stone-dot black" aria-hidden="true"></span>
+                <span id="turnLabel">黑方行棋</span>
+              </div>
+              <span class="badge">对局中</span>
+            </div>
+            <div id="message" class="message">选择模式开始</div>
+            <div id="result" class="result-banner"></div>
+          </section>
+
+          <section class="card">
+            <h2>操作</h2>
+            <div class="controls">
+              <button id="btnUndo" class="secondary" type="button">悔棋</button>
+              <button id="btnResign" class="danger" type="button">认输</button>
+              <button id="btnNew" type="button">新对局</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>新对局</h2>
+            <div class="field">
+              <label for="modeSelect">对战模式</label>
+              <select id="modeSelect">
+                <option value="human">双人对战</option>
+                <option value="ai" selected>人机对战（AI）</option>
+              </select>
+            </div>
+            <div id="aiOptions" class="ai-options">
+              <div class="field">
+                <label for="humanColorSelect">你的执色</label>
+                <select id="humanColorSelect">
+                  <option value="black" selected>黑（先手）</option>
+                  <option value="white">白（后手）</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="difficultySelect">AI 难度</label>
+                <select id="difficultySelect">
+                  <option value="easy">入门</option>
+                  <option value="normal" selected>普通</option>
+                  <option value="hard">进阶</option>
+                </select>
+              </div>
+            </div>
+            <p class="hint" style="margin: 0.75rem 0 0; font-size: 0.85rem; opacity: 0.75">
+              自由规则：先连成五子者胜。人机模式悔棋回退双方各一步。
+            </p>
+          </section>
+        </aside>
+      </main>
+    </div>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
