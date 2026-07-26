@@ -1,2 +1,2 @@
-/** Auto-generated from R-C-Group/shuju — do not edit by hand */
+/** Auto-generated from R-C-Group — do not edit by hand */
 export const RC_TRICK_TYPES = [{"id":1,"name":"行军"},{"id":2,"name":"攻击"},{"id":3,"name":"防御"},{"id":4,"name":"计略"},{"id":5,"name":"补助"},{"id":6,"name":"内政"},{"id":7,"name":"收入"},{"id":8,"name":"灾害"},{"id":9,"name":"关系"}];

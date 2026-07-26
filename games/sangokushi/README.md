@@ -12,7 +12,7 @@
 - 武将库 **670** 人（头像全对齐）+ 所属 / 关系 / 特技 / 宝物
 - 剧本：`190 年 · 群雄割据`
 
-完整阶段见 [ROADMAP.md](./ROADMAP.md)。数据出处见 [data/rc/SOURCE.md](./data/rc/SOURCE.md)。
+完整阶段见 [ROADMAP.md](./ROADMAP.md)。数据出处与核对见 [data/rc/SOURCE.md](./data/rc/SOURCE.md)、[data/rc/AUDIT.md](./data/rc/AUDIT.md)。
 
 ## 本地运行
 
