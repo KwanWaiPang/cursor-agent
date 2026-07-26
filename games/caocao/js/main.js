@@ -15,6 +15,7 @@ import {
   getUnit,
   clearSelection,
   endPlayerTurnManual,
+  runEnemyPhaseAsync,
 } from "./engine.js";
 import { createRenderer, describeTile, formatUnit, drawPortrait } from "./render.js";
 import { createFx } from "./fx.js";
@@ -71,6 +72,8 @@ const els = {
   btnResultOk: document.getElementById("btnResultOk"),
   btnResetSave: document.getElementById("btnResetSave"),
   portrait: document.getElementById("portrait"),
+  phaseBanner: document.getElementById("phaseBanner"),
+  phaseBannerText: document.getElementById("phaseBannerText"),
 };
 
 const renderer = createRenderer(els.canvas);
@@ -488,6 +491,60 @@ function pushLog(text) {
   els.log.prepend(div);
 }
 
+async function showPhaseBanner(text, tone = "player") {
+  if (!els.phaseBanner || !els.phaseBannerText) {
+    await fx.sleep(280);
+    return;
+  }
+  els.phaseBannerText.textContent = text;
+  els.phaseBanner.dataset.tone = tone;
+  els.phaseBanner.classList.remove("hidden", "out");
+  // reflow for restart animation
+  void els.phaseBanner.offsetWidth;
+  els.phaseBanner.classList.add("show");
+  await fx.sleep(720);
+  els.phaseBanner.classList.add("out");
+  await fx.sleep(280);
+  els.phaseBanner.classList.add("hidden");
+  els.phaseBanner.classList.remove("show", "out");
+}
+
+async function playAiEvent(evt) {
+  if (!evt) return;
+  if (evt.type === "banner") {
+    await showPhaseBanner(evt.text, evt.tone || "enemy");
+    refresh();
+    return;
+  }
+  if (evt.type === "move" && evt.from && evt.to) {
+    await fx.playMove(evt.unit.id, evt.from, evt.to, renderer.TILE);
+    return;
+  }
+  if (evt.type === "attack") {
+    await fx.playAttack(evt, renderer.TILE);
+    if (evt.miss) {
+      pushLog(`${evt.attacker.name} 攻击 ${evt.defender.name}，未命中！`);
+    } else {
+      pushLog(
+        `${evt.attacker.name} 攻击 ${evt.defender.name}，伤害 ${evt.damage}${
+          evt.crit ? "（暴击）" : ""
+        }${evt.dual ? "（连击）" : ""}`
+      );
+      if (!evt.defender.alive) pushLog(`${evt.defender.name} 被击破！`);
+    }
+    refresh();
+  }
+}
+
+async function drainEnemyPhase() {
+  if (!state?.queueEnemyPhase || state.result) return;
+  inputLocked = true;
+  refresh();
+  await runEnemyPhaseAsync(state, playAiEvent);
+  inputLocked = false;
+  refresh();
+}
+
 function paint() {
   if (!state || els.battle.classList.contains("hidden")) return;
   fx.update();
@@ -659,7 +716,13 @@ els.canvas.addEventListener("click", async (e) => {
       if (u && u.team === "player" && !u.done) {
         selectUnit(state, u);
       } else {
-        tryMove(state, x, y);
+        const moved = tryMove(state, x, y);
+        if (moved) {
+          inputLocked = true;
+          refresh();
+          await fx.playMove(moved.unit.id, moved.from, moved.to, renderer.TILE);
+          inputLocked = false;
+        }
       }
     }
   } else if (state.mode === "attack") {
@@ -709,6 +772,7 @@ els.canvas.addEventListener("click", async (e) => {
     }
   }
   refresh();
+  await drainEnemyPhase();
 });
 
 els.btnAttack.addEventListener("click", () => {
@@ -721,11 +785,12 @@ els.btnMagic.addEventListener("click", () => {
   beginMagicPick(state);
   refresh();
 });
-els.btnWait.addEventListener("click", () => {
+els.btnWait.addEventListener("click", async () => {
   if (inputLocked || fx.isBusy()) return;
   waitUnit(state);
   pushLog("待机");
   refresh();
+  await drainEnemyPhase();
 });
 els.btnCancel.addEventListener("click", () => {
   if (inputLocked || fx.isBusy()) return;
@@ -739,11 +804,13 @@ els.btnCancel.addEventListener("click", () => {
   } else clearSelection(state);
   refresh();
 });
-els.btnEndTurn.addEventListener("click", () => {
+els.btnEndTurn.addEventListener("click", async () => {
   if (!state || state.phase !== "player" || inputLocked || fx.isBusy()) return;
   endPlayerTurnManual(state);
-  pushLog("结束回合，敌军行动完毕");
+  pushLog("结束回合");
   refresh();
+  await drainEnemyPhase();
+  if (state && !state.result) pushLog("敌军行动完毕");
 });
 els.btnMenu.addEventListener("click", () => {
   if (!confirm("返回战役选择？当前战斗进度将丢失。")) return;

@@ -430,6 +430,72 @@ body.caocao-body::before {
   box-shadow: 0 0 0 2px rgba(20, 12, 8, 0.45);
 }
 
+.phase-banner {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  z-index: 5;
+  transform: translate(-50%, -50%) scale(0.92);
+  min-width: min(280px, 70%);
+  text-align: center;
+  padding: 0.7rem 1.4rem;
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 3vw, 1.55rem);
+  letter-spacing: 0.2em;
+  color: #f8ecd6;
+  background: linear-gradient(180deg, rgba(40, 24, 16, 0.92), rgba(20, 12, 8, 0.9));
+  border: 1px solid rgba(232, 208, 144, 0.45);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.phase-banner.show {
+  animation: banner-in 0.35s ease-out forwards;
+}
+
+.phase-banner.out {
+  animation: banner-out 0.28s ease-in forwards;
+}
+
+.phase-banner[data-tone="enemy"] {
+  border-color: rgba(255, 140, 120, 0.5);
+  color: #ffe0d0;
+}
+
+.phase-banner[data-tone="ally"] {
+  border-color: rgba(140, 180, 255, 0.5);
+  color: #d8e8ff;
+}
+
+.phase-banner[data-tone="player"] {
+  border-color: rgba(140, 220, 170, 0.5);
+  color: #e0ffe8;
+}
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes banner-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(1.04);
+  }
+}
+
 .side {
   display: grid;
   gap: 0.65rem;

@@ -1,5 +1,6 @@
 /**
  * 敌军/友军 AI（模式参考 mengde：unit_in_range_random / hold_position / random）
+ * onStep 可为 async；会 await 其返回的 Promise。
  */
 import {
   computeMoveRange,
@@ -16,15 +17,15 @@ export const AIMode = {
   do_nothing: "do_nothing",
 };
 
-export function enemyTurn(state, onStep) {
-  actFaction(state, "enemy", onStep);
+export async function enemyTurn(state, onStep) {
+  await actFaction(state, "enemy", onStep);
 }
 
-export function allyTurn(state, onStep) {
-  actFaction(state, "ally", onStep);
+export async function allyTurn(state, onStep) {
+  await actFaction(state, "ally", onStep);
 }
 
-function actFaction(state, team, onStep) {
+async function actFaction(state, team, onStep) {
   const actors = state.units.filter((u) => u.alive && u.team === team);
   for (const unit of actors) {
     if (!unit.alive) continue;
@@ -37,7 +38,7 @@ function actFaction(state, team, onStep) {
       unit.done = true;
       continue;
     }
-    playUnit(state, unit, mode, onStep);
+    await playUnit(state, unit, mode, onStep);
     unit.done = true;
   }
 }
@@ -48,19 +49,17 @@ function defaultMode(unit) {
   return AIMode.random;
 }
 
-function playUnit(state, unit, mode, onStep) {
+async function playUnit(state, unit, mode, onStep) {
   const foes = state.units.filter((u) => u.alive && isHostile(unit, u));
   if (!foes.length) return;
 
-  // 已在射程内：直接攻击
   let targets = computeAttackTargets(unit, state.units);
   if (targets.length) {
-    pickAndAttack(state, unit, targets, onStep);
+    await pickAndAttack(state, unit, targets, onStep);
     return;
   }
 
   if (mode === AIMode.hold_position) {
-    // 仅当敌军进入威胁圈（曼哈顿距离 <= move+1）才出击，否则原地
     const threat = foes.some(
       (f) => Math.abs(f.x - unit.x) + Math.abs(f.y - unit.y) <= 3
     );
@@ -76,7 +75,6 @@ function playUnit(state, unit, mode, onStep) {
   );
 
   if (mode === AIMode.unit_in_range_random) {
-    // 只走到能攻击的格子；若不能则小幅挪动或待命
     const attackMoves = [];
     for (const m of moves) {
       const ox = unit.x;
@@ -90,23 +88,15 @@ function playUnit(state, unit, mode, onStep) {
     }
     if (attackMoves.length) {
       const pick = attackMoves[Math.floor(Math.random() * attackMoves.length)];
-      unit.x = pick.m.x;
-      unit.y = pick.m.y;
-      onStep?.({ type: "move", unit });
-      pickAndAttack(state, unit, pick.atk, onStep);
+      await applyMove(unit, pick.m.x, pick.m.y, onStep);
+      await pickAndAttack(state, unit, pick.atk, onStep);
       return;
     }
-    // 不能打到：向最近敌人靠近一小步（不超过一半移动）
     const best = bestApproach(unit, moves, foes, 0.55);
-    if (best) {
-      unit.x = best.x;
-      unit.y = best.y;
-      onStep?.({ type: "move", unit });
-    }
+    if (best) await applyMove(unit, best.x, best.y, onStep);
     return;
   }
 
-  // random / 被激怒的 hold_position：完整寻敌
   let best = null;
   let bestScore = -Infinity;
   for (const m of moves) {
@@ -138,13 +128,18 @@ function playUnit(state, unit, mode, onStep) {
     unit.x = ox;
     unit.y = oy;
   }
-  if (best) {
-    unit.x = best.x;
-    unit.y = best.y;
-    onStep?.({ type: "move", unit });
-  }
+  if (best) await applyMove(unit, best.x, best.y, onStep);
   targets = computeAttackTargets(unit, state.units);
-  if (targets.length) pickAndAttack(state, unit, targets, onStep);
+  if (targets.length) await pickAndAttack(state, unit, targets, onStep);
+}
+
+async function applyMove(unit, x, y, onStep) {
+  if (unit.x === x && unit.y === y) return;
+  const from = { x: unit.x, y: unit.y };
+  const to = { x, y };
+  unit.x = x;
+  unit.y = y;
+  await onStep?.({ type: "move", unit, from, to });
 }
 
 function bestApproach(unit, moves, foes, aggression) {
@@ -166,12 +161,12 @@ function bestApproach(unit, moves, foes, aggression) {
   return best;
 }
 
-function pickAndAttack(state, unit, targets, onStep) {
+async function pickAndAttack(state, unit, targets, onStep) {
   targets.sort((a, b) => a.hp - b.hp);
-  resolveAttack(state, unit, targets[0], onStep);
+  await resolveAttack(state, unit, targets[0], onStep);
 }
 
-function resolveAttack(state, attacker, defender, onStep) {
+async function resolveAttack(state, attacker, defender, onStep) {
   if (!inRange(attacker, defender.x, defender.y)) return;
   if (attacker.conditions?.some((c) => c.id === "stunned")) return;
   const terrain = state.tiles[defender.y][defender.x];
@@ -179,16 +174,14 @@ function resolveAttack(state, attacker, defender, onStep) {
   if (!result.miss) {
     defender.hp = Math.max(0, defender.hp - result.damage);
   }
-  onStep?.({
+  if (defender.hp <= 0) defender.alive = false;
+  await onStep?.({
     type: "attack",
     attacker,
     defender,
     damage: result.damage,
     crit: result.crit,
+    dual: result.dual,
     miss: result.miss,
   });
-  if (defender.hp <= 0) {
-    defender.alive = false;
-    onStep?.({ type: "defeat", unit: defender });
-  }
 }
