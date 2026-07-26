@@ -13,8 +13,9 @@ import {
   clearSelection,
   endPlayerTurnManual,
 } from "./engine.js";
-import { createRenderer, describeTile, formatUnit } from "./render.js";
+import { createRenderer, describeTile, formatUnit, drawPortrait } from "./render.js";
 import { TERRAIN } from "../data/classes.js";
+import { isHostile } from "../data/generals.js";
 
 const SAVE_KEY = "caocao_campaign_v2";
 
@@ -46,6 +47,7 @@ const els = {
   resultBody: document.getElementById("resultBody"),
   btnResultOk: document.getElementById("btnResultOk"),
   btnResetSave: document.getElementById("btnResetSave"),
+  portrait: document.getElementById("portrait"),
 };
 
 const renderer = createRenderer(els.canvas);
@@ -179,8 +181,13 @@ function renderMenu() {
       card.type = "button";
       card.className = "stage-card" + (unlocked ? "" : " locked");
       card.disabled = !unlocked;
-      const badge =
-        stage.status === "playable" ? "精修" : stage.optional ? "可选" : "可通";
+      const badge = stage.handcrafted
+        ? "手绘地图"
+        : stage.status === "playable"
+          ? "精修"
+          : stage.optional
+            ? "可选"
+            : "可通";
       card.innerHTML = `
         <span class="chapter">第 ${stage.no} 关 · ${badge}</span>
         <strong>${stage.name}</strong>
@@ -392,13 +399,17 @@ function refresh() {
         : "—";
 
   const sel = getUnit(state, state.selectedId);
-  if (sel) {
-    els.unitInfo.textContent = formatUnit(sel);
-  } else if (hover) {
-    const u = unitAt(state, hover.x, hover.y);
-    els.unitInfo.textContent = u ? formatUnit(u) : "未选择武将";
+  let shown = sel;
+  if (!shown && hover) shown = unitAt(state, hover.x, hover.y);
+  if (shown) {
+    els.unitInfo.textContent = formatUnit(shown);
+    drawPortrait(els.portrait, shown);
   } else {
     els.unitInfo.textContent = "点击己方武将行动";
+    if (els.portrait) {
+      const ctx = els.portrait.getContext("2d");
+      ctx.clearRect(0, 0, els.portrait.width, els.portrait.height);
+    }
   }
 
   if (hover) {
@@ -464,7 +475,8 @@ els.canvas.addEventListener("click", (e) => {
     }
   } else if (state.mode === "attack") {
     const t = unitAt(state, x, y);
-    if (t && t.team === "enemy") {
+    const atk = getUnit(state, state.selectedId);
+    if (t && atk && isHostile(atk, t)) {
       const evt = confirmAttack(state, t);
       if (evt) {
         pushLog(

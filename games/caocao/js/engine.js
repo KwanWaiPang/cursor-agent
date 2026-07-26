@@ -1,4 +1,4 @@
-import { GENERALS, statsAtLevel } from "../data/generals.js";
+import { GENERALS, statsAtLevel, isFriendlyTeam } from "../data/generals.js";
 import { CLASSES } from "../data/classes.js";
 import { parseStageMap } from "../data/stages.js";
 import {
@@ -7,7 +7,7 @@ import {
   calcDamage,
   inRange,
 } from "./battle.js";
-import { enemyTurn } from "./ai.js";
+import { enemyTurn, allyTurn } from "./ai.js";
 
 let uid = 1;
 
@@ -38,11 +38,12 @@ function spawnUnit(def, team, gearBonus) {
   const moveBonus = (gearBonus || [])
     .filter((g) => g.move)
     .reduce((a, g) => a + g.move, 0);
+  const classId = def.classOverride || tpl.classId;
   return {
     id: uid++,
     generalId: tpl.id,
     name: def.nameOverride || tpl.name,
-    classId: def.classOverride || tpl.classId,
+    classId,
     team,
     x: def.x,
     y: def.y,
@@ -69,6 +70,7 @@ export function createBattleState(stage, options = {}) {
   const gear = options.gear || [];
   const units = [
     ...stage.player.map((u) => spawnUnit(u, "player", gear)),
+    ...(stage.ally || []).map((u) => spawnUnit(u, u.team || "ally", null)),
     ...stage.enemy.map((u) => spawnUnit(u, "enemy", null)),
   ];
   return {
@@ -167,6 +169,7 @@ export function confirmAttack(state, target) {
   const unit = getUnit(state, state.selectedId);
   if (!unit || state.mode !== "attack") return null;
   if (!target || !target.alive || !inRange(unit, target.x, target.y)) return null;
+  if (isFriendlyTeam(target.team)) return null;
   const terrain = state.tiles[target.y][target.x];
   const result = calcDamage(unit, target, terrain);
   target.hp = Math.max(0, target.hp - result.damage);
@@ -224,6 +227,13 @@ export function endPlayerTurnManual(state) {
 }
 
 function runEnemyPhase(state) {
+  state.phase = "ally";
+  if (state.units.some((u) => u.alive && u.team === "ally")) {
+    state.log.push({ turn: state.turn, text: "友军行动" });
+    allyTurn(state, () => {});
+    checkResult(state);
+    if (state.result) return;
+  }
   state.phase = "enemy";
   state.log.push({ turn: state.turn, text: "敌军行动" });
   enemyTurn(state, () => {});

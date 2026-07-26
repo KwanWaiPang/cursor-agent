@@ -1,16 +1,28 @@
-import { computeMoveRange, computeAttackTargets, calcDamage, inRange } from "./battle.js";
+import {
+  computeMoveRange,
+  computeAttackTargets,
+  calcDamage,
+  inRange,
+} from "./battle.js";
+import { isFriendlyTeam, isHostile } from "../data/generals.js";
 
-/** 极简敌军 AI：靠近最近我军并攻击；主将略保守 */
+/** 敌军 AI：靠近最近敌对单位并攻击 */
 export function enemyTurn(state, onStep) {
-  const enemies = state.units.filter((u) => u.alive && u.team === "enemy");
-  const players = () => state.units.filter((u) => u.alive && u.team === "player");
+  actFaction(state, "enemy", onStep);
+}
 
-  for (const unit of enemies) {
+/** 友军 AI：自动协助我军 */
+export function allyTurn(state, onStep) {
+  actFaction(state, "ally", onStep);
+}
+
+function actFaction(state, team, onStep) {
+  const actors = state.units.filter((u) => u.alive && u.team === team);
+  for (const unit of actors) {
     if (!unit.alive) continue;
-    const foes = players();
+    const foes = state.units.filter((u) => u.alive && isHostile(unit, u));
     if (!foes.length) break;
 
-    // 已在攻击范围则直接打最脆的
     let targets = computeAttackTargets(unit, state.units);
     if (targets.length) {
       targets.sort((a, b) => a.hp - b.hp);
@@ -42,7 +54,6 @@ export function enemyTurn(state, onStep) {
         const pred = calcDamage(unit, t, state.tiles[unit.y][unit.x]);
         score = 1000 + pred.damage * 10 - t.hp;
       } else {
-        // 靠近最近敌人
         let minD = Infinity;
         for (const f of foes) {
           const d = Math.abs(f.x - m.x) + Math.abs(f.y - m.y);
@@ -50,8 +61,9 @@ export function enemyTurn(state, onStep) {
         }
         score = 100 - minD;
       }
-      // 主将不要冲太前
       if (unit.boss) score -= 5;
+      // 友军略保守，优先靠近血少敌军
+      if (isFriendlyTeam(unit.team)) score += 2;
       if (score > bestScore) {
         bestScore = score;
         best = { x: m.x, y: m.y };

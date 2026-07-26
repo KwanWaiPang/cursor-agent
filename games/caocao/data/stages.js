@@ -1,8 +1,9 @@
 /**
- * 由战役目录生成可玩关卡列表（原作关名 + 自研地图/敌军布局）
+ * 由战役目录生成可玩关卡；第一章优先使用手绘地图 maps_ch1.js
  */
 import { CAMPAIGN, orderedStageIds } from "./campaign.js";
 import { MAP_BUILDERS, parseMapRows } from "./mapgen.js";
+import { MAPS_CH1 } from "./maps_ch1.js";
 import { minionIdsForTheme, bossTemplateForClass } from "./generals.js";
 
 const CHAPTER_NAMES = Object.fromEntries(
@@ -19,6 +20,51 @@ const PLAYER_ROSTER = [
   "guojia",
   "zhangliao",
 ];
+
+const CH1_DIALOGS = {
+  yingchuan: {
+    intro: [
+      { speaker: "曹操", text: "黄巾作乱，州郡烽烟。今日颍川一战，便以此立威！" },
+      { speaker: "夏侯惇", text: "兄长下令，惇愿为先锋！" },
+      { speaker: "张角", text: "苍天已死，黄天当立……官军安敢犯我！" },
+    ],
+    victoryTalk: [
+      { speaker: "曹操", text: "初战告捷。乱世英雄，当由此始。" },
+      { speaker: "荀彧", text: "主公英武，天下可图。" },
+    ],
+  },
+  sishui: {
+    intro: [
+      { speaker: "曹操", text: "汜水关前，华雄耀武。联军先锋，岂可退后！" },
+      { speaker: "孙坚", text: "江东孙坚在此，愿与曹孟德并肩破关！" },
+      { speaker: "华雄", text: "关下鼠辈，谁敢通名？" },
+    ],
+    victoryTalk: [
+      { speaker: "曹操", text: "华雄既破，关前可定。" },
+      { speaker: "孙坚", text: "孟德好手段。此刀权作纪念。" },
+    ],
+  },
+  hulao: {
+    intro: [
+      { speaker: "曹操", text: "虎牢关下，吕布无敌。诸军合力，可擒此獠！" },
+      { speaker: "刘备", text: "备虽不才，愿助一臂之力。" },
+      { speaker: "吕布", text: "俺乃吕布！尔等一起上罢！" },
+    ],
+    victoryTalk: [
+      { speaker: "曹操", text: "吕布暂退，虎牢可破。董贼之乱，未有穷期。" },
+    ],
+  },
+  lvbu_encircle: {
+    intro: [
+      { speaker: "曹操", text: "四面合围，白门在望。今日必要擒下吕布！" },
+      { speaker: "吕布", text: "曹阿瞒！有种上城来战！" },
+    ],
+    victoryTalk: [
+      { speaker: "曹操", text: "徐州之乱，至此可平。" },
+      { speaker: "荀彧", text: "主公威震山东，霸业可期。" },
+    ],
+  },
+};
 
 function clamp(n, a, b) {
   return Math.max(a, Math.min(b, n));
@@ -51,7 +97,8 @@ function enemySlots(w, h, count) {
   return slots;
 }
 
-function buildDialogs(meta) {
+function buildDialogs(id, meta) {
+  if (CH1_DIALOGS[id]) return CH1_DIALOGS[id];
   const boss = meta.bossName || "敌军主将";
   return {
     intro: [
@@ -74,7 +121,42 @@ function normalizeWin(meta) {
   return win;
 }
 
+function buildFromHandMap(id, meta, prevId, hand) {
+  const talks = buildDialogs(id, meta);
+  return {
+    id,
+    no: meta.no,
+    name: meta.name,
+    chapter: CHAPTER_NAMES[meta.chapter] || meta.chapter,
+    chapterId: meta.chapter,
+    route: meta.chapter === "blue" ? "blue" : meta.chapter === "red" ? "red" : null,
+    status: "playable",
+    brief: meta.brief,
+    objective: meta.objective,
+    fail: "曹操阵亡则败",
+    width: hand.width,
+    height: hand.height,
+    map: hand.map,
+    player: hand.player,
+    ally: hand.ally || [],
+    enemy: hand.enemy,
+    intro: talks.intro,
+    victoryTalk: talks.victoryTalk,
+    win: normalizeWin(meta),
+    loot: meta.loot || [],
+    battleChoice: meta.battleChoice || null,
+    branchAfter: !!meta.branchAfter,
+    ending: meta.ending || null,
+    optional: !!meta.optional,
+    unlockAfter: prevId,
+    handcrafted: true,
+  };
+}
+
 function buildStageFromMeta(id, meta, prevId, index) {
+  const hand = MAPS_CH1[id];
+  if (hand) return buildFromHandMap(id, meta, prevId, hand);
+
   const w = meta.w || 14;
   const h = meta.h || 12;
   const builder = MAP_BUILDERS[meta.map] || MAP_BUILDERS.field;
@@ -112,7 +194,7 @@ function buildStageFromMeta(id, meta, prevId, index) {
     });
   }
 
-  const talks = buildDialogs(meta);
+  const talks = buildDialogs(id, meta);
   return {
     id,
     no: meta.no,
@@ -128,6 +210,7 @@ function buildStageFromMeta(id, meta, prevId, index) {
     height: h,
     map: mapRows,
     player,
+    ally: [],
     enemy,
     intro: talks.intro,
     victoryTalk: talks.victoryTalk,
@@ -138,6 +221,7 @@ function buildStageFromMeta(id, meta, prevId, index) {
     ending: meta.ending || null,
     optional: !!meta.optional,
     unlockAfter: prevId,
+    handcrafted: false,
   };
 }
 
@@ -156,21 +240,15 @@ function buildAllStages() {
     const meta = CAMPAIGN.stages[id];
     if (!meta) continue;
     let prev = null;
-    if (meta.chapter === "blue") {
-      prev = prevBlue;
-    } else if (meta.chapter === "red") {
-      prev = prevRed;
-    } else {
-      prev = prevCommon;
-    }
+    if (meta.chapter === "blue") prev = prevBlue;
+    else if (meta.chapter === "red") prev = prevRed;
+    else prev = prevCommon;
 
-    // 可选关不挡主线：挂在前一主线关之后
     if (id === "chibi_escape") prev = "chibi";
     if (id === "red_hanshui" || id === "red_xiegu") prev = "red_dingjun";
 
     stages.push(buildStageFromMeta(id, meta, prev, i));
 
-    // 可选关不推进主线解锁指针
     if (meta.optional) continue;
     if (meta.chapter === "blue") prevBlue = id;
     else if (meta.chapter === "red") prevRed = id;
@@ -185,7 +263,6 @@ export function parseStageMap(stage) {
   if (Array.isArray(stage.map) && typeof stage.map[0] === "string") {
     return parseMapRows(stage.map);
   }
-  // 已是地形 id 二维数组
   return stage.map;
 }
 

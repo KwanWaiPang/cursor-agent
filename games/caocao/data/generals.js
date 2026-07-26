@@ -1,4 +1,4 @@
-/** 武将模板：成长与默认兵种（战役中会复制为战场单位） */
+/** 武将模板：成长、兵种、阵营色（自研配色，非原作立绘） */
 
 function g(id, name, classId, base, growth, portrait, extra = {}) {
   return { id, name, classId, base, growth, portrait, ...extra };
@@ -71,7 +71,115 @@ export const GENERALS = {
     "#4a5a8b"
   ),
 
-  // 通用敌军模板（用 nameOverride 显示原作将名）
+  // 友军 / 名将
+  sunjian: g(
+    "sunjian",
+    "孙坚",
+    "infantry",
+    { hp: 40, atk: 30, def: 16, skl: 14, spd: 14 },
+    { hp: 5, atk: 3, def: 2, skl: 2, spd: 2 },
+    "#2a5a8a"
+  ),
+  liubei: g(
+    "liubei",
+    "刘备",
+    "strategist",
+    { hp: 34, atk: 22, def: 14, skl: 22, spd: 14 },
+    { hp: 4, atk: 2, def: 2, skl: 3, spd: 1 },
+    "#3a6a4a"
+  ),
+  guanyu: g(
+    "guanyu",
+    "关羽",
+    "cavalry",
+    { hp: 44, atk: 34, def: 18, skl: 18, spd: 16 },
+    { hp: 6, atk: 4, def: 2, skl: 2, spd: 2 },
+    "#6b1a1a"
+  ),
+  zhangfei: g(
+    "zhangfei",
+    "张飞",
+    "infantry",
+    { hp: 46, atk: 34, def: 16, skl: 10, spd: 14 },
+    { hp: 6, atk: 4, def: 2, skl: 1, spd: 2 },
+    "#2a2a4a"
+  ),
+
+  // 敌军名将
+  zhangjiao: g(
+    "zhangjiao",
+    "张角",
+    "strategist",
+    { hp: 36, atk: 22, def: 14, skl: 26, spd: 12 },
+    { hp: 4, atk: 2, def: 1, skl: 3, spd: 1 },
+    "#5a2a6b"
+  ),
+  zhangbao: g(
+    "zhangbao",
+    "张宝",
+    "strategist",
+    { hp: 32, atk: 20, def: 12, skl: 24, spd: 12 },
+    { hp: 4, atk: 2, def: 1, skl: 3, spd: 1 },
+    "#6a3a7b"
+  ),
+  zhangliang: g(
+    "zhangliang",
+    "张梁",
+    "cavalry",
+    { hp: 34, atk: 24, def: 14, skl: 14, spd: 14 },
+    { hp: 4, atk: 3, def: 1, skl: 1, spd: 2 },
+    "#7a4a2b"
+  ),
+  huaxiong: g(
+    "huaxiong",
+    "华雄",
+    "cavalry",
+    { hp: 40, atk: 30, def: 16, skl: 12, spd: 14 },
+    { hp: 5, atk: 3, def: 2, skl: 1, spd: 2 },
+    "#7a3030"
+  ),
+  lvbu: g(
+    "lvbu",
+    "吕布",
+    "cavalry",
+    { hp: 52, atk: 38, def: 20, skl: 16, spd: 18 },
+    { hp: 6, atk: 4, def: 2, skl: 2, spd: 2 },
+    "#5a1a2a"
+  ),
+  dongzhuo: g(
+    "dongzhuo",
+    "董卓",
+    "infantry",
+    { hp: 44, atk: 26, def: 18, skl: 10, spd: 8 },
+    { hp: 5, atk: 2, def: 2, skl: 1, spd: 1 },
+    "#4a3a2a"
+  ),
+
+  yellow_spear: g(
+    "yellow_spear",
+    "黄巾武士",
+    "infantry",
+    { hp: 28, atk: 18, def: 12, skl: 8, spd: 10 },
+    { hp: 4, atk: 2, def: 1, skl: 1, spd: 1 },
+    "#c9a227"
+  ),
+  yellow_archer: g(
+    "yellow_archer",
+    "黄巾弓手",
+    "archer",
+    { hp: 24, atk: 20, def: 10, skl: 12, spd: 12 },
+    { hp: 3, atk: 2, def: 1, skl: 2, spd: 1 },
+    "#d4b84a"
+  ),
+  yellow_rider: g(
+    "yellow_rider",
+    "黄巾骑兵",
+    "cavalry",
+    { hp: 26, atk: 22, def: 11, skl: 10, spd: 14 },
+    { hp: 4, atk: 2, def: 1, skl: 1, spd: 2 },
+    "#b8952a"
+  ),
+
   enemy_infantry: g(
     "enemy_infantry",
     "敌军步兵",
@@ -111,40 +219,6 @@ export const GENERALS = {
     { hp: 40, atk: 28, def: 16, skl: 16, spd: 14 },
     { hp: 5, atk: 3, def: 2, skl: 2, spd: 2 },
     "#5a2a6b"
-  ),
-
-  // 兼容旧关卡 id
-  zhangjiao: g(
-    "zhangjiao",
-    "张角",
-    "strategist",
-    { hp: 36, atk: 22, def: 14, skl: 26, spd: 12 },
-    { hp: 4, atk: 2, def: 1, skl: 3, spd: 1 },
-    "#5a2a6b"
-  ),
-  yellow_spear: g(
-    "yellow_spear",
-    "黄巾武士",
-    "infantry",
-    { hp: 28, atk: 18, def: 12, skl: 8, spd: 10 },
-    { hp: 4, atk: 2, def: 1, skl: 1, spd: 1 },
-    "#c9a227"
-  ),
-  yellow_archer: g(
-    "yellow_archer",
-    "黄巾弓手",
-    "archer",
-    { hp: 24, atk: 20, def: 10, skl: 12, spd: 12 },
-    { hp: 3, atk: 2, def: 1, skl: 2, spd: 1 },
-    "#d4b84a"
-  ),
-  yellow_rider: g(
-    "yellow_rider",
-    "黄巾骑兵",
-    "cavalry",
-    { hp: 26, atk: 22, def: 11, skl: 10, spd: 14 },
-    { hp: 4, atk: 2, def: 1, skl: 1, spd: 2 },
-    "#b8952a"
   ),
 };
 
@@ -187,4 +261,15 @@ export function bossTemplateForClass(classId) {
     strategist: "enemy_strategist",
   };
   return map[classId] || "boss_generic";
+}
+
+export function isFriendlyTeam(team) {
+  return team === "player" || team === "ally";
+}
+
+export function isHostile(a, b) {
+  if (!a || !b) return false;
+  if (a.team === b.team) return false;
+  if (isFriendlyTeam(a.team) && isFriendlyTeam(b.team)) return false;
+  return true;
 }
