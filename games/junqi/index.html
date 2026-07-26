@@ -6,7 +6,7 @@
     <title>军棋 · 游戏馆</title>
     <meta
       name="description"
-      content="网页版二人军棋：本地 AI 对战，暗棋交锋、铁路机动、夺旗获胜。"
+      content="网页版二人军棋暗棋：仅人机对决，棋子立起、铁路公路、行营大本营。"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,7 +25,7 @@
       <header class="topbar">
         <div class="brand">
           <a href="../../"><h1>军棋</h1></a>
-          <p>游戏馆 · 二人军棋 · 人机对战</p>
+          <p>游戏馆 · 二人军棋暗棋 · 仅人机对决</p>
         </div>
         <div class="topbar-actions">
           <a class="btn secondary" href="../../">返回游戏馆</a>
@@ -34,7 +34,7 @@
 
       <main class="layout">
         <section class="board-wrap" aria-label="军棋棋盘">
-          <canvas id="board" width="520" height="900" role="img" aria-label="军棋棋盘"></canvas>
+          <canvas id="board" width="560" height="960" role="img" aria-label="军棋棋盘"></canvas>
         </section>
 
         <aside class="panel">
@@ -49,7 +49,7 @@
             </div>
             <div class="meta">
               <div>红方：你（南）· 蓝方：AI（北）</div>
-              <div>「？」为未亮明敌子 · 绿圆为行营</div>
+              <div>暗棋：敌子立起，碰撞后亮明</div>
             </div>
             <div id="message" class="message info">准备布阵</div>
             <div id="result" class="result-banner"></div>
@@ -66,7 +66,7 @@
 
           <section class="card">
             <h2>新对局</h2>
-            <p class="hint">自动布阵后可重排，确认后开战。军旗在大本营，被夺即负。</p>
+            <p class="hint">仅支持与 AI 的暗棋对决。自动布阵后可重排，军旗在大本营。</p>
             <div class="controls" style="grid-template-columns: 1fr">
               <button id="btnNew" type="button">开始新对局</button>
             </div>
@@ -80,16 +80,17 @@
           <section class="card">
             <h2>规则说明</h2>
             <ul class="help">
-              <li>大子吃小子；同级同归于尽。</li>
-              <li>炸弹与碰者同灭；地雷仅工兵可排。</li>
-              <li>军旗置于大本营，被吃即负。</li>
-              <li>行营内不受攻击；铁路可滑行。</li>
+              <li>标准棋盘：兵站、行营（圆）、大本营、公路与铁路、山界。</li>
+              <li>公路走一步；铁路直线滑行；工兵铁路可拐弯。</li>
+              <li>行营内不受攻击；进入大本营后不可再动。</li>
+              <li>暗棋立起：敌子背面朝外，交锋后亮明；司令阵亡则亮旗。</li>
+              <li>大子吃小子；同级同灭；炸弹同灭；地雷仅工兵可排。</li>
             </ul>
           </section>
         </aside>
       </main>
 
-      <p class="footer-note">游戏馆 · 军棋</p>
+      <p class="footer-note">游戏馆 · 军棋（暗棋 · 人机）</p>
     </div>
     <script type="module" src="./js/app.js"></script>
   </body>

@@ -17,7 +17,7 @@ assets/audio/           # 共用音效
 games/go/               # 围棋
 games/xiangqi/          # 中国象棋
 games/gomoku/           # 五子棋（双人 / 人机）
-games/junqi/            # 军棋（人机）
+games/junqi/            # 军棋暗棋（仅人机，真实棋盘）
 games/chess3d/          # 3D 国际象棋
 games/fps/              # 3D 战术射击（据点清剿 / 迷你大逃杀）
 THIRD_PARTY_NOTICES.md  # 第三方许可说明
