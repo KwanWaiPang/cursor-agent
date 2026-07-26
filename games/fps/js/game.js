@@ -275,7 +275,10 @@ export class Game {
           this.hud.flashDamage();
         });
       }
-      this.enemies = this.enemies.filter((e) => !e.gone);
+      // 原地移除，保持与 mode 共用的同一数组引用
+      for (let i = this.enemies.length - 1; i >= 0; i--) {
+        if (this.enemies[i].gone) this.enemies.splice(i, 1);
+      }
 
       const result = this.mode.update(dt);
       this.hud.updatePlayer(this.player, this.loadout);
