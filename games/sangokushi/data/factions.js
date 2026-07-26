@@ -5,19 +5,20 @@
 
 import { officersOfPower, officerByName, officerById } from "./officers.js";
 
+/** 势力色：偏三国志14 战略图辨识度（鲜明、互不混淆） */
 export const FACTION_COLORS = {
-  caocao: "#3a5a8a",
-  liubei: "#2a6a3a",
-  sunjian: "#8a3030",
-  yuanshao: "#6a4a8a",
-  yuanshu: "#8a6a2a",
-  dongzhuo: "#4a3a2a",
-  gongsunzan: "#2a6a6a",
-  liubiao: "#5a6a3a",
-  mateng: "#7a5a3a",
-  liuyan: "#6a5038",
-  shixie: "#3a6a5a",
-  neutral: "#6a6558",
+  caocao: "#3b6fb0",
+  liubei: "#2f8a4a",
+  sunjian: "#c0453a",
+  yuanshao: "#7a4aa8",
+  yuanshu: "#c08a2e",
+  dongzhuo: "#5a4030",
+  gongsunzan: "#2a8a8a",
+  liubiao: "#6a8a3a",
+  mateng: "#a06a3a",
+  liuyan: "#8a6040",
+  shixie: "#3a8a6a",
+  neutral: "#7a7468",
 };
 
 /** 剧本势力 ↔ 数据 powerId */
