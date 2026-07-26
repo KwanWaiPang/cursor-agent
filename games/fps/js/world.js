@@ -72,6 +72,8 @@ function addBox(scene, colliders, meshes, opts) {
   mesh.position.set(x, y, z);
   mesh.castShadow = collidable;
   mesh.receiveShadow = true;
+  // 仅实体碰撞物遮挡子弹；玻璃/屋顶/装饰不挡枪
+  mesh.userData.blocksShot = !!collidable;
   scene.add(mesh);
   meshes.push(mesh);
   if (collidable) {

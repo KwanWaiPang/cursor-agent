@@ -48,12 +48,14 @@ function makeCSCharacter(variant = "t") {
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.55, 0.28), shirt);
   torso.position.y = 1.05;
   torso.castShadow = true;
+  torso.userData.hitZone = "body";
   g.add(torso);
 
   // 战术背心
   const vestMesh = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.32), vest);
   vestMesh.position.y = 1.12;
   vestMesh.castShadow = true;
+  vestMesh.userData.hitZone = "body";
   g.add(vestMesh);
 
   // 口袋/装备带
@@ -73,41 +75,57 @@ function makeCSCharacter(variant = "t") {
   armL.rotation.z = 0.15;
   armR.rotation.z = -0.15;
   armL.castShadow = armR.castShadow = true;
+  armL.userData.hitZone = "body";
+  armR.userData.hitZone = "body";
   g.add(armL, armR);
 
-  // 头 / 头套 / 头盔
+  // 头 / 头套 / 头盔（避免非均匀缩放，否则射线难打中）
   let headMesh;
   if (isT) {
     // 头套（CS 恐）
-    const balaclava = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), headCover);
-    balaclava.position.y = 1.55;
+    const balaclava = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), headCover);
+    balaclava.position.y = 1.56;
     balaclava.castShadow = true;
+    balaclava.userData.hitZone = "head";
     g.add(balaclava);
     headMesh = balaclava;
     // 眼缝
     const eyes = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.06), mat(0x111111));
     eyes.position.set(0, 1.58, 0.16);
+    eyes.userData.hitZone = "head";
     g.add(eyes);
     // 肩带背包
     const pack = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.38, 0.16), mat(0x3a4028));
     pack.position.set(0, 1.15, -0.22);
+    pack.userData.hitZone = "body";
     g.add(pack);
   } else {
-    // CT 头盔
-    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), headCover);
-    helmet.scale.set(1, 0.85, 1.05);
+    // CT 头盔（均匀球体，保证可被射线击中）
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), headCover);
     helmet.position.y = 1.58;
     helmet.castShadow = true;
+    helmet.userData.hitZone = "head";
     g.add(helmet);
     headMesh = helmet;
     const face = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 10), skin);
     face.position.set(0, 1.5, 0.06);
+    face.userData.hitZone = "head";
     g.add(face);
     // 护目/面罩条
     const visor = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.08), mat(0x223344, { metalness: 0.4 }));
     visor.position.set(0, 1.56, 0.18);
+    visor.userData.hitZone = "head";
     g.add(visor);
   }
+
+  // 隐形头部判定球（略大，保证爆头稳定）
+  const headHit = new THREE.Mesh(
+    new THREE.SphereGeometry(0.3, 8, 8),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  headHit.position.y = 1.56;
+  headHit.userData.hitZone = "head";
+  g.add(headHit);
 
   // 手持短步枪提示（挂在身前）
   const gun = new THREE.Group();
@@ -127,6 +145,7 @@ function makeCSCharacter(variant = "t") {
 
   g.userData.body = vestMesh;
   g.userData.head = headMesh;
+  g.userData.headHit = headHit;
   g.userData.variant = variant;
   return g;
 }
@@ -160,15 +179,17 @@ export class Enemy {
     return this.mesh.position;
   }
 
-  damageBy(amount) {
+  damageBy(amount, opts = {}) {
     if (!this.alive) return false;
-    this.hp -= amount;
-    const body = this.mesh.userData.body;
-    if (body?.material) {
-      body.material.emissive = new THREE.Color(0xddc27a);
-      body.material.emissiveIntensity = 0.55;
+    const headshot = !!opts.headshot;
+    const dmg = headshot ? amount * 2 : amount;
+    this.hp -= dmg;
+    const flashTarget = headshot ? this.mesh.userData.head : this.mesh.userData.body;
+    if (flashTarget?.material) {
+      flashTarget.material.emissive = new THREE.Color(headshot ? 0xffcc66 : 0xddc27a);
+      flashTarget.material.emissiveIntensity = headshot ? 0.85 : 0.55;
       setTimeout(() => {
-        if (body.material) body.material.emissiveIntensity = 0;
+        if (flashTarget.material) flashTarget.material.emissiveIntensity = 0;
       }, 80);
     }
     if (this.hp <= 0) {

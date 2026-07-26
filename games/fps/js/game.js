@@ -179,43 +179,49 @@ export class Game {
 
     const targets = [];
     for (const e of this.enemies) {
-      if (!e.alive) continue;
+      if (!e.alive || e.gone) continue;
+      e.mesh.updateMatrixWorld(true);
       e.mesh.traverse((o) => {
         if (o.isMesh) targets.push(o);
       });
     }
 
-    // 建筑遮挡
+    // 仅实体墙/掩体遮挡；玻璃、屋顶、地面装饰不挡枪
     const blockers = [];
     for (const m of this.world.meshes) {
-      if (m.isMesh) blockers.push(m);
+      if (m.isMesh && m.userData.blocksShot) blockers.push(m);
     }
 
     const hitsEnemy = this.raycaster.intersectObjects(targets, false);
     const hitsBlock = this.raycaster.intersectObjects(blockers, false);
     const enemyHit = hitsEnemy[0];
     const blockHit = hitsBlock[0];
-    if (
-      enemyHit &&
-      (!blockHit || enemyHit.distance <= blockHit.distance + 0.05)
-    ) {
-      // 找到所属 Enemy
+    const blocked =
+      blockHit && (!enemyHit || blockHit.distance + 0.05 < enemyHit.distance);
+
+    if (enemyHit && !blocked) {
       let enemy = null;
       let obj = enemyHit.object;
+      let hitZone = obj.userData?.hitZone || null;
       while (obj) {
-        enemy = this.enemies.find((en) => en.mesh === obj);
-        if (enemy) break;
+        if (!enemy) enemy = this.enemies.find((en) => en.mesh === obj);
+        if (!hitZone && obj.userData?.hitZone) hitZone = obj.userData.hitZone;
+        if (enemy && hitZone) break;
         obj = obj.parent;
       }
       if (enemy && enemy.alive) {
-        const killed = enemy.damageBy(this.loadout.def.damage);
+        const headshot = hitZone === "head";
+        const killed = enemy.damageBy(this.loadout.def.damage, { headshot });
         this.sfx.hit();
         this.hud.flashHit();
         if (killed) this.mode.onKill?.();
       }
     }
 
-    this.spawnTracer(origin, dir, enemyHit?.distance ?? 40);
+    const traceDist = blocked
+      ? blockHit.distance
+      : enemyHit?.distance ?? Math.min(40, this.loadout.def.range);
+    this.spawnTracer(origin, dir, traceDist);
   }
 
   spawnTracer(origin, dir, dist) {

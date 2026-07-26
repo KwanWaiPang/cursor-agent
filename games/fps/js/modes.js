@@ -18,6 +18,8 @@ export function createAssaultMode(ctx) {
   player.getObject().position.set(0, player.eyeHeight, 16);
 
   function spawnWave() {
+    // 清掉已淡出的尸体，避免数组堆积影响查找
+    ctx.enemies = ctx.enemies.filter((e) => !e.gone);
     const count = 3 + wave * 2;
     for (let i = 0; i < count; i++) {
       const sp = world.spawnPoints[(i * 3) % world.spawnPoints.length].clone();
@@ -28,6 +30,8 @@ export function createAssaultMode(ctx) {
         sp.x = -sp.x;
         sp.z = -sp.z;
       }
+      sp.y = 0;
+      world.resolvePosition(sp, 0.45);
       const e = new Enemy(scene, world, sp, {
         hp: 55 + wave * 10,
         speed: 2.8 + wave * 0.15,
