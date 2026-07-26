@@ -475,6 +475,8 @@ function paintTrail(state, army, opts = {}) {
       const c = cellAt(state, x, y);
       if (!c?.land) continue;
       if (Math.abs(x - army.x) + Math.abs(y - army.y) > radius + 1) continue;
+      // 不可直接涂改他国已占格（须靠攻城易手）；仅涂无主与己方
+      if (c.owner && c.owner !== army.factionId) continue;
       // 敌城/无主城核心格不可直接涂走
       if (c.isCity) {
         const owner = cityOwner(state, c.cityId);
@@ -483,12 +485,13 @@ function paintTrail(state, army, opts = {}) {
       c.owner = army.factionId;
     }
   }
-  // 占领府
+  // 占领府：仅无主府或己方城下的府
   for (const r of state.map.regions) {
     if (Math.abs(r.x - army.x) + Math.abs(r.y - army.y) <= 1) {
       const cell = state.map.cells[r.cell];
       const cityOwn = cityOwner(state, r.cityId);
-      if (cityOwn && cityOwn !== army.factionId && r.isCapital) continue;
+      if (cityOwn && cityOwn !== army.factionId) continue;
+      if (cell.owner && cell.owner !== army.factionId) continue;
       cell.owner = army.factionId;
       cell.hasFort = true;
     }
@@ -572,8 +575,12 @@ function siegePower(state, army) {
 function paintAroundCityPartial(state, cityId, factionId, radius) {
   const idx = state.map.cityCells[cityId];
   const c0 = state.map.cells[idx];
+  const cityOwn = cityOwner(state, cityId);
+  // 围攻时可涂：无主格，或目标城当前所属势力的格（从守军手中夺周边）
+  const canTake = (owner) => !owner || owner === factionId || owner === cityOwn;
   for (const c of state.map.cells) {
     if (!c.land || c.isCity) continue;
+    if (!canTake(c.owner)) continue;
     const d = Math.abs(c.x - c0.x) + Math.abs(c.y - c0.y);
     // 围城时优先涂本城势力圈，加快取空城手感
     if (c.cityId === cityId && d <= radius + 6) c.owner = factionId;
@@ -582,6 +589,7 @@ function paintAroundCityPartial(state, cityId, factionId, radius) {
   for (const r of regionsOfCity(state, cityId)) {
     if (r.isCapital) continue;
     const cell = state.map.cells[r.cell];
+    if (!canTake(cell.owner)) continue;
     const d = Math.abs(cell.x - c0.x) + Math.abs(cell.y - c0.y);
     if (d <= radius + 2) {
       cell.owner = factionId;
