@@ -18,33 +18,26 @@ var geometries = {};
 var textures = {};
 function initPieceFactory () {
 
-	// common textures
-	var tiling = 4;
-	var colors = [];
-	for(var c = 0; c<2; c++) {
-		colors[c] = textures['texture/wood-'+c+'.jpg'].clone();
-		colors[c].tile(tiling);
-	}
-	var norm = textures['texture/wood_N.jpg'].clone();
-	norm.tile(tiling);
-	var spec = textures['texture/wood_S.jpg'].clone();
-	spec.tile(tiling);
+	// 黑白用经典象牙 / 乌木实色（保留 AO 勾勒轮廓），避免双方同木纹难辨
+	var sideLook = [];
+	sideLook[BLACK] = {
+		color: 0x1b1714,
+		specular: 0x555555,
+		shininess: 28,
+		emissive: 0x050505
+	};
+	sideLook[WHITE] = {
+		color: 0xf4ecde,
+		specular: 0xffffff,
+		shininess: 85,
+		emissive: 0x2a2418
+	};
 
 	function createPiece(name,color) {
 		var size = BOARD_SIZE/COLS * PIECE_SIZE;
 		// container for the piece and its reflexion
 		var piece = new THREE.Object3D();
-		// base material for all the piece (only lightmap changes)
-		var material = new THREE.MeshPhongMaterial({
-			color:0xffffff,
-			specular:0xaaaaaa,
-			shininess:60.0,
-			map:colors[color],
-			normalMap:norm,
-			specularMap:spec,
-			wireframe:WIREFRAME
-		});
-		material.normalScale.set(0.3,0.3);
+		var look = sideLook[color] || sideLook[WHITE];
 
 		// urls of geometry and lightmap
 		var urlJson = '3D/json/'+name+'.json';
@@ -56,7 +49,15 @@ function initPieceFactory () {
 		var light = textures[urlAO];
 		light.format = THREE.LuminanceFormat;
 
-		material.lightMap = light;
+		// 实色 + AO：侧别一眼可辨，兵种轮廓靠阴影贴图
+		var material = new THREE.MeshPhongMaterial({
+			color: look.color,
+			specular: look.specular,
+			shininess: look.shininess,
+			emissive: look.emissive,
+			lightMap: light,
+			wireframe: WIREFRAME
+		});
 
 		var mesh  = new THREE.Mesh(geo,material);
 		if (SHADOW) {
@@ -67,15 +68,42 @@ function initPieceFactory () {
 		// we rotate pieces so they face each other (mostly relevant for knight)
 		mesh.rotation.y += (color == WHITE) ? -Math.PI/2 : Math.PI/2;
 
+		// 底座色环：进一步区分阵营
+		var ring = new THREE.Mesh(
+			new THREE.CylinderGeometry(size * 0.55, size * 0.62, size * 0.06, 24),
+			new THREE.MeshPhongMaterial({
+				color: color === WHITE ? 0xe8d9b8 : 0x0d0d0d,
+				specular: 0x666666,
+				shininess: 40,
+				emissive: color === WHITE ? 0x332818 : 0x000000
+			})
+		);
+		ring.position.y = size * 0.03;
+		if (SHADOW) {
+			ring.castShadow = true;
+			ring.receiveShadow = true;
+		}
+
 		// we create the reflection
 		// it's a cloned with a negative scale on the Y axis
 		var reflexion = mesh.clone();
 		reflexion.scale.y *= -1;
 		reflexion.material = reflexion.material.clone();
 		reflexion.material.side = THREE.BackSide;
+		reflexion.material.opacity = 0.35;
+		reflexion.material.transparent = true;
+
+		var ringReflexion = ring.clone();
+		ringReflexion.scale.y *= -1;
+		ringReflexion.material = ringReflexion.material.clone();
+		ringReflexion.material.side = THREE.BackSide;
+		ringReflexion.material.opacity = 0.25;
+		ringReflexion.material.transparent = true;
 
 		piece.add(mesh);
+		piece.add(ring);
 		piece.add(reflexion);
+		piece.add(ringReflexion);
 
 		piece.name = name;
 		piece.color = color;
