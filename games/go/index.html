@@ -91,9 +91,9 @@
                 <label for="difficultySelect">AI 难度（可选）</label>
                 <select id="difficultySelect">
                   <option value="easy">入门 · 轻松</option>
-                  <option value="medium">普通 · 启发式</option>
-                  <option value="hard" selected>进阶 · MCTS</option>
-                  <option value="expert">专家 · 更深搜索</option>
+                  <option value="medium">普通 · 快速 MCTS</option>
+                  <option value="hard">进阶 · 更深搜索</option>
+                  <option value="expert" selected>专家 · 最强（思考更久）</option>
                 </select>
               </div>
             </div>
@@ -126,7 +126,7 @@
               <li>禁止同形再现（含劫争）。</li>
               <li>双方连续停着后进入点目，自动标记死子；也可点击棋子手动改。</li>
               <li>计分采用中国规则：子空皆地，白贴目。</li>
-              <li>AI 支持 9 / 13 / 19 路；进阶/专家用限时 MCTS，大棋盘会多想一会儿。</li>
+              <li>AI 支持 9 / 13 / 19 路；普通及以上用限时 MCTS，专家默认开启、思考更久。</li>
             </ul>
           </section>
         </aside>
