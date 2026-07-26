@@ -115,9 +115,10 @@ function refresh() {
     const owner = cityOwner(state, city.id);
     const mine = owner === f.id;
     const inc = incomeOf(state, f.id);
+    const bio = city.biome;
     els.cityInfo.textContent = mine
-      ? `${city.name}（${city.zhou} · ${city.biome}）可出征。本旬预估收入 金${inc.gold} / 粮${inc.food}。`
-      : `${city.name} 属 ${state.factions[owner]?.name || "无主"}。点己城出征，再点敌城攻略。`;
+      ? `${city.name}（${city.zhou} · ${bio}）可出征。本旬预估收入 金${inc.gold} / 粮${inc.food}。`
+      : `${city.name}（${city.zhou}）属 ${state.factions[owner]?.name || "无主"}。点己城出征，再点敌城攻略。`;
   } else {
     els.cityInfo.textContent = "点选己方都市以编成部队";
   }
