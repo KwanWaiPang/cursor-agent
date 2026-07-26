@@ -43,7 +43,8 @@
 			.attr("id","gui");
 
 		// —— 新对局：与围棋/五子棋一样，执色与 AI 等级写在同一块 ——
-		$("<p>").text("新对局").appendTo($gui);
+		// 两块始终展开，不用 accordion 叠起
+		$("<h3>").addClass("panel-title").text("新对局").appendTo($gui);
 		var $setup = $("<div>").addClass("setup-panel").appendTo($gui);
 
 		$("<div>")
@@ -80,7 +81,7 @@
 			.appendTo($setup);
 
 		// —— 操作 ——
-		$("<p>").text("操作").appendTo($gui);
+		$("<h3>").addClass("panel-title").text("操作").appendTo($gui);
 		var $ops = $("<div>").addClass("ops-panel").appendTo($gui);
 		var $menu = $("<ul>").appendTo($ops);
 
@@ -104,19 +105,12 @@
 
 		$pgn = $("<textarea>")
 			.attr("cols", "30")
-			.attr("rows", "10")
+			.attr("rows", "8")
 			.attr("readonly", "readonly")
 			.attr("aria-label", "棋谱 PGN")
 			.appendTo($ops);
 
 		$("body").append($gui);
-
-		$gui.accordion({
-			header: "p",
-			collapsible: true,
-			heightStyle: "content",
-			active: 0
-		});
 	}
 
 	function makeButton(name, callback, parent) {
