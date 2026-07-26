@@ -177,9 +177,10 @@ export class Game {
     this.raycaster.set(origin, dir);
     this.raycaster.far = this.loadout.def.range;
 
+    // 只锁定蓝方敌对单位（无友军伤害）
     const targets = [];
     for (const e of this.enemies) {
-      if (!e.alive || e.gone) continue;
+      if (!e.alive || e.gone || e.team !== "blue") continue;
       e.mesh.updateMatrixWorld(true);
       e.mesh.traverse((o) => {
         if (o.isMesh) targets.push(o);
@@ -209,7 +210,7 @@ export class Game {
         if (enemy && hitZone) break;
         obj = obj.parent;
       }
-      if (enemy && enemy.alive) {
+      if (enemy && enemy.alive && enemy.team === "blue") {
         const headshot = hitZone === "head";
         const killed = enemy.damageBy(this.loadout.def.damage, { headshot });
         this.sfx.hit();
@@ -221,27 +222,29 @@ export class Game {
     const traceDist = blocked
       ? blockHit.distance
       : enemyHit?.distance ?? Math.min(55, this.loadout.def.range);
-    this.spawnTracer(origin, dir, traceDist, { enemy: false });
+    this.spawnTracer(origin, dir, traceDist, { team: "player" });
   }
 
-  /** 多条弹道可并存；敌方来弹用醒目橙色 */
+  /** 多条弹道可并存：玩家黄、我方红、敌方蓝 */
   spawnTracer(origin, dir, dist, opts = {}) {
-    const enemy = !!opts.enemy;
-    const len = Math.min(Math.max(dist, 2), enemy ? 70 : 55);
+    const team = opts.team || (opts.enemy ? "blue" : "player");
+    const len = Math.min(Math.max(dist, 2), team === "player" ? 55 : 70);
     const end = origin.clone().addScaledVector(dir, len);
     const geo = new THREE.BufferGeometry().setFromPoints([origin, end]);
+    const color = team === "blue" ? 0x4fc3f7 : team === "red" ? 0xff6655 : 0xe8d48a;
+    const opacity = team === "player" ? 0.85 : 0.95;
     const mat = new THREE.LineBasicMaterial({
-      color: enemy ? 0xff5533 : 0xe8d48a,
+      color,
       transparent: true,
-      opacity: enemy ? 0.95 : 0.85,
+      opacity,
       depthTest: true,
     });
     const line = new THREE.Line(geo, mat);
     this.scene.add(line);
     this.tracers.push({
       line,
-      life: enemy ? 0.16 : 0.05,
-      fade: enemy ? 0.95 : 0.85,
+      life: team === "player" ? 0.05 : 0.16,
+      fade: opacity,
     });
   }
 
@@ -281,17 +284,28 @@ export class Game {
       this.activeView?.update(dt, moving, this.loadout.reloading);
 
       for (const e of this.enemies) {
-        e.update(dt, this.player, (shot) => {
+        e.update(dt, this.player, this.enemies, (shot) => {
           if (!shot) return;
           this.sfx.enemyShoot(shot.dist);
           this.spawnTracer(shot.origin, shot.dir, shot.traceDist ?? shot.dist, {
-            enemy: true,
+            team: shot.team || e.team,
           });
-          if (shot.hit && this.player.alive) {
-            this.player.damage(shot.damage);
-            this.sfx.hurt();
-            this.hud.flashDamage();
+          if (!shot.hit) return;
+          if (shot.targetKind === "player") {
+            // 仅蓝方能伤玩家
+            if (shot.team === "blue" && this.player.alive) {
+              this.player.damage(shot.damage);
+              this.sfx.hurt();
+              this.hud.flashDamage();
+            }
+            return;
           }
+          const victim = shot.targetUnit;
+          if (!victim?.alive || victim.gone) return;
+          // 禁止同阵营互伤
+          if (victim.team === shot.team) return;
+          const killed = victim.damageBy(shot.damage);
+          if (killed && victim.team === "blue") this.mode.onKill?.();
         });
       }
       // 原地移除，保持与 mode 共用的同一数组引用
