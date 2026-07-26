@@ -1,33 +1,28 @@
 /**
- * 生成汉末疆域网格 + 地区（府）
- * 地区总数贴近公开资料约 338；土地格用于涂色表现。
+ * 基于中国轮廓生成战略网格与地区（府）
  */
 
 import { CITIES, BIOMES } from "./cities.js";
+import {
+  inChinaLand,
+  unproject,
+  projectRing,
+  CHINA_MAINLAND,
+  HAINAN,
+  TAIWAN,
+  YANGTZE,
+  YELLOW_RIVER,
+  project,
+} from "./china_outline.js";
 
-const COLS = 96;
-const ROWS = 72;
+const COLS = 120;
+const ROWS = 84;
 
 function mulberry(seed) {
   let t = (seed + 0x6d2b79f5) | 0;
   t = Math.imul(t ^ (t >>> 15), t | 1);
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-}
-
-/** 粗略中国轮廓：在椭圆+梯形内为陆地 */
-export function inChina(nx, ny) {
-  // nx, ny in 0..1
-  const dx = (nx - 0.55) / 0.42;
-  const dy = (ny - 0.48) / 0.48;
-  const ellipse = dx * dx + dy * dy;
-  if (ellipse > 1.05) return false;
-  // 切掉西北过角、东南海洋
-  if (nx < 0.18 && ny < 0.35) return false;
-  if (nx > 0.92 && ny > 0.55) return false;
-  if (ny > 0.95) return false;
-  if (nx < 0.22 && ny > 0.75) return false;
-  return true;
 }
 
 function nearestCity(nx, ny) {
@@ -46,7 +41,7 @@ function nearestCity(nx, ny) {
 }
 
 /**
- * @returns {{cols:number,rows:number,cells:Array,regions:Array,cityCells:Object}}
+ * @returns {{cols:number,rows:number,cells:Array,regions:Array,cityCells:Object,geo:object}}
  */
 export function buildMap() {
   const cells = [];
@@ -56,7 +51,8 @@ export function buildMap() {
     for (let x = 0; x < COLS; x++) {
       const nx = (x + 0.5) / COLS;
       const ny = (y + 0.5) / ROWS;
-      const land = inChina(nx, ny);
+      const { lon, lat } = unproject(nx, ny);
+      const land = inChinaLand(lon, lat);
       const i = y * COLS + x;
       if (!land) {
         cells.push({
@@ -72,7 +68,7 @@ export function buildMap() {
         continue;
       }
       const { city, dist2 } = nearestCity(nx, ny);
-      const biome = pickBiome(city, nx, ny, dist2);
+      const biome = pickBiome(city, lon, lat, dist2);
       cells.push({
         i,
         x,
@@ -82,54 +78,82 @@ export function buildMap() {
         cityId: city.id,
         regionId: null,
         biome,
-        elev: mulberry(x * 31 + y * 17) * 0.5 + (1 - Math.sqrt(dist2)) * 0.3,
+        elev: mulberry(x * 31 + y * 17) * 0.45 + Math.max(0, 0.35 - Math.sqrt(dist2) * 2),
       });
     }
   }
 
-  // 都市中心格
   for (const c of CITIES) {
     const cx = Math.min(COLS - 1, Math.max(0, Math.floor(c.x * COLS)));
     const cy = Math.min(ROWS - 1, Math.max(0, Math.floor(c.y * ROWS)));
-    const i = cy * COLS + cx;
+    // 若投影点落海，向最近陆地搜索
+    let i = cy * COLS + cx;
+    if (!cells[i].land) {
+      i = nearestLandIndex(cells, cx, cy) ?? i;
+    }
     cells[i].isCity = true;
     cells[i].cityId = c.id;
     cells[i].biome = c.biome;
+    cells[i].land = true;
     cityCellIndex[c.id] = i;
   }
 
   const regions = buildRegions(cells, cityCellIndex);
+  const geo = {
+    mainland: projectRing(CHINA_MAINLAND),
+    hainan: projectRing(HAINAN),
+    taiwan: projectRing(TAIWAN),
+    yangtze: YANGTZE.map(([lon, lat]) => project(lon, lat)),
+    yellow: YELLOW_RIVER.map(([lon, lat]) => project(lon, lat)),
+  };
 
-  return { cols: COLS, rows: ROWS, cells, regions, cityCells: cityCellIndex };
+  return { cols: COLS, rows: ROWS, cells, regions, cityCells: cityCellIndex, geo };
 }
 
-function pickBiome(city, nx, ny, dist2) {
-  if (dist2 < 0.0025) return city.biome;
-  // 长江一带偏水乡
-  if (ny > 0.5 && ny < 0.68 && nx > 0.55 && nx < 0.88) {
-    if (mulberry(nx * 1000 + ny * 777) > 0.55) return "river";
+function nearestLandIndex(cells, cx, cy) {
+  let best = null;
+  let bestD = Infinity;
+  for (const c of cells) {
+    if (!c.land) continue;
+    const d = Math.abs(c.x - cx) + Math.abs(c.y - cy);
+    if (d < bestD) {
+      bestD = d;
+      best = c.i;
+    }
   }
-  // 南疆
-  if (ny > 0.78) return mulberry(nx * 50 + ny * 90) > 0.4 ? "jungle" : "hill";
-  // 西北
-  if (nx < 0.4 && ny < 0.4) return mulberry(nx * 40 + ny * 40) > 0.5 ? "desert" : "mountain";
-  // 太行/秦岭
-  if (nx > 0.42 && nx < 0.6 && ny > 0.25 && ny < 0.55) {
-    if (mulberry(nx * 80 + ny * 60) > 0.6) return "mountain";
+  return best;
+}
+
+function pickBiome(city, lon, lat, dist2) {
+  if (dist2 < 0.0018) return city.biome;
+  // 长江流域
+  if (lat > 28.5 && lat < 32.5 && lon > 103 && lon < 122) {
+    if (mulberry(lon * 40 + lat * 55) > 0.45) return "river";
   }
+  // 华南
+  if (lat < 25.5) return mulberry(lon * 30 + lat * 40) > 0.35 ? "jungle" : "hill";
+  // 西北干旱
+  if (lon < 105 && lat > 35 && lat < 43) {
+    return mulberry(lon * 20 + lat * 20) > 0.4 ? "desert" : "mountain";
+  }
+  // 青藏
+  if (lon < 100 && lat < 36) return "mountain";
+  // 太行 / 秦岭
+  if (lon > 105 && lon < 115 && lat > 32 && lat < 40) {
+    if (mulberry(lon * 50 + lat * 50) > 0.62) return "mountain";
+  }
+  // 东北山林
+  if (lat > 42) return mulberry(lon * 12 + lat * 12) > 0.5 ? "hill" : "mountain";
   return city.biome === "capital" ? "plain" : city.biome;
 }
 
 function buildRegions(cells, cityCellIndex) {
   const regions = [];
-  let rid = 0;
-
   for (const city of CITIES) {
     const center = cityCellIndex[city.id];
     const cx = cells[center].x;
     const cy = cells[center].y;
     const landOfCity = cells.filter((c) => c.land && c.cityId === city.id);
-    // 选府点：中心 + 按距离分层取样
     landOfCity.sort((a, b) => {
       const da = (a.x - cx) ** 2 + (a.y - cy) ** 2;
       const db = (b.x - cx) ** 2 + (b.y - cy) ** 2;
@@ -141,7 +165,6 @@ function buildRegions(cells, cityCellIndex) {
     for (let k = 0; k < n; k++) {
       picks.push(landOfCity[Math.min(landOfCity.length - 1, k * step)]);
     }
-    // 确保含都市格
     if (!picks.some((p) => p.i === center)) picks[0] = cells[center];
 
     const regionIds = [];
@@ -158,10 +181,8 @@ function buildRegions(cells, cityCellIndex) {
         isCapital: k === 0,
       });
       regionIds.push({ id, x: p.x, y: p.y });
-      rid++;
     }
 
-    // 每块土地归属最近府
     for (const c of landOfCity) {
       let best = regionIds[0];
       let bestD = Infinity;
@@ -175,7 +196,6 @@ function buildRegions(cells, cityCellIndex) {
       c.regionId = best.id;
     }
   }
-
   return regions;
 }
 
