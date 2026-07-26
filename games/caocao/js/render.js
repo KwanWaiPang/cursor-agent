@@ -1,12 +1,18 @@
 import { TERRAIN } from "../data/classes.js";
 import { GENERALS } from "../data/generals.js";
 import { classNameOf } from "./engine.js";
-import { getTerrainTile, drawUnitSprite, drawPortrait } from "./sprites.js";
+import {
+  getTerrainTile,
+  drawTileEdges,
+  drawUnitSprite,
+  drawPortrait,
+} from "./sprites.js";
 
 const TILE = 56;
 
 export function createRenderer(canvas) {
   const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
 
   function resize(state) {
     canvas.width = state.width * TILE;
@@ -16,12 +22,14 @@ export function createRenderer(canvas) {
   function draw(state, hover) {
     if (!state) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
 
     for (let y = 0; y < state.height; y++) {
       for (let x = 0; x < state.width; x++) {
         const kind = state.tiles[y][x] || "plain";
-        const tile = getTerrainTile(kind, TILE);
+        const tile = getTerrainTile(kind, TILE, x, y);
         ctx.drawImage(tile, x * TILE, y * TILE);
+        drawTileEdges(ctx, state.tiles, x, y, TILE);
       }
     }
 

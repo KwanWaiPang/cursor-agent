@@ -307,10 +307,12 @@ body.caocao-body {
   border: 1px solid rgba(255, 245, 220, 0.25);
 }
 
-#board {
+#board,
+#deployBoard {
   display: block;
   margin: 0 auto;
   image-rendering: pixelated;
+  image-rendering: crisp-edges;
   cursor: pointer;
   max-width: 100%;
   height: auto;
