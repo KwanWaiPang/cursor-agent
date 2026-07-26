@@ -42,137 +42,97 @@
 			.css("position","absolute")
 			.attr("id","gui");
 
-		$("<p>")
-			.text("新对局 / 操作")
-			.appendTo($gui);
+		// —— 新对局：与围棋/五子棋一样，执色与 AI 等级写在同一块 ——
+		$("<p>").text("新对局").appendTo($gui);
+		var $setup = $("<div>").addClass("setup-panel").appendTo($gui);
 
-		var $menudiv = $("<div>").appendTo($gui);
-
-		var $menu = $("<ul>").appendTo($menudiv);
-
-		makeButton("新对局",newGameDialog,$menu);
-		makeButton("悔棋",undo,$menu);
-		makeButton("载入",loadDialog,$menu);
-		makeButton("保存",save,$menu);
-
-		$("<label>")
-			.text("升变：")
+		$("<div>")
+			.addClass("field")
+			.append($("<label>").attr("for", "humanColorSelect").text("你的执色"))
 			.append(
 				$("<select>")
-					.width(240)
-					.append(
-						$("<option>")
-							.text("后"))
-					.append(
-						$("<option>")
-							.text("车"))
-					.append(
-						$("<option>")
-							.text("象"))
-					.append(
-						$("<option>")
-							.text("马"))
-					.change( changePromo )
-					.appendTo($menudiv)
+					.attr("id", "humanColorSelect")
+					.append($("<option>").val("white").text("白（先手）").prop("selected", true))
+					.append($("<option>").val("black").text("黑（后手）"))
 			)
-			.appendTo($menudiv);
+			.appendTo($setup);
 
+		$("<div>")
+			.addClass("field")
+			.append($("<label>").attr("for", "difficultySelect").text("AI 难度"))
+			.append(
+				$("<select>")
+					.attr("id", "difficultySelect")
+					.append($("<option>").val("0").text("入门 · 轻松"))
+					.append($("<option>").val("2").text("普通 · 快速").prop("selected", true))
+					.append($("<option>").val("4").text("进阶 · 更深搜索"))
+					.append($("<option>").val("7").text("专家 · 最强（思考更久）"))
+			)
+			.appendTo($setup);
+
+		$("<button>")
+			.attr("type", "button")
+			.addClass("btn-primary")
+			.text("开始新对局")
+			.click(startNewGameFromPanel)
+			.appendTo($setup);
+
+		// —— 操作 ——
+		$("<p>").text("操作").appendTo($gui);
+		var $ops = $("<div>").addClass("ops-panel").appendTo($gui);
+		var $menu = $("<ul>").appendTo($ops);
+
+		makeButton("悔棋", undo, $menu);
+		makeButton("载入", loadDialog, $menu);
+		makeButton("保存", save, $menu);
+
+		$("<div>")
+			.addClass("field")
+			.append($("<label>").attr("for", "promoSelect").text("升变"))
+			.append(
+				$("<select>")
+					.attr("id", "promoSelect")
+					.append($("<option>").text("后"))
+					.append($("<option>").text("车"))
+					.append($("<option>").text("象"))
+					.append($("<option>").text("马"))
+					.change(changePromo)
+			)
+			.appendTo($ops);
 
 		$pgn = $("<textarea>")
-			.attr("cols","30")
-			.attr("rows","12")
-			.css({
-				width: "240px",
-				"box-sizing": "border-box"
-			})
-			.attr("readonly","readonly")
-			.appendTo($menudiv);
-
+			.attr("cols", "30")
+			.attr("rows", "10")
+			.attr("readonly", "readonly")
+			.attr("aria-label", "棋谱 PGN")
+			.appendTo($ops);
 
 		$("body").append($gui);
 
 		$gui.accordion({
 			header: "p",
-			collapsible: true
+			collapsible: true,
+			heightStyle: "content",
+			active: 0
 		});
 	}
 
-
-	function makeButton(name,callback,parent) {
+	function makeButton(name, callback, parent) {
 		var $item = $("<li>").appendTo(parent);
 		return $("<button>")
+			.attr("type", "button")
 			.button({
-				label:name
+				label: name
 			})
-			.width(240)
 			.click(callback)
 			.appendTo($item);
 	}
 
-	function newGameDialog() {
-		var id = "newgame";
-		var dialogColor = WHITE;
-		var dialogLevel = 0;
-
-		if ($("#"+id).length !== 0) {
-			return false;
-		}
-
-		var $newGame = $("<div>")
-			.attr("id",id)
-			.attr("title","新对局")
-			.appendTo($("body"));
-
-		// buttonset div
-		var $radio = $("<p>").appendTo($newGame);
-		// first button for white
-		$('<input type="radio" id="white" name="color" checked="checked">')
-			.click(function() {
-				dialogColor = WHITE;
-			})
-			.appendTo($radio);
-		$('<label for="white">白方</label>').appendTo($radio);
-
-		// second button for black
-		$('<input type="radio" id="black" name="color"/>')
-			.click(function() {
-				dialogColor = BLACK;
-			})
-			.appendTo($radio);
-		$('<label for="black">黑方</label>').appendTo($radio);
-		// initialize the buttonset
-		$radio.buttonset();
-
-		// level selector
-
-		var $label = $("<label>")
-			.text("AI 强度：");
-		var $levelSelect = $('<select>')
-			.css("display","block")
-			.appendTo($label)
-			.change(function(event) {
-				dialogLevel = $(event.currentTarget).val();
-			});
-		$("<p>").append($label).appendTo($newGame);
-
-		// add as much level configuration we have
-		for (var i = 0; i < levels.length; i++) {
-			$('<option>')
-				.val(i)
-				.text("等级 "+(i+1))
-				.appendTo($levelSelect);
-		}
-		$newGame.dialog({
-			close:function(event,ui) {
-				$newGame.remove();
-			},
-			buttons: {
-				"开始": function() {
-					newGame(dialogColor,dialogLevel);
-					$(this).remove();
-				}
-			}
-		});
+	function startNewGameFromPanel() {
+		var colorVal = $("#humanColorSelect").val();
+		var level = parseInt($("#difficultySelect").val(), 10);
+		if (isNaN(level)) level = 2;
+		newGame(colorVal === "black" ? BLACK : WHITE, level);
 	}
 	/*
 	 * GAME CONTROL

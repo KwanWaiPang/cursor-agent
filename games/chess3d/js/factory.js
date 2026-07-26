@@ -16,102 +16,210 @@
 "use strict";
 var geometries = {};
 var textures = {};
-function initPieceFactory () {
 
-	// 黑白用经典象牙 / 乌木实色（保留 AO 勾勒轮廓），避免双方同木纹难辨
+function initPieceFactory () {
+	// 程序化斯顿顿轮廓 + 顶部汉字标，远比旧 JSON 细模清晰
 	var sideLook = [];
 	sideLook[BLACK] = {
-		color: 0x1b1714,
-		specular: 0x555555,
-		shininess: 28,
-		emissive: 0x050505
+		color: 0x1a1512,
+		specular: 0x777777,
+		shininess: 32,
+		emissive: 0x0a0806
 	};
 	sideLook[WHITE] = {
-		color: 0xf4ecde,
+		color: 0xf5efe3,
 		specular: 0xffffff,
-		shininess: 85,
-		emissive: 0x2a2418
+		shininess: 78,
+		emissive: 0x2c2418
 	};
 
-	function createPiece(name,color) {
-		var size = BOARD_SIZE/COLS * PIECE_SIZE;
-		// container for the piece and its reflexion
-		var piece = new THREE.Object3D();
+	var labels = {
+		pawn: "兵",
+		rook: "车",
+		knight: "马",
+		bishop: "象",
+		queen: "后",
+		king: "王"
+	};
+
+	function makeBodyMaterial(color) {
 		var look = sideLook[color] || sideLook[WHITE];
-
-		// urls of geometry and lightmap
-		var urlJson = '3D/json/'+name+'.json';
-		var urlAO   = 'texture/'+name+'-ao.jpg';
-
-		var geo = geometries[urlJson];
-		// no need to clone this texture
-		// since its pretty specific
-		var light = textures[urlAO];
-		light.format = THREE.LuminanceFormat;
-
-		// 实色 + AO：侧别一眼可辨，兵种轮廓靠阴影贴图
-		var material = new THREE.MeshPhongMaterial({
+		return new THREE.MeshPhongMaterial({
 			color: look.color,
 			specular: look.specular,
 			shininess: look.shininess,
 			emissive: look.emissive,
-			lightMap: light,
 			wireframe: WIREFRAME
 		});
+	}
 
-		var mesh  = new THREE.Mesh(geo,material);
+	function makeAccentMaterial(color) {
+		return new THREE.MeshPhongMaterial({
+			color: color === WHITE ? 0xc9a45c : 0x8a7350,
+			specular: 0xcccccc,
+			shininess: 50,
+			emissive: color === WHITE ? 0x3a2a10 : 0x1a1408,
+			wireframe: WIREFRAME
+		});
+	}
+
+	function addMesh(group, geo, mat, y, sx, sy, sz) {
+		var mesh = new THREE.Mesh(geo, mat);
+		mesh.position.y = y || 0;
+		if (sx || sy || sz) {
+			mesh.scale.set(sx || 1, sy || 1, sz || 1);
+		}
 		if (SHADOW) {
 			mesh.castShadow = true;
 			mesh.receiveShadow = true;
 		}
-		mesh.scale.set(size,size,size);
-		// we rotate pieces so they face each other (mostly relevant for knight)
-		mesh.rotation.y += (color == WHITE) ? -Math.PI/2 : Math.PI/2;
+		group.add(mesh);
+		return mesh;
+	}
 
-		// 底座色环：进一步区分阵营
-		var ring = new THREE.Mesh(
-			new THREE.CylinderGeometry(size * 0.55, size * 0.62, size * 0.06, 24),
-			new THREE.MeshPhongMaterial({
-				color: color === WHITE ? 0xe8d9b8 : 0x0d0d0d,
-				specular: 0x666666,
-				shininess: 40,
-				emissive: color === WHITE ? 0x332818 : 0x000000
-			})
+	function makeLabelDisc(size, color, text) {
+		var canvas = document.createElement("canvas");
+		canvas.width = 128;
+		canvas.height = 128;
+		var ctx = canvas.getContext("2d");
+		ctx.clearRect(0, 0, 128, 128);
+		ctx.beginPath();
+		ctx.arc(64, 64, 58, 0, Math.PI * 2);
+		ctx.fillStyle = color === WHITE ? "#f7f1e4" : "#1c1713";
+		ctx.fill();
+		ctx.lineWidth = 6;
+		ctx.strokeStyle = color === WHITE ? "#8a6a2b" : "#c9a45c";
+		ctx.stroke();
+		ctx.fillStyle = color === WHITE ? "#1a1512" : "#f5efe3";
+		ctx.font = "bold 72px 'Noto Serif SC','ZCOOL XiaoWei',serif";
+		ctx.textAlign = "center";
+		ctx.textBaseline = "middle";
+		ctx.fillText(text, 64, 68);
+
+		var tex = new THREE.Texture(canvas);
+		tex.needsUpdate = true;
+		var mat = new THREE.MeshBasicMaterial({
+			map: tex,
+			transparent: true,
+			depthWrite: false
+		});
+		var disc = new THREE.Mesh(
+			new THREE.PlaneGeometry(size * 0.72, size * 0.72),
+			mat
 		);
-		ring.position.y = size * 0.03;
-		if (SHADOW) {
-			ring.castShadow = true;
-			ring.receiveShadow = true;
+		disc.rotation.x = -Math.PI / 2;
+		disc.name = "label";
+		return disc;
+	}
+
+	function buildBase(body, mat, accent, size) {
+		addMesh(body, new THREE.CylinderGeometry(size * 0.52, size * 0.58, size * 0.12, 28), mat, size * 0.06);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.42, size * 0.50, size * 0.08, 28), accent, size * 0.14);
+	}
+
+	function buildPawn(body, mat, accent, size) {
+		buildBase(body, mat, accent, size);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.18, size * 0.34, size * 0.55, 24), mat, size * 0.48);
+		addMesh(body, new THREE.SphereGeometry(size * 0.28, 24, 16), mat, size * 0.92);
+		return size * 1.22;
+	}
+
+	function buildRook(body, mat, accent, size) {
+		buildBase(body, mat, accent, size);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.30, size * 0.36, size * 0.85, 24), mat, size * 0.62);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.42, size * 0.42, size * 0.14, 24), accent, size * 1.12);
+		var i, tooth;
+		for (i = 0; i < 4; i++) {
+			tooth = addMesh(body, new THREE.CubeGeometry(size * 0.16, size * 0.22, size * 0.16), mat, size * 1.30);
+			tooth.position.x = Math.cos(i * Math.PI / 2) * size * 0.28;
+			tooth.position.z = Math.sin(i * Math.PI / 2) * size * 0.28;
 		}
+		return size * 1.48;
+	}
 
-		// we create the reflection
-		// it's a cloned with a negative scale on the Y axis
-		var reflexion = mesh.clone();
-		reflexion.scale.y *= -1;
-		reflexion.material = reflexion.material.clone();
-		reflexion.material.side = THREE.BackSide;
-		reflexion.material.opacity = 0.35;
-		reflexion.material.transparent = true;
+	function buildKnight(body, mat, accent, size, color) {
+		buildBase(body, mat, accent, size);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.22, size * 0.34, size * 0.45, 20), mat, size * 0.42);
+		addMesh(body, new THREE.SphereGeometry(size * 0.30, 20, 14), mat, size * 0.72);
+		var neck = addMesh(body, new THREE.CylinderGeometry(size * 0.12, size * 0.24, size * 0.55, 16), mat, size * 1.05);
+		neck.rotation.z = (color === WHITE ? 1 : -1) * 0.35;
+		neck.position.x = (color === WHITE ? -1 : 1) * size * 0.08;
+		var head = addMesh(body, new THREE.CubeGeometry(size * 0.55, size * 0.28, size * 0.22), mat, size * 1.35);
+		head.position.x = (color === WHITE ? -1 : 1) * size * 0.18;
+		head.rotation.z = (color === WHITE ? 1 : -1) * 0.25;
+		var snout = addMesh(body, new THREE.CubeGeometry(size * 0.28, size * 0.16, size * 0.16), mat, size * 1.30);
+		snout.position.x = (color === WHITE ? -1 : 1) * size * 0.42;
+		var ear = addMesh(body, new THREE.CubeGeometry(size * 0.10, size * 0.22, size * 0.08), accent, size * 1.55);
+		ear.position.x = (color === WHITE ? -1 : 1) * size * 0.05;
+		return size * 1.72;
+	}
 
-		var ringReflexion = ring.clone();
-		ringReflexion.scale.y *= -1;
-		ringReflexion.material = ringReflexion.material.clone();
-		ringReflexion.material.side = THREE.BackSide;
-		ringReflexion.material.opacity = 0.25;
-		ringReflexion.material.transparent = true;
+	function buildBishop(body, mat, accent, size) {
+		buildBase(body, mat, accent, size);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.16, size * 0.34, size * 0.95, 24), mat, size * 0.68);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.28, size * 0.28, size * 0.08, 20), accent, size * 1.18);
+		addMesh(body, new THREE.SphereGeometry(size * 0.26, 20, 14), mat, size * 1.42, 1, 1.35, 1);
+		addMesh(body, new THREE.SphereGeometry(size * 0.10, 12, 10), accent, size * 1.78);
+		return size * 1.95;
+	}
 
-		piece.add(mesh);
-		piece.add(ring);
-		piece.add(reflexion);
-		piece.add(ringReflexion);
+	function buildQueen(body, mat, accent, size) {
+		buildBase(body, mat, accent, size);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.16, size * 0.36, size * 1.15, 24), mat, size * 0.78);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.34, size * 0.34, size * 0.10, 24), accent, size * 1.40);
+		var i, tip;
+		for (i = 0; i < 5; i++) {
+			tip = addMesh(body, new THREE.SphereGeometry(size * 0.09, 12, 10), accent, size * 1.58);
+			tip.position.x = Math.cos(i * Math.PI * 2 / 5) * size * 0.22;
+			tip.position.z = Math.sin(i * Math.PI * 2 / 5) * size * 0.22;
+		}
+		addMesh(body, new THREE.SphereGeometry(size * 0.14, 14, 12), mat, size * 1.72);
+		return size * 1.95;
+	}
 
+	function buildKing(body, mat, accent, size) {
+		buildBase(body, mat, accent, size);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.18, size * 0.36, size * 1.20, 24), mat, size * 0.80);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.32, size * 0.38, size * 0.18, 24), accent, size * 1.48);
+		var crossV = addMesh(body, new THREE.CubeGeometry(size * 0.12, size * 0.42, size * 0.12), accent, size * 1.82);
+		var crossH = addMesh(body, new THREE.CubeGeometry(size * 0.34, size * 0.12, size * 0.12), accent, size * 1.88);
+		crossV.name = "cross";
+		crossH.name = "cross";
+		return size * 2.15;
+	}
+
+	var builders = {
+		pawn: buildPawn,
+		rook: buildRook,
+		knight: buildKnight,
+		bishop: buildBishop,
+		queen: buildQueen,
+		king: buildKing
+	};
+
+	function createPiece(name, color) {
+		var size = BOARD_SIZE / COLS * PIECE_SIZE;
+		var piece = new THREE.Object3D();
+		var mat = makeBodyMaterial(color);
+		var accent = makeAccentMaterial(color);
+		var body = new THREE.Object3D();
+		var builder = builders[name] || buildPawn;
+		var topY = builder(body, mat, accent, size, color);
+
+		var label = makeLabelDisc(size, color, labels[name] || "?");
+		label.position.y = topY + size * 0.02;
+
+		piece.add(body);
+		piece.add(label);
 		piece.name = name;
 		piece.color = color;
+		piece.bodyMaterial = mat;
+		piece.accentMaterial = accent;
+		piece.labelMaterial = label.material;
 
 		return piece;
 	}
 
-	// make it global
 	window.createPiece = createPiece;
 }
 
@@ -412,8 +520,10 @@ function createValidCellMaterial () {
 }
 
 var selectedMaterial = null;
+var selectedPieceMaterial = null;
 function createSelectedMaterial() {
 	selectedMaterial = [];
+	selectedPieceMaterial = [];
 	var tiling = 4;
 
 
@@ -443,6 +553,14 @@ function createSelectedMaterial() {
 			//opacity:0.4
 		});
 		selectedMaterial[c].normalScale.set(0.3,0.3);
+
+		selectedPieceMaterial[c] = new THREE.MeshPhongMaterial({
+			color: c === WHITE ? 0xd8f5c8 : 0x6fbf5a,
+			emissive: 0x1f7a28,
+			specular: 0xaad4aa,
+			shininess: 55,
+			wireframe: WIREFRAME
+		});
 	}
 
 }

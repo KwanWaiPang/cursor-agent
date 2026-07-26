@@ -5,7 +5,7 @@
 /* global LOADING_BAR_SCALE,ROWS,COLS,PIECE_SIZE, BOARD_SIZE, FLOOR_SIZE, WIREFRAME, DEBUG, Cell, WHITE, BLACK, FEEDBACK, SHADOW */
 /* global textures, geometries, removeLoader */
 /* global initGUI, initInfo, addToPGN, displayCheck, newGame */
-/* global initPieceFactory,initCellFactory,createCell,createPiece,createChessBoard, createFloor, createValidCellMaterial,createSelectedMaterial, validCellMaterial, selectedMaterial */
+/* global initPieceFactory,initCellFactory,createCell,createPiece,createChessBoard, createFloor, createValidCellMaterial,createSelectedMaterial, validCellMaterial, selectedMaterial, selectedPieceMaterial */
 	/*global Search,FormatSquare,GenerateMove,MakeMove,GetMoveSAN,MakeSquare,UnmakeMove, FormatMove, ResetGame, GetFen, GetMoveFromString, alert, InitializeFromFen, GenerateValidMoves */
 	/*global g_inCheck,g_board,g_pieceList, g_toMove, g_timeout:true,g_maxply:true */
 	/*global moveflagCastleKing, moveflagCastleQueen, moveflagEPC, moveflagPromotion, colorWhite*/
@@ -165,7 +165,7 @@ var levels = [
 
 		// to make everything black in the background
 		scene.fog = new THREE.FogExp2( 0x000000, 0.0008 );
-		// 中性环境光，便于辨认象牙/乌木棋子
+		// 中性环境光，便于辨认程序化棋子轮廓与顶部标字
 		scene.add(new THREE.AmbientLight(0x606060));
 
 		// for picking
@@ -444,43 +444,64 @@ var levels = [
 	/*
 	 * PICKING
 	 */
+	function findPieceRoot(obj) {
+		var cur = obj;
+		while (cur) {
+			if (cur.color === WHITE || cur.color === BLACK) {
+				if (cur.name === "pawn" || cur.name === "rook" || cur.name === "knight" ||
+					cur.name === "bishop" || cur.name === "queen" || cur.name === "king") {
+					return cur;
+				}
+			}
+			cur = cur.parent;
+		}
+		return null;
+	}
+
+	function setPieceSelected(piece, on) {
+		if (!piece) return;
+		var highlight = selectedPieceMaterial && selectedPieceMaterial[piece.color];
+		piece.traverse(function (obj) {
+			if (!(obj instanceof THREE.Mesh)) return;
+			if (obj.name === "label") return;
+			if (on) {
+				if (!obj.userData) obj.userData = {};
+				if (!obj.userData.baseMaterial) {
+					obj.userData.baseMaterial = obj.material;
+				}
+				if (highlight) obj.material = highlight;
+			} else if (obj.userData && obj.userData.baseMaterial) {
+				obj.material = obj.userData.baseMaterial;
+				obj.userData.baseMaterial = null;
+			}
+		});
+	}
+
 	function pickPiece(raycaster) {
-		var intersect   = null;
 		var picked = null;
-		// intersect piece
 		var hitList = [];
-		var hit,piece;
-		for (var i in board3D) {
+		var hit, piece, root, i;
+		for (i in board3D) {
 			if ({}.hasOwnProperty.call(board3D, i)) {
-				piece     = board3D[i];
-				intersect = raycaster.intersectObject( piece.children[0], true );
-
-				if (intersect.length > 0) {
-					hit = intersect[0];
-					if (( g_playerWhite && hit.object.parent.color === WHITE ) ||
-						(!g_playerWhite && hit.object.parent.color === BLACK ) ){
-
-						// only pick the right color
-						hitList.push(hit);
+				piece = board3D[i];
+				hit = raycaster.intersectObject(piece, true);
+				if (hit.length > 0) {
+					root = findPieceRoot(hit[0].object) || piece;
+					if ((g_playerWhite && root.color === WHITE) ||
+						(!g_playerWhite && root.color === BLACK)) {
+						hitList.push({ distance: hit[0].distance, piece: root });
 					}
 				}
 			}
 		}
 
-		// find the closest
-		hitList.forEach(function(hit) {
-			if (picked === null || picked.distance > hit.distance) {
-				picked = hit;
+		hitList.forEach(function (entry) {
+			if (picked === null || picked.distance > entry.distance) {
+				picked = entry;
 			}
 		});
 
-
-		if (picked) {
-			return picked.object.parent;
-		} else {
-			return null;
-		}
-
+		return picked ? picked.piece : null;
 	}
 
 	function pickCell(raycaster) {
@@ -604,17 +625,14 @@ var levels = [
 
 		// when a click happen, any selected piece gets unselected
 		if (selectedPiece !== null) {
-			selectedPiece.children[0].material = selectedPiece.baseMaterial;
-			//selectedPiece.children[1].material = selectedPiece.baseMaterial;
+			setPieceSelected(selectedPiece, false);
 		}
 
 		// then if a piece was clicked, we select it
 		selectedPiece = pickedPiece;
 		if (selectedPiece !== null) {
-			selectedPiece.baseMaterial = selectedPiece.children[0].material;
-			selectedPiece.children[0].material = selectedMaterial[selectedPiece.color];
+			setPieceSelected(selectedPiece, true);
 			playSfx("selectAudio");
-			//selectedPiece.children[1].material = selectedMaterial[selectedPiece.color];
 		}
 	}
 
@@ -630,7 +648,8 @@ var levels = [
 			window.scene = scene;
 			window.renderer = renderer;
 		}
-		newGame(WHITE);
+		// 默认执白、普通难度；侧栏可改后点「开始新对局」
+		newGame(WHITE, 2);
 		animate();
 
 		//setTimeout(loadFEN('8/Q5P1/8/8/8/8/8/2K1k3 w - -'),2000);
