@@ -45,7 +45,7 @@
 				my:"left top",
 				at:"left top"
 			})
-			.width(150)
+			.width(280)
 			.attr("id","gui");
 
 		$("<p>")
@@ -65,7 +65,7 @@
 			.text("升变：")
 			.append(
 				$("<select>")
-					.width(140)
+					.width(240)
 					.append(
 						$("<option>")
 							.text("后"))
@@ -85,8 +85,12 @@
 
 
 		$pgn = $("<textarea>")
-			.attr("cols","16")
-			.attr("rows","10")
+			.attr("cols","30")
+			.attr("rows","12")
+			.css({
+				width: "240px",
+				"box-sizing": "border-box"
+			})
 			.attr("readonly","readonly")
 			.appendTo($menudiv);
 
@@ -106,7 +110,7 @@
 			.button({
 				label:name
 			})
-			.width(140)
+			.width(240)
 			.click(callback)
 			.appendTo($item);
 	}

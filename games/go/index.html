@@ -15,17 +15,20 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="../../css/shared.css" />
+    <link rel="stylesheet" href="../../css/game-page.css" />
     <link rel="stylesheet" href="./css/styles.css" />
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23c48a3a'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%231a1a1a'/%3E%3C/svg%3E"
     />
   </head>
-  <body>
+  <body class="theme-yi game-page">
+    <audio id="clickAudio" src="../../assets/audio/click.wav" preload="auto"></audio>
+    <audio id="selectAudio" src="../../assets/audio/select.wav" preload="auto"></audio>
     <div class="app">
       <header class="topbar">
         <div class="brand">
-          <h1>围棋</h1>
+          <a href="../../"><h1>围棋</h1></a>
           <p>弈馆 · 人人对战 / 人机对战 · 中国规则</p>
         </div>
         <div class="topbar-actions">

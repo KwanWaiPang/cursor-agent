@@ -207,6 +207,16 @@ var levels = [
 	}
 
 
+	function playSfx(id) {
+		var el = document.getElementById(id);
+		if (!el) return;
+		try {
+			el.currentTime = 0;
+			var p = el.play();
+			if (p && typeof p.catch === "function") p.catch(function () {});
+		} catch (e) {}
+	}
+
 	function UIPlayMove(move,silent) {
 		// we play the move here by 
 		// adding it to the png list (for display)
@@ -218,6 +228,7 @@ var levels = [
 		// redrawing 
 		// silent flag is used when simulating moves for loading PGN
 		if(!silent) {
+			playSfx("clickAudio");
 			redrawBoard();
 		}
 	}
@@ -572,6 +583,7 @@ var levels = [
 		if (selectedPiece !== null) {
 			selectedPiece.baseMaterial = selectedPiece.children[0].material;
 			selectedPiece.children[0].material = selectedMaterial[selectedPiece.color];
+			playSfx("selectAudio");
 			//selectedPiece.children[1].material = selectedMaterial[selectedPiece.color];
 		}
 	}

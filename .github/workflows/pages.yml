@@ -27,7 +27,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html .nojekyll README.md THIRD_PARTY_NOTICES.md _site/
-          cp -r css games _site/
+          cp -r css games assets _site/
           # 不部署测试文件与超大源文件
           find _site -name '*.test.js' -delete
           find _site -name '*.blend' -delete

@@ -11,10 +11,11 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="../../css/shared.css" />
+    <link rel="stylesheet" href="../../css/game-page.css" />
     <link rel="stylesheet" href="./css/chess.css" />
     <link rel="stylesheet" href="./css/shell.css" />
   </head>
-  <body class="theme-yi">
+  <body class="theme-yi game-page">
     <div class="shell xiangqi-shell">
       <header class="topbar">
         <div class="brand">
@@ -28,8 +29,8 @@
 
       <div id="chessBox" class="chess_box panel board-panel">
         <canvas id="chess"></canvas>
-        <audio src="audio/click.wav" id="clickAudio" preload="auto"></audio>
-        <audio src="audio/select.wav" id="selectAudio" preload="auto"></audio>
+        <audio src="../../assets/audio/click.wav" id="clickAudio" preload="auto"></audio>
+        <audio src="../../assets/audio/select.wav" id="selectAudio" preload="auto"></audio>
         <div class="bn_box" id="bnBox">
           <button type="button" id="restartBtn">重新开始</button>
           <button type="button" id="gohomeBtn" class="secondary">返回菜单</button>

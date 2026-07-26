@@ -12,6 +12,7 @@
     />
     <link href="./css/dark-hive/jquery-ui-1.10.3.custom.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="../../css/shared.css" />
+    <link rel="stylesheet" href="../../css/game-page.css" />
     <link rel="stylesheet" href="./css/shell.css" />
 
     <script src="./js/lib/three.min.js"></script>
@@ -41,7 +42,9 @@
     <script src="./js/gui.js"></script>
     <script src="./js/chess.js"></script>
   </head>
-  <body id="container" class="theme-yi chess3d-body">
+  <body id="container" class="theme-yi game-page chess3d-body">
+    <audio id="clickAudio" src="../../assets/audio/click.wav" preload="auto"></audio>
+    <audio id="selectAudio" src="../../assets/audio/select.wav" preload="auto"></audio>
     <header class="chess3d-bar">
       <div class="brand">
         <a href="../../"><h1>国际象棋</h1></a>
