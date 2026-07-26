@@ -115,6 +115,59 @@ function testStarPoints() {
   assert(new GoEngine(19).starPoints().length === 9, "19 stars");
 }
 
+function testAutoMarkDeadAtari() {
+  const g = new GoEngine(9, 7.5);
+  // 白一子被叫吃
+  g.board[1][1] = WHITE;
+  g.board[0][1] = BLACK;
+  g.board[1][0] = BLACK;
+  g.board[1][2] = BLACK;
+  // 气在 (1,2) 仍开着——再补一手让其一气
+  g.board[2][1] = BLACK;
+  g.positionHistory = [g.serialize()];
+  g.pass();
+  g.pass();
+  assert(g.phase === "scoring", "scoring");
+  assert(g.deadMarks.has("1,1"), "atari white auto marked dead");
+}
+
+function testAutoMarkDeadTwoEyesAlive() {
+  const g = new GoEngine(9, 0);
+  // 黑在角上两眼活形（简化）：(0,0)(1,0)(0,1) 围出眼位较复杂，改用完整小活棋
+  // 黑方角上一块两眼：
+  // B B B
+  // B . B
+  // B B B  中心眼；再加一侧眼
+  const blacks = [
+    [0, 2],
+    [1, 2],
+    [2, 2],
+    [2, 1],
+    [2, 0],
+    [1, 0],
+    [0, 0],
+    [0, 1],
+  ];
+  for (const [x, y] of blacks) g.board[y][x] = BLACK;
+  // 眼睛在 (1,1)；再造第二眼 (0,3) 区域——改放边上一块更稳
+  g.board[0][3] = BLACK;
+  g.board[1][3] = BLACK;
+  g.board[2][3] = BLACK;
+  // 第二眼 (1,4) 需要围住——简化：只要有两眼启发式即可
+  g.board[0][4] = BLACK;
+  g.board[1][5] = BLACK;
+  g.board[2][4] = BLACK;
+  g.board[2][5] = BLACK;
+  g.board[0][5] = BLACK;
+  // eyes at (1,1) and (1,4)
+  g.positionHistory = [g.serialize()];
+  g.pass();
+  g.pass();
+  const group = { color: BLACK, ...g.getGroup(0, 0) };
+  assert(g.countApproxEyes(group) >= 1, "should see at least one eye");
+  assert(!g.deadMarks.has("0,0"), "eyed black not marked dead");
+}
+
 testCapture();
 testSuicide();
 testKo();
@@ -123,4 +176,6 @@ testUndoPassAndScoring();
 testCaptureWithSharedGroup();
 testResignUndo();
 testStarPoints();
+testAutoMarkDeadAtari();
+testAutoMarkDeadTwoEyesAlive();
 console.log("All engine tests passed.");

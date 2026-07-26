@@ -185,6 +185,7 @@ export class GoEngine {
     if (this.consecutivePasses >= 2) {
       this.phase = "scoring";
       this.deadMarks = new Set();
+      this.autoMarkDead();
     }
     return { ok: true, scoring: this.phase === "scoring" };
   }
@@ -297,6 +298,227 @@ export class GoEngine {
       keys.forEach((k) => this.deadMarks.add(k));
     }
     return { ok: true };
+  }
+
+  clearDeadMarks() {
+    if (this.phase !== "scoring") return { ok: false };
+    this.deadMarks = new Set();
+    return { ok: true };
+  }
+
+  listGroups(board = this.board) {
+    const seen = new Set();
+    const groups = [];
+    for (let y = 0; y < this.size; y++) {
+      for (let x = 0; x < this.size; x++) {
+        const c = board[y][x];
+        if (!c) continue;
+        const k = keyOf(x, y);
+        if (seen.has(k)) continue;
+        const g = this.getGroup(x, y, board);
+        for (const [sx, sy] of g.stones) seen.add(keyOf(sx, sy));
+        groups.push({ color: c, ...g });
+      }
+    }
+    return groups;
+  }
+
+  /**
+   * 粗略数“真眼”：被己方围住的单点空，且对角不太危险
+   */
+  countApproxEyes(group, board = this.board) {
+    const color = group.color ?? board[group.stones[0][1]][group.stones[0][0]];
+    const stoneSet = new Set(group.stones.map(([x, y]) => keyOf(x, y)));
+    let eyes = 0;
+    for (const lk of group.liberties) {
+      const [x, y] = lk.split(",").map(Number);
+      let own = 0;
+      let enemy = 0;
+      let empty = 0;
+      const neigh = this.neighbors(x, y);
+      for (const [nx, ny] of neigh) {
+        const v = board[ny][nx];
+        if (v === color || stoneSet.has(keyOf(nx, ny))) own += 1;
+        else if (v === 0) empty += 1;
+        else enemy += 1;
+      }
+      // 单点眼：四周都是己方（或盘外）
+      if (enemy === 0 && empty === 0 && own === neigh.length) {
+        // 假眼检查：对角被对方占据过多
+        let diagEnemy = 0;
+        let diagTotal = 0;
+        for (const [dx, dy] of [
+          [1, 1],
+          [1, -1],
+          [-1, 1],
+          [-1, -1],
+        ]) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (!this.inBounds(nx, ny)) continue;
+          diagTotal += 1;
+          if (board[ny][nx] && board[ny][nx] !== color) diagEnemy += 1;
+        }
+        if (diagTotal === 0 || diagEnemy <= 1) eyes += 1;
+      }
+    }
+    return eyes;
+  }
+
+  /**
+   * 影响力图：正值偏黑，负值偏白
+   */
+  computeInfluence(deadSet = this.deadMarks) {
+    const size = this.size;
+    const inf = Array.from({ length: size }, () => Array(size).fill(0));
+    const decay = size >= 19 ? 0.62 : size >= 13 ? 0.66 : 0.7;
+    const radius = size >= 19 ? 4 : 3;
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const c = this.board[y][x];
+        if (!c || deadSet.has(keyOf(x, y))) continue;
+        const sign = c === BLACK ? 1 : -1;
+        for (let dy = -radius; dy <= radius; dy++) {
+          for (let dx = -radius; dx <= radius; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (!this.inBounds(nx, ny)) continue;
+            if (this.board[ny][nx] && !deadSet.has(keyOf(nx, ny))) continue;
+            const dist = Math.abs(dx) + Math.abs(dy);
+            if (dist > radius) continue;
+            inf[ny][nx] += sign * Math.pow(decay, dist);
+          }
+        }
+      }
+    }
+    return inf;
+  }
+
+  /**
+   * 自动标记死子（启发式，可手动改）
+   * - 一气棋块默认死
+   * - 无明显两眼且处在对方势力中的棋块标死
+   * - 迭代：删去死子后再评估被围在对方实地里的残子
+   */
+  autoMarkDead() {
+    if (this.phase !== "scoring" && this.phase !== "finished") {
+      return { ok: false, reason: "仅点目阶段可用" };
+    }
+
+    this.deadMarks = new Set();
+    const markGroup = (g) => {
+      for (const [x, y] of g.stones) this.deadMarks.add(keyOf(x, y));
+    };
+
+    // 多轮迭代，逐步识别被围死子
+    for (let round = 0; round < 3; round++) {
+      const aliveBoard = this.cloneBoard();
+      for (const k of this.deadMarks) {
+        const [x, y] = k.split(",").map(Number);
+        aliveBoard[y][x] = 0;
+      }
+
+      const groups = this.listGroups(aliveBoard);
+      const influence = this.computeInfluence(this.deadMarks);
+      let added = 0;
+
+      for (const g of groups) {
+        const already = g.stones.every(([x, y]) =>
+          this.deadMarks.has(keyOf(x, y))
+        );
+        if (already) continue;
+
+        const eyes = this.countApproxEyes(g, aliveBoard);
+        if (eyes >= 2) continue; // 有两眼，视为活棋
+
+        // 终局一气：死
+        if (g.liberties.size <= 1) {
+          markGroup(g);
+          added += 1;
+          continue;
+        }
+
+        // 气很少且几乎无眼
+        if (g.liberties.size <= 2 && eyes === 0) {
+          // 是否被对方完全贴住
+          let touchOpp = 0;
+          let touchOwn = 0;
+          for (const [x, y] of g.stones) {
+            for (const [nx, ny] of this.neighbors(x, y)) {
+              const v = aliveBoard[ny][nx];
+              if (v === g.color) touchOwn += 1;
+              else if (v && v !== g.color) touchOpp += 1;
+            }
+          }
+          if (touchOpp >= touchOwn) {
+            markGroup(g);
+            added += 1;
+            continue;
+          }
+        }
+
+        // 影响力：棋块落在对方强势区域
+        let sum = 0;
+        for (const [x, y] of g.stones) sum += influence[y][x];
+        const avg = sum / g.stones.length;
+        const against =
+          g.color === BLACK ? avg < -0.55 : avg > 0.55;
+        if (against && eyes === 0 && g.liberties.size <= 4) {
+          markGroup(g);
+          added += 1;
+          continue;
+        }
+
+        // 被围在“单一对方颜色”空区中的残子
+        if (eyes === 0 && this.isEnclosedByOpponent(g, aliveBoard)) {
+          markGroup(g);
+          added += 1;
+        }
+      }
+
+      if (!added) break;
+    }
+
+    return { ok: true, count: this.deadMarks.size };
+  }
+
+  /**
+   * 棋块的所有气点所属空区，是否都只被对方（+自身）包围
+   */
+  isEnclosedByOpponent(group, board) {
+    const color = group.color;
+    const opp = opponent(color);
+    const stoneSet = new Set(group.stones.map(([x, y]) => keyOf(x, y)));
+
+    for (const lk of group.liberties) {
+      const [sx, sy] = lk.split(",").map(Number);
+      // flood empty region from this liberty
+      const seen = new Set([lk]);
+      const q = [[sx, sy]];
+      const borders = new Set();
+      while (q.length) {
+        const [cx, cy] = q.pop();
+        for (const [nx, ny] of this.neighbors(cx, cy)) {
+          const v = board[ny][nx];
+          if (v === 0) {
+            const k = keyOf(nx, ny);
+            if (!seen.has(k)) {
+              seen.add(k);
+              q.push([nx, ny]);
+            }
+          } else if (!stoneSet.has(keyOf(nx, ny))) {
+            borders.add(v);
+          }
+        }
+      }
+      // 若空区还碰到己方其他子，则不是被单独围杀
+      if (borders.has(color)) return false;
+      if (!borders.has(opp) && borders.size > 0) return false;
+      // 很大的公共空（中腹）不判死
+      if (seen.size > Math.max(8, Math.floor(this.size * 1.2))) return false;
+    }
+    return group.liberties.size > 0;
   }
 
   /**

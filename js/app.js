@@ -21,6 +21,7 @@ const els = {
   btnPass: document.getElementById("btnPass"),
   btnResign: document.getElementById("btnResign"),
   btnUndo: document.getElementById("btnUndo"),
+  btnAutoDead: document.getElementById("btnAutoDead"),
   btnScore: document.getElementById("btnScore"),
   btnNew: document.getElementById("btnNew"),
 };
@@ -97,6 +98,7 @@ function updatePanel() {
   const humanCanAct = engine.phase === "playing" && isHumanTurn() && !aiThinking;
   els.btnPass.disabled = !humanCanAct;
   els.btnResign.disabled = engine.phase !== "playing" || aiThinking;
+  els.btnAutoDead.disabled = engine.phase !== "scoring" || aiThinking;
   els.btnScore.disabled = engine.phase !== "scoring" || aiThinking;
   els.btnUndo.disabled =
     aiThinking ||
@@ -304,7 +306,11 @@ async function maybeAiMove() {
         return;
       }
       if (res.scoring) {
-        refresh("AI 停着。双方停着，请标记死子后确认点目。", true);
+        const n = engine.deadMarks.size;
+        refresh(
+          `AI 停着，进入点目：已自动标记 ${n} 个死子，可手动调整后确认点目。`,
+          true
+        );
       } else {
         refresh("AI 停着", true);
       }
@@ -340,7 +346,7 @@ function onBoardClick(evt) {
   if (engine.phase === "scoring") {
     const res = engine.toggleDead(coord.x, coord.y);
     if (!res.ok) showMessage(res.reason || "");
-    else showMessage("已更新死子标记。确认后请点击「确认点目」。", true);
+    else showMessage("已手动更新死子。可再点「自动标死子」重算，或确认点目。", true);
     refresh();
     return;
   }
@@ -399,11 +405,25 @@ els.btnPass.addEventListener("click", () => {
     return;
   }
   if (res.scoring) {
-    refresh("双方停着，进入点目：点击棋子标记死子，再确认点目。", true);
+    const n = engine.deadMarks.size;
+    refresh(
+      `双方停着，进入点目：已自动标记 ${n} 个死子，可点击棋子修改，或按「自动标死子」重算。`,
+      true
+    );
   } else {
     refresh(`${colorName(opponent(engine.toPlay))}方停着`, true);
     maybeAiMove();
   }
+});
+
+els.btnAutoDead.addEventListener("click", () => {
+  if (engine.phase !== "scoring") return;
+  const res = engine.autoMarkDead();
+  if (!res.ok) {
+    showMessage(res.reason || "");
+    return;
+  }
+  refresh(`已重新自动标记 ${res.count} 个死子，可手动微调后确认点目。`, true);
 });
 
 els.btnResign.addEventListener("click", () => {
