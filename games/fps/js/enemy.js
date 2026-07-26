@@ -122,6 +122,9 @@ function makeCSCharacter(variant = "t") {
   gun.rotation.set(0.1, -0.4, 0.15);
   g.add(gun);
 
+  // 略放大，便于辨认
+  g.scale.setScalar(1.12);
+
   g.userData.body = vestMesh;
   g.userData.head = headMesh;
   g.userData.variant = variant;
