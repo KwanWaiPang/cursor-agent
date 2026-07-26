@@ -57,17 +57,19 @@
 			)
 			.appendTo($setup);
 
+		var $levelSelect = $("<select>").attr("id", "difficultySelect");
+		var i;
+		for (i = 0; i < levels.length; i++) {
+			$("<option>")
+				.val(i)
+				.text("等级 " + (i + 1) + (i === 0 ? "（最弱）" : i === levels.length - 1 ? "（最强）" : ""))
+				.prop("selected", i === 4)
+				.appendTo($levelSelect);
+		}
 		$("<div>")
 			.addClass("field")
-			.append($("<label>").attr("for", "difficultySelect").text("AI 难度"))
-			.append(
-				$("<select>")
-					.attr("id", "difficultySelect")
-					.append($("<option>").val("0").text("入门 · 轻松"))
-					.append($("<option>").val("2").text("普通 · 快速").prop("selected", true))
-					.append($("<option>").val("4").text("进阶 · 更深搜索"))
-					.append($("<option>").val("7").text("专家 · 最强（思考更久）"))
-			)
+			.append($("<label>").attr("for", "difficultySelect").text("AI 等级"))
+			.append($levelSelect)
 			.appendTo($setup);
 
 		$("<button>")
@@ -131,7 +133,7 @@
 	function startNewGameFromPanel() {
 		var colorVal = $("#humanColorSelect").val();
 		var level = parseInt($("#difficultySelect").val(), 10);
-		if (isNaN(level)) level = 2;
+		if (isNaN(level) || level < 0 || level >= levels.length) level = 4;
 		newGame(colorVal === "black" ? BLACK : WHITE, level);
 	}
 	/*
