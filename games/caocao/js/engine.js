@@ -78,6 +78,8 @@ function spawnUnit(def, team, loadout) {
     portrait: tpl.portrait,
     lord: !!tpl.lord && team === "player",
     boss: !!def.boss,
+    minion: !!tpl.minion && !def.boss,
+    troop: tpl.troop || null,
     aiMode: def.aiMode || null,
     alive: true,
     done: false,

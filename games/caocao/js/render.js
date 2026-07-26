@@ -1,5 +1,5 @@
 import { TERRAIN } from "../data/classes.js";
-import { GENERALS } from "../data/generals.js";
+import { GENERALS, isHeroUnit } from "../data/generals.js";
 import { classNameOf } from "./engine.js";
 import {
   getTerrainTile,
@@ -279,6 +279,8 @@ export function createRenderer(canvas) {
         hp: 1,
         hpMax: 1,
         portrait: tpl?.portrait || "#4a7a58",
+        minion: !!tpl?.minion,
+        lord: !!tpl?.lord,
       });
     }
     for (const s of deploy.slots) {
@@ -297,6 +299,7 @@ export function createRenderer(canvas) {
         hp: 1,
         hpMax: 1,
         portrait: tpl?.portrait || "#3a6a8a",
+        minion: !!tpl?.minion,
       });
     }
     resize(fake);
@@ -316,13 +319,14 @@ export function formatUnit(u) {
   if (!u) return "";
   const camp =
     u.team === "player" ? "我军" : u.team === "ally" ? "友军" : "敌军";
+  const rank = isHeroUnit(u) ? (u.lord ? "主公" : u.boss ? "主将" : "名将") : "小兵";
   const cond = u.conditions?.length
     ? ` · ${u.conditions.map((c) => c.id).join("/")}`
     : "";
   const gear = u.loadout?.length
     ? `\n装：${u.loadout.map((g) => g.name).join("、")}`
     : "";
-  return `${u.name}（${camp}） Lv${u.level} ${classNameOf(u)}\nHP ${u.hp}/${u.hpMax}  MP ${u.mp ?? 0}/${u.mpMax ?? 0}\n攻${u.atk} 防${u.def} 技${u.skl} 智${u.itl ?? "-"}${cond}${gear}`;
+  return `${u.name}〔${rank}〕（${camp}）\nLv${u.level} ${classNameOf(u)}\nHP ${u.hp}/${u.hpMax}  MP ${u.mp ?? 0}/${u.mpMax ?? 0}\n攻${u.atk} 防${u.def} 技${u.skl} 智${u.itl ?? "-"}${cond}${gear}`;
 }
 
 export { drawPortrait };
