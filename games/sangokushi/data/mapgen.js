@@ -1,5 +1,5 @@
 /**
- * 基于中国轮廓生成战略网格与地区（府）
+ * 基于中国轮廓生成战略网格、州界与地区（府）
  */
 
 import { CITIES, BIOMES } from "./cities.js";
@@ -7,16 +7,20 @@ import {
   inChinaLand,
   unproject,
   projectRing,
+  projectPath,
   CHINA_MAINLAND,
   HAINAN,
   TAIWAN,
   YANGTZE,
   YELLOW_RIVER,
+  HUAI_RIVER,
+  PEARL_RIVER,
   project,
 } from "./china_outline.js";
+import { ZHOU_META, MOUNTAIN_RANGES, mountainInfluence } from "./geography.js";
 
-const COLS = 120;
-const ROWS = 84;
+const COLS = 144;
+const ROWS = 100;
 
 function mulberry(seed) {
   let t = (seed + 0x6d2b79f5) | 0;
@@ -41,7 +45,7 @@ function nearestCity(nx, ny) {
 }
 
 /**
- * @returns {{cols:number,rows:number,cells:Array,regions:Array,cityCells:Object,geo:object}}
+ * @returns {{cols:number,rows:number,cells:Array,regions:Array,cityCells:Object,geo:object,zhouBorders:Array,zhouLabels:Array}}
  */
 export function buildMap() {
   const cells = [];
@@ -63,12 +67,20 @@ export function buildMap() {
           owner: null,
           cityId: null,
           regionId: null,
+          zhou: null,
           biome: "sea",
+          elev: 0,
         });
         continue;
       }
       const { city, dist2 } = nearestCity(nx, ny);
-      const biome = pickBiome(city, lon, lat, dist2);
+      const mtn = mountainInfluence(lon, lat);
+      let biome = pickBiome(city, lon, lat, dist2, mtn);
+      let elev =
+        mulberry(x * 31 + y * 17) * 0.28 +
+        Math.max(0, 0.28 - Math.sqrt(dist2) * 1.8) +
+        mtn.elev;
+      if (mtn.near && elev > 0.42) biome = "mountain";
       cells.push({
         i,
         x,
@@ -77,8 +89,11 @@ export function buildMap() {
         owner: null,
         cityId: city.id,
         regionId: null,
+        zhou: city.zhou,
         biome,
-        elev: mulberry(x * 31 + y * 17) * 0.45 + Math.max(0, 0.35 - Math.sqrt(dist2) * 2),
+        elev: Math.min(1, elev),
+        lon,
+        lat,
       });
     }
   }
@@ -86,28 +101,139 @@ export function buildMap() {
   for (const c of CITIES) {
     const cx = Math.min(COLS - 1, Math.max(0, Math.floor(c.x * COLS)));
     const cy = Math.min(ROWS - 1, Math.max(0, Math.floor(c.y * ROWS)));
-    // 若投影点落海，向最近陆地搜索
     let i = cy * COLS + cx;
     if (!cells[i].land) {
       i = nearestLandIndex(cells, cx, cy) ?? i;
     }
     cells[i].isCity = true;
     cells[i].cityId = c.id;
+    cells[i].zhou = c.zhou;
     cells[i].biome = c.biome;
     cells[i].land = true;
     cityCellIndex[c.id] = i;
   }
 
+  // 平滑州界：孤立格子归入多数邻域州
+  smoothZhou(cells);
+
   const regions = buildRegions(cells, cityCellIndex);
+  const zhouBorders = buildZhouBorders(cells);
+  const zhouLabels = buildZhouLabels(cells);
+
   const geo = {
     mainland: projectRing(CHINA_MAINLAND),
     hainan: projectRing(HAINAN),
     taiwan: projectRing(TAIWAN),
-    yangtze: YANGTZE.map(([lon, lat]) => project(lon, lat)),
-    yellow: YELLOW_RIVER.map(([lon, lat]) => project(lon, lat)),
+    yangtze: projectPath(YANGTZE),
+    yellow: projectPath(YELLOW_RIVER),
+    huai: projectPath(HUAI_RIVER),
+    pearl: projectPath(PEARL_RIVER),
+    mountains: MOUNTAIN_RANGES.map((r) => ({
+      id: r.id,
+      name: r.name,
+      width: r.width,
+      path: projectPath(r.path),
+    })),
   };
 
-  return { cols: COLS, rows: ROWS, cells, regions, cityCells: cityCellIndex, geo };
+  return {
+    cols: COLS,
+    rows: ROWS,
+    cells,
+    regions,
+    cityCells: cityCellIndex,
+    geo,
+    zhouBorders,
+    zhouLabels,
+  };
+}
+
+function smoothZhou(cells) {
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ];
+  for (let pass = 0; pass < 2; pass++) {
+    const next = cells.map((c) => c.zhou);
+    for (const c of cells) {
+      if (!c.land) continue;
+      const counts = {};
+      let total = 0;
+      for (const [dx, dy] of dirs) {
+        const n = cells[(c.y + dy) * COLS + (c.x + dx)];
+        if (!n?.land || !n.zhou) continue;
+        counts[n.zhou] = (counts[n.zhou] || 0) + 1;
+        total++;
+      }
+      if (total < 3) continue;
+      const own = counts[c.zhou] || 0;
+      if (own <= 1) {
+        let best = c.zhou;
+        let bestN = -1;
+        for (const [z, n] of Object.entries(counts)) {
+          if (n > bestN) {
+            bestN = n;
+            best = z;
+          }
+        }
+        next[c.i] = best;
+      }
+    }
+    for (const c of cells) {
+      if (c.land) c.zhou = next[c.i];
+    }
+  }
+}
+
+function buildZhouBorders(cells) {
+  /** @type {Array<{x1:number,y1:number,x2:number,y2:number,a:string,b:string}>} */
+  const edges = [];
+  for (const c of cells) {
+    if (!c.land) continue;
+    const right = cells[c.y * COLS + c.x + 1];
+    if (right?.land && right.zhou && c.zhou && right.zhou !== c.zhou) {
+      edges.push({
+        x1: c.x + 1,
+        y1: c.y,
+        x2: c.x + 1,
+        y2: c.y + 1,
+        a: c.zhou,
+        b: right.zhou,
+      });
+    }
+    const down = cells[(c.y + 1) * COLS + c.x];
+    if (down?.land && down.zhou && c.zhou && down.zhou !== c.zhou) {
+      edges.push({
+        x1: c.x,
+        y1: c.y + 1,
+        x2: c.x + 1,
+        y2: c.y + 1,
+        a: c.zhou,
+        b: down.zhou,
+      });
+    }
+  }
+  return edges;
+}
+
+function buildZhouLabels(cells) {
+  const acc = {};
+  for (const c of cells) {
+    if (!c.land || !c.zhou) continue;
+    if (!acc[c.zhou]) acc[c.zhou] = { n: 0, sx: 0, sy: 0 };
+    acc[c.zhou].n++;
+    acc[c.zhou].sx += c.x + 0.5;
+    acc[c.zhou].sy += c.y + 0.5;
+  }
+  return Object.entries(acc).map(([zhou, v]) => ({
+    zhou,
+    name: ZHOU_META[zhou]?.label || zhou,
+    ink: ZHOU_META[zhou]?.ink || "#6a5a48",
+    x: v.sx / v.n,
+    y: v.sy / v.n,
+  }));
 }
 
 function nearestLandIndex(cells, cx, cy) {
@@ -124,25 +250,20 @@ function nearestLandIndex(cells, cx, cy) {
   return best;
 }
 
-function pickBiome(city, lon, lat, dist2) {
-  if (dist2 < 0.0018) return city.biome;
-  // 长江流域
+function pickBiome(city, lon, lat, dist2, mtn) {
+  if (mtn.near && mtn.elev > 0.28) return "mountain";
+  if (dist2 < 0.0015) return city.biome;
   if (lat > 28.5 && lat < 32.5 && lon > 103 && lon < 122) {
-    if (mulberry(lon * 40 + lat * 55) > 0.45) return "river";
+    if (mulberry(lon * 40 + lat * 55) > 0.48) return "river";
   }
-  // 华南
   if (lat < 25.5) return mulberry(lon * 30 + lat * 40) > 0.35 ? "jungle" : "hill";
-  // 西北干旱
   if (lon < 105 && lat > 35 && lat < 43) {
     return mulberry(lon * 20 + lat * 20) > 0.4 ? "desert" : "mountain";
   }
-  // 青藏
   if (lon < 100 && lat < 36) return "mountain";
-  // 太行 / 秦岭
   if (lon > 105 && lon < 115 && lat > 32 && lat < 40) {
-    if (mulberry(lon * 50 + lat * 50) > 0.62) return "mountain";
+    if (mulberry(lon * 50 + lat * 50) > 0.58) return "mountain";
   }
-  // 东北山林
   if (lat > 42) return mulberry(lon * 12 + lat * 12) > 0.5 ? "hill" : "mountain";
   return city.biome === "capital" ? "plain" : city.biome;
 }
@@ -206,6 +327,10 @@ function regionName(k) {
 
 export function biomeStyle(biome) {
   return BIOMES[biome] || BIOMES.plain;
+}
+
+export function zhouTint(zhou) {
+  return ZHOU_META[zhou]?.tint || null;
 }
 
 export { COLS, ROWS };

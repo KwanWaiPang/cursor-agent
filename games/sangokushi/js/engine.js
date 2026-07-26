@@ -28,10 +28,11 @@ export function createGame(playerFactionId = "caocao") {
     };
   }
 
-  // 初始涂色：都市及邻近土地
+  // 初始涂色：都市势力范围 + 邻域空白扩张（不互抢已占格）
   for (const f of Object.values(factions)) {
     for (const cid of f.cities) {
-      paintAroundCity(map, cid, f.id, 4);
+      claimCityTerritory(map, cid, f.id);
+      paintEmptyAroundCity(map, cid, f.id, 6);
       const reg = map.regions.filter((r) => r.cityId === cid);
       for (const r of reg) {
         map.cells[r.cell].owner = f.id;
@@ -77,12 +78,40 @@ function makeOfficerState(oid, factionId) {
   };
 }
 
+function claimCityTerritory(map, cityId, factionId) {
+  const idx = map.cityCells[cityId];
+  if (idx == null) return;
+  const c0 = map.cells[idx];
+  // 细网格下按都市势力范围认领，并以半径封顶，避免边陲城吞掉大片空白
+  const maxR = 11;
+  for (const c of map.cells) {
+    if (!c.land || c.cityId !== cityId) continue;
+    const d = Math.abs(c.x - c0.x) + Math.abs(c.y - c0.y);
+    if (d <= maxR) c.owner = factionId;
+  }
+  c0.owner = factionId;
+}
+
+function paintEmptyAroundCity(map, cityId, factionId, radius) {
+  const idx = map.cityCells[cityId];
+  if (idx == null) return;
+  const c0 = map.cells[idx];
+  for (const c of map.cells) {
+    if (!c.land || c.owner) continue;
+    if (c.isCity && c.cityId !== cityId) continue;
+    const d = Math.abs(c.x - c0.x) + Math.abs(c.y - c0.y);
+    if (d <= radius) c.owner = factionId;
+  }
+}
+
 function paintAroundCity(map, cityId, factionId, radius) {
   const idx = map.cityCells[cityId];
   if (idx == null) return;
   const c0 = map.cells[idx];
   for (const c of map.cells) {
     if (!c.land) continue;
+    // 不覆盖他城城心
+    if (c.isCity && c.cityId !== cityId) continue;
     const d = Math.abs(c.x - c0.x) + Math.abs(c.y - c0.y);
     if (d <= radius) c.owner = factionId;
   }
@@ -331,7 +360,7 @@ function trySiege(state, army, cityId) {
   if (ctrl < 0.35) {
     // 先削弱：涂掉外围并小幅伤亡
     army.troops = Math.max(200, army.troops - 200);
-    paintAroundCityPartial(state, cityId, army.factionId, 2);
+    paintAroundCityPartial(state, cityId, army.factionId, 3);
     if (army.factionId === state.playerId) {
       pushLog(
         state,
@@ -389,7 +418,7 @@ function captureCity(state, cityId, winnerId, loserId) {
   const winner = state.factions[winnerId];
   loser.cities = loser.cities.filter((c) => c !== cityId);
   if (!winner.cities.includes(cityId)) winner.cities.push(cityId);
-  paintAroundCity(state.map, cityId, winnerId, 3);
+  paintAroundCity(state.map, cityId, winnerId, 5);
   for (const r of state.map.regions.filter((r) => r.cityId === cityId)) {
     state.map.cells[r.cell].owner = winnerId;
   }
