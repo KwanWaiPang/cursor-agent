@@ -87,7 +87,7 @@ var levels = [
 			var fallback = document.createElement("div");
 			fallback.className = "webgl-fallback";
 			fallback.innerHTML =
-				"<h2>无法启动 3D 棋盘</h2><p>当前浏览器不支持 WebGL，或图形环境不可用。请使用较新的 Chrome / Edge / Firefox 打开本页。</p><p><a href='../../'>返回大厅</a></p>";
+				"<h2>无法启动 3D 棋盘</h2><p>当前浏览器不支持 WebGL，或图形环境不可用。请使用较新的 Chrome / Edge / Firefox 打开本页。</p><p><a href='../../'>返回游戏馆</a></p>";
 			document.body.appendChild(fallback);
 			return;
 		}

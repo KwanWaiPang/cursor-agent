@@ -29,7 +29,7 @@ python3 -m http.server 8080
 
 打开：<http://localhost:8080/games/chess3d/>
 
-需要浏览器支持 **WebGL**。若不支持，页面会提示并引导返回大厅。
+需要浏览器支持 **WebGL**。若不支持，页面会提示并引导返回游戏馆。
 
 ## 来源
 
