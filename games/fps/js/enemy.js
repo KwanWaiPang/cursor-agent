@@ -5,6 +5,7 @@ const _tmp2 = new THREE.Vector3();
 const _side = new THREE.Vector3();
 const _move = new THREE.Vector3();
 const _shotDir = new THREE.Vector3();
+const _aim = new THREE.Vector3();
 
 function mat(color, opts = {}) {
   return new THREE.MeshStandardMaterial({
@@ -15,20 +16,20 @@ function mat(color, opts = {}) {
 }
 
 /**
- * 偏 CS 风格低模角色
- * variant: "t" 恐怖分子（头套+迷彩） / "ct" 反恐部队（头盔+蓝背心）
+ * 阵营角色：我方红 / 敌方蓝
+ * team: "red" | "blue"
  */
-function makeCSCharacter(variant = "t") {
+function makeTeamCharacter(team = "blue") {
   const g = new THREE.Group();
-  const isT = variant === "t";
+  const isRed = team === "red";
 
   const skin = mat(0xd2b48c);
-  const pants = mat(isT ? 0x5c4a2e : 0x243044);
-  const shirt = mat(isT ? 0x7a8f4a : 0xe8ecf2);
-  const vest = mat(isT ? 0x6b5a30 : 0x3a6ea8, { roughness: 0.7, metalness: 0.15 });
-  const boot = mat(0x2a2418);
-  const headCover = mat(isT ? 0x222222 : 0x445566);
-  const accent = mat(isT ? 0xc45c2a : 0xd0d6e0);
+  const pants = mat(isRed ? 0x3a1818 : 0x152033);
+  const shirt = mat(isRed ? 0x8b2a2a : 0x2a4a72);
+  const vest = mat(isRed ? 0xd32f2f : 0x1e88e5, { roughness: 0.65, metalness: 0.18 });
+  const boot = mat(0x1a1410);
+  const headCover = mat(isRed ? 0x6b1515 : 0x1a3a5c);
+  const accent = mat(isRed ? 0xffc107 : 0xb3e5fc);
 
   const legGeo = new THREE.CapsuleGeometry(0.11, 0.45, 3, 6);
   const legL = new THREE.Mesh(legGeo, pants);
@@ -75,38 +76,29 @@ function makeCSCharacter(variant = "t") {
   armR.userData.hitZone = "body";
   g.add(armL, armR);
 
-  let headMesh;
-  if (isT) {
-    const balaclava = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), headCover);
-    balaclava.position.y = 1.56;
-    balaclava.castShadow = true;
-    balaclava.userData.hitZone = "head";
-    g.add(balaclava);
-    headMesh = balaclava;
-    const eyes = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.06), mat(0x111111));
-    eyes.position.set(0, 1.58, 0.16);
-    eyes.userData.hitZone = "head";
-    g.add(eyes);
-    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.38, 0.16), mat(0x3a4028));
-    pack.position.set(0, 1.15, -0.22);
-    pack.userData.hitZone = "body";
-    g.add(pack);
-  } else {
-    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), headCover);
-    helmet.position.y = 1.58;
-    helmet.castShadow = true;
-    helmet.userData.hitZone = "head";
-    g.add(helmet);
-    headMesh = helmet;
-    const face = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 10), skin);
-    face.position.set(0, 1.5, 0.06);
-    face.userData.hitZone = "head";
-    g.add(face);
-    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.08), mat(0x223344, { metalness: 0.4 }));
-    visor.position.set(0, 1.56, 0.18);
-    visor.userData.hitZone = "head";
-    g.add(visor);
-  }
+  // 头盔统一造型，颜色跟阵营
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), headCover);
+  helmet.position.y = 1.58;
+  helmet.castShadow = true;
+  helmet.userData.hitZone = "head";
+  g.add(helmet);
+  const face = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 10), skin);
+  face.position.set(0, 1.5, 0.06);
+  face.userData.hitZone = "head";
+  g.add(face);
+  const visor = new THREE.Mesh(
+    new THREE.BoxGeometry(0.2, 0.05, 0.08),
+    mat(isRed ? 0x4a1010 : 0x223344, { metalness: 0.4 })
+  );
+  visor.position.set(0, 1.56, 0.18);
+  visor.userData.hitZone = "head";
+  g.add(visor);
+
+  // 肩章色块，远处也好辨认
+  const pauldron = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.18), vest);
+  pauldron.position.set(0, 1.38, 0);
+  pauldron.userData.hitZone = "body";
+  g.add(pauldron);
 
   const headHit = new THREE.Mesh(
     new THREE.SphereGeometry(0.3, 8, 8),
@@ -131,9 +123,9 @@ function makeCSCharacter(variant = "t") {
   g.scale.setScalar(1.12);
 
   g.userData.body = vestMesh;
-  g.userData.head = headMesh;
+  g.userData.head = helmet;
   g.userData.headHit = headHit;
-  g.userData.variant = variant;
+  g.userData.team = team;
   return g;
 }
 
@@ -141,8 +133,8 @@ export class Enemy {
   constructor(scene, world, position, opts = {}) {
     this.scene = scene;
     this.world = world;
-    const variant = opts.variant || (Math.random() < 0.65 ? "t" : "ct");
-    this.mesh = makeCSCharacter(variant);
+    this.team = opts.team === "red" ? "red" : "blue";
+    this.mesh = makeTeamCharacter(this.team);
     this.mesh.position.copy(position);
     this.mesh.position.y = 0;
     scene.add(this.mesh);
@@ -161,7 +153,6 @@ export class Enemy {
     this.scoreValue = opts.scoreValue ?? 1;
     this.walkPhase = Math.random() * Math.PI * 2;
 
-    // 机动
     this.strafeSign = Math.random() < 0.5 ? 1 : -1;
     this.tacticCd = Math.random() * 0.6;
     this.idealRange = 8 + Math.random() * 8;
@@ -169,10 +160,15 @@ export class Enemy {
     this.lastPos = position.clone();
     this.stuckTimer = 0;
     this.sprintBoost = 1;
+    this.currentTarget = null;
   }
 
   get position() {
     return this.mesh.position;
+  }
+
+  get isAlly() {
+    return this.team === "red";
   }
 
   damageBy(amount, opts = {}) {
@@ -194,7 +190,6 @@ export class Enemy {
       this.state = "down";
       return true;
     }
-    // 受击后立刻变招：换侧移方向并拉开/压上
     this.state = "chase";
     this.strafeSign *= -1;
     this.tacticCd = 0;
@@ -214,32 +209,19 @@ export class Enemy {
     this.patrolTarget.z += (Math.random() - 0.5) * 4;
   }
 
-  /** 重新规划战斗步法：侧移 / 包抄 / 后撤 / 突进 */
-  replanCombat(toPlayer, dist) {
-    const fwd = _tmp2.copy(toPlayer).normalize();
+  replanCombat(toTarget, dist) {
+    const fwd = _tmp2.copy(toTarget).normalize();
     _side.set(-fwd.z, 0, fwd.x).multiplyScalar(this.strafeSign);
 
     if (dist < this.idealRange - 2.5) {
-      // 过近：边撤边横移
-      this.moveDir
-        .copy(_side)
-        .multiplyScalar(0.9)
-        .addScaledVector(fwd, -0.85);
+      this.moveDir.copy(_side).multiplyScalar(0.9).addScaledVector(fwd, -0.85);
       this.sprintBoost = 1.2;
     } else if (dist > this.idealRange + 4) {
-      // 过远：斜插逼近（锯齿包抄）
-      this.moveDir
-        .copy(fwd)
-        .multiplyScalar(1.05)
-        .addScaledVector(_side, 0.75);
+      this.moveDir.copy(fwd).multiplyScalar(1.05).addScaledVector(_side, 0.75);
       this.sprintBoost = 1.25;
     } else {
-      // 理想距离：绕射 / 小幅前压
       const press = (Math.random() - 0.35) * 0.45;
-      this.moveDir
-        .copy(_side)
-        .multiplyScalar(1.15)
-        .addScaledVector(fwd, press);
+      this.moveDir.copy(_side).multiplyScalar(1.15).addScaledVector(fwd, press);
       this.sprintBoost = 1.05;
     }
 
@@ -248,7 +230,32 @@ export class Enemy {
     this.tacticCd = 0.55 + Math.random() * 1.1;
   }
 
-  update(dt, player, onFire) {
+  /** 选最近敌对目标：蓝打玩家/红方，红打蓝方 */
+  pickTarget(player, units) {
+    let best = null;
+    let bestDist = Infinity;
+
+    if (this.team === "blue" && player?.alive !== false) {
+      const d = this.position.distanceTo(player.position);
+      if (d < this.reactRange && d < bestDist) {
+        bestDist = d;
+        best = { kind: "player", ref: player, dist: d };
+      }
+    }
+
+    for (const u of units) {
+      if (!u || u === this || !u.alive || u.gone) continue;
+      if (u.team === this.team) continue;
+      const d = this.position.distanceTo(u.position);
+      if (d < this.reactRange && d < bestDist) {
+        bestDist = d;
+        best = { kind: "unit", ref: u, dist: d };
+      }
+    }
+    return best;
+  }
+
+  update(dt, player, units, onFire) {
     if (!this.alive) {
       this.fade -= dt * 0.7;
       this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, Math.PI / 2, dt * 3);
@@ -263,11 +270,16 @@ export class Enemy {
       return;
     }
 
-    const toPlayer = _tmp.copy(player.position).sub(this.position);
-    toPlayer.y = 0;
-    const dist = toPlayer.length();
+    const target = this.pickTarget(player, units || []);
+    this.currentTarget = target;
 
-    if (dist < this.reactRange) {
+    let toTarget = null;
+    let dist = Infinity;
+    if (target) {
+      const tp = target.kind === "player" ? target.ref.position : target.ref.position;
+      toTarget = _tmp.copy(tp).sub(this.position);
+      toTarget.y = 0;
+      dist = toTarget.length();
       this.state = dist < this.fireRange * 0.4 ? "attack" : "chase";
     } else if (this.state !== "patrol") {
       this.state = "patrol";
@@ -278,43 +290,51 @@ export class Enemy {
     this.sprintBoost = THREE.MathUtils.lerp(this.sprintBoost, 1, dt * 1.8);
     let moving = false;
 
+    // 我方略向玩家靠拢巡逻
     if (this.state === "patrol") {
+      if (this.isAlly && player?.position) {
+        const toP = _tmp2.copy(player.position).sub(this.position);
+        toP.y = 0;
+        if (toP.length() > 22) {
+          this.patrolTarget.copy(player.position);
+          this.patrolTarget.x += (Math.random() - 0.5) * 8;
+          this.patrolTarget.z += (Math.random() - 0.5) * 8;
+        }
+      }
       const to = _tmp2.copy(this.patrolTarget).sub(this.position);
       to.y = 0;
       if (to.length() < 1.4) this.pickPatrol();
       else {
         to.normalize();
-        // 巡逻也带轻微侧摆，避免直线滑行
         _side.set(-to.z, 0, to.x).multiplyScalar(Math.sin(this.walkPhase * 0.35) * 0.35);
         _move.copy(to).add(_side).normalize();
         this.position.addScaledVector(_move, this.speed * 0.7 * dt);
         this.mesh.lookAt(this.position.x + to.x, this.position.y, this.position.z + to.z);
         moving = true;
       }
-    } else {
+    } else if (toTarget) {
       if (dist > 0.01) {
         this.mesh.lookAt(
-          this.position.x + toPlayer.x,
+          this.position.x + toTarget.x,
           this.position.y,
-          this.position.z + toPlayer.z
+          this.position.z + toTarget.z
         );
       }
 
       if (this.tacticCd <= 0 || this.moveDir.lengthSq() < 0.01) {
-        this.replanCombat(toPlayer, dist);
+        this.replanCombat(toTarget, dist);
       }
 
       const step = this.speed * this.sprintBoost * dt;
       this.position.addScaledVector(this.moveDir, step);
       moving = true;
 
-      // 卡死检测：换侧向再突围
       const moved = this.position.distanceTo(this.lastPos);
       if (moved < step * 0.2) {
         this.stuckTimer += dt;
         if (this.stuckTimer > 0.35) {
           this.strafeSign *= -1;
-          this.replanCombat(toPlayer, dist);
+          this.replanCombat(toTarget, dist);
           this.position.x += this.strafeSign * 0.6;
           this.stuckTimer = 0;
         }
@@ -323,14 +343,17 @@ export class Enemy {
       }
       this.lastPos.copy(this.position);
 
-      // 射击：始终出可见弹道，命中另算
       if (dist < this.fireRange && this.fireCd <= 0) {
         const burst = Math.random() < 0.42;
         this.fireCd = burst ? 0.1 + Math.random() * 0.07 : 0.4 + Math.random() * 0.35;
 
         const origin = new THREE.Vector3(this.position.x, 1.48, this.position.z);
-        const aimY = (player.eyeHeight ?? 1.7) + (Math.random() - 0.5) * 0.25;
-        _shotDir.set(player.position.x - origin.x, aimY - origin.y, player.position.z - origin.z);
+        const aimPos =
+          target.kind === "player"
+            ? _aim.set(player.position.x, player.eyeHeight ?? 1.7, player.position.z)
+            : _aim.set(target.ref.position.x, 1.45, target.ref.position.z);
+        aimPos.y += (Math.random() - 0.5) * 0.25;
+        _shotDir.subVectors(aimPos, origin);
         const spread = 0.03 + dist * 0.0018;
         _shotDir.x += (Math.random() - 0.5) * spread;
         _shotDir.y += (Math.random() - 0.5) * spread * 0.7;
@@ -345,6 +368,9 @@ export class Enemy {
           dir: _shotDir.clone(),
           dist,
           traceDist: Math.min(dist + 2, this.fireRange + 4),
+          team: this.team,
+          targetKind: target.kind,
+          targetUnit: target.kind === "unit" ? target.ref : null,
         });
       }
     }
