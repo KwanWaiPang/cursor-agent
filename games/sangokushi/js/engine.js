@@ -575,7 +575,18 @@ function paintAroundCityPartial(state, cityId, factionId, radius) {
   for (const c of state.map.cells) {
     if (!c.land || c.isCity) continue;
     const d = Math.abs(c.x - c0.x) + Math.abs(c.y - c0.y);
-    if (d > 0 && d <= radius) c.owner = factionId;
+    // 围城时优先涂本城势力圈，加快取空城手感
+    if (c.cityId === cityId && d <= radius + 6) c.owner = factionId;
+    else if (d > 0 && d <= radius) c.owner = factionId;
+  }
+  for (const r of regionsOfCity(state, cityId)) {
+    if (r.isCapital) continue;
+    const cell = state.map.cells[r.cell];
+    const d = Math.abs(cell.x - c0.x) + Math.abs(cell.y - c0.y);
+    if (d <= radius + 2) {
+      cell.owner = factionId;
+      cell.hasFort = true;
+    }
   }
   markPaintDirty(state);
 }

@@ -30,6 +30,7 @@ const els = {
   goalChip: document.getElementById("goalChip"),
   factionChip: document.getElementById("factionChip"),
   btnFocus: document.getElementById("btnFocus"),
+  btnElite: document.getElementById("btnElite"),
   factionLegend: document.getElementById("factionLegend"),
   goldChip: document.getElementById("goldChip"),
   foodChip: document.getElementById("foodChip"),
@@ -174,6 +175,11 @@ function renderOfficers() {
     if (!cityId || !o.cityId || o.cityId === cityId || o.status === "army") here.push(o);
     else elsewhere.push(o);
   }
+  const rank = (o) => {
+    const t = officerById(o.id);
+    return (t?.lead || 0) * 2 + (t?.force || 0) + (t?.int || 0) * 0.5;
+  };
+  here.sort((a, b) => rank(b) - rank(a));
   const list = cityId ? [...here, ...elsewhere.slice(0, 8)] : f.officers.filter(Boolean).slice(0, 24);
   for (const o of list) {
     const tpl = officerById(o.id);
@@ -418,6 +424,31 @@ els.btnRecall.addEventListener("click", () => {
 els.btnFocus?.addEventListener("click", () => {
   if (!state) return;
   renderer.focusFaction(state, state.playerId);
+  refresh();
+});
+
+els.btnElite?.addEventListener("click", () => {
+  if (!state) return;
+  if (!state.selectedCityId) {
+    pushLog(state, "请先点选己方都市。");
+    refresh();
+    return;
+  }
+  const f = playerFaction(state);
+  const cityId = state.selectedCityId;
+  if (!f.cities.includes(cityId)) {
+    pushLog(state, "只能在己城编成精锐。");
+    refresh();
+    return;
+  }
+  const ranked = f.officers
+    .filter((o) => o && o.status === "idle" && (!o.cityId || o.cityId === cityId))
+    .map((o) => ({ o, t: officerById(o.id) }))
+    .sort((a, b) => b.t.lead * 2 + b.t.force - (a.t.lead * 2 + a.t.force))
+    .slice(0, 3);
+  selectedOfficers = new Set(ranked.map((x) => x.o.id));
+  if (ranked[0]) focusOfficer = ranked[0].o.id;
+  pushLog(state, `已点选精锐 ${ranked.map((x) => x.t.name).join("、") || "（无待命）"}`);
   refresh();
 });
 
