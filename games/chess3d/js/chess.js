@@ -491,22 +491,45 @@ var levels = [
 		return null;
 	}
 
+	function isUiEventTarget(target) {
+		// 菜单/弹窗/顶栏上的点击不要当成棋盘拾取
+		if (!target || !target.closest) return false;
+		return !!(
+			target.closest("#gui") ||
+			target.closest(".ui-dialog") ||
+			target.closest(".ui-widget-overlay") ||
+			target.closest(".chess3d-bar")
+		);
+	}
+
+	function cellFromPicked(pickedCell) {
+		if (!pickedCell || typeof pickedCell.name !== "string") return null;
+		if (!/^[a-h][1-8]$/.test(pickedCell.name)) return null;
+		try {
+			return new Cell(pickedCell.name);
+		} catch (e) {
+			return null;
+		}
+	}
+
 	function getRay(event) {
-		// get the raycaster object from the mouse position
-		var zoomLevel = window.devicePixelRatio | 1.0 ;
+		// 用 CSS 尺寸归一化到 NDC，兼容 devicePixelRatio / Retina
+		// （旧实现用 devicePixelRatio|1 会在 dpr=2 时变成 3，导致点不中棋子）
 		var canvas = renderer.domElement;
-		var canvasPosition = canvas.getBoundingClientRect();
-		var mouseX = event.clientX*zoomLevel - canvasPosition.left;
-		var mouseY = event.clientY*zoomLevel - canvasPosition.top;
-
+		var rect = canvas.getBoundingClientRect();
+		var width = rect.width || 1;
+		var height = rect.height || 1;
 		var mouseVector = new THREE.Vector3(
-			2 * ( mouseX / canvas.width ) - 1,
-			1 - 2 * ( mouseY / canvas.height ));
+			((event.clientX - rect.left) / width) * 2 - 1,
+			-((event.clientY - rect.top) / height) * 2 + 1,
+			0.5
+		);
 
-		return projector.pickingRay( mouseVector.clone(), camera );
+		return projector.pickingRay(mouseVector.clone(), camera);
 	}
 
 	function onDocumentMouseMove( event ) {
+		if (isUiEventTarget(event.target)) return;
 
 		var canvas = renderer.domElement;
 		var raycaster   = getRay(event);
@@ -523,12 +546,14 @@ var levels = [
 		// if a cell is selected, we unselect it by default
 		if (selectedCell !== null) {
 			selectedCell.material = selectedCell.baseMaterial;
+			selectedCell = null;
 		}
 
 		// if a piece is selected and a cell is picked
 		if(selectedPiece !== null && pickedCell !== null) {
 			var start = new Cell(selectedPiece.cell);
-			var end   = new Cell(pickedCell.name);
+			var end   = cellFromPicked(pickedCell);
+			if (!end || !validMoves) return;
 
 			var move = null;
 			// we check if it would be a valid move
@@ -543,7 +568,7 @@ var levels = [
 
 			// then if a piece was clicked and we are on a valide cell
 			// we highlight it and display a hand cursor
-			if (pickedCell !== null && move !==null) {
+			if (move !== null) {
 				selectedCell = pickedCell;
 				selectedCell.baseMaterial = selectedCell.material;
 				selectedCell.material = validCellMaterial[selectedCell.color];
@@ -554,14 +579,16 @@ var levels = [
 	}
 
 	function onDocumentMouseDown( event ) {
+		if (isUiEventTarget(event.target)) return;
 
 		var canvas = renderer.domElement;
 		var raycaster = getRay(event);
 
 		var pickedPiece = pickPiece(raycaster);
 		var pickedCell  = pickCell(raycaster);
+		var endCell = cellFromPicked(pickedCell);
 
-		if (selectedPiece !== null && pickedCell !== null) {
+		if (selectedPiece !== null && endCell !== null) {
 			if(playMove(selectedPiece,pickedCell)) {
 				// a move is played, we reset everything
 				// any selectedPiece will disappear
