@@ -12,11 +12,11 @@
 
 ```
 index.html              # 游戏大厅入口
-css/shared.css          # 统一视觉变量
-css/hub.css             # 大厅样式
-games/go/               # 围棋（含本地 AI）
-games/xiangqi/          # 中国象棋（适配开源实现）
-games/chess3d/          # 3D 国际象棋（适配 Chess3D）
+css/                    # 统一视觉 / 大厅 / 游戏壳层
+assets/audio/           # 共用落子音效
+games/go/               # 围棋（见该目录 README）
+games/xiangqi/          # 中国象棋（见该目录 README）
+games/chess3d/          # 3D 国际象棋（见该目录 README）
 THIRD_PARTY_NOTICES.md  # 第三方许可说明
 ```
 

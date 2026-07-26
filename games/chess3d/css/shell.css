@@ -11,6 +11,7 @@ body.chess3d-body {
     radial-gradient(ellipse 80% 60% at 20% 10%, rgba(255, 220, 160, 0.35), transparent 55%),
     radial-gradient(ellipse 70% 50% at 90% 80%, rgba(15, 92, 76, 0.2), transparent 50%),
     linear-gradient(160deg, #2a1c12 0%, #4a321f 38%, #6b4528 72%, #3a2618 100%);
+  font-family: var(--font-body);
 }
 
 body.chess3d-body canvas {
@@ -27,9 +28,9 @@ body.chess3d-body canvas {
   align-items: end;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.9rem 1.1rem;
+  padding: 0.9rem 1.25rem;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(28, 20, 16, 0.55), transparent);
+  background: linear-gradient(180deg, rgba(28, 20, 16, 0.62), transparent);
 }
 
 .chess3d-bar .brand,
@@ -40,7 +41,7 @@ body.chess3d-body canvas {
 .chess3d-bar .brand h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
   font-weight: 400;
   letter-spacing: 0.12em;
   color: var(--cream);
@@ -55,47 +56,128 @@ body.chess3d-body canvas {
 .chess3d-bar .brand p {
   margin: 0.2rem 0 0;
   color: rgba(248, 236, 214, 0.8);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   letter-spacing: 0.05em;
 }
 
-/* 统一侧边菜单观感 */
+/* 侧边菜单加宽，并与弈馆面板风格统一 */
 #gui {
-  top: 5.5rem !important;
-  left: 0.75rem !important;
-  width: 180px !important;
-  background: rgba(255, 248, 235, 0.92) !important;
-  border: 1px solid rgba(255, 245, 220, 0.55);
-  border-radius: 16px;
-  box-shadow: 0 12px 28px rgba(20, 12, 8, 0.28);
-  color: #1c1410;
-  font-family: "Noto Serif SC", serif;
+  top: 5.6rem !important;
+  left: 1rem !important;
+  width: 300px !important;
+  max-width: calc(100vw - 2rem);
+  background: rgba(255, 248, 235, 0.94) !important;
+  border: 1px solid rgba(255, 245, 220, 0.55) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 14px 32px rgba(20, 12, 8, 0.3);
+  color: #1c1410 !important;
+  font-family: var(--font-body), "Noto Serif SC", serif !important;
   overflow: hidden;
+  padding-bottom: 0.35rem;
 }
 
 #gui .ui-accordion-header,
-#gui p {
-  background: rgba(15, 92, 76, 0.12) !important;
+#gui > p {
+  background: rgba(15, 92, 76, 0.14) !important;
   color: #1c1410 !important;
   border: none !important;
-  font-family: "ZCOOL XiaoWei", "Noto Serif SC", serif;
-  letter-spacing: 0.08em;
+  font-family: var(--font-display), "ZCOOL XiaoWei", serif !important;
+  letter-spacing: 0.1em;
+  margin: 0 !important;
+  padding: 0.7rem 0.9rem !important;
 }
 
 #gui .ui-accordion-content {
   background: transparent !important;
+  color: #3d2f26 !important;
+  padding: 0.75rem 0.85rem !important;
+  border: none !important;
+  width: auto !important;
+  overflow: visible !important;
+}
+
+#gui ul {
+  padding: 0;
+  margin: 0 0 0.55rem;
+  list-style: none;
+}
+
+#gui li {
+  margin: 0 0 0.4rem;
+}
+
+#gui label {
+  display: block;
+  margin: 0.35rem 0 0.55rem;
   color: #3d2f26;
+  font-size: 0.92rem;
+}
+
+#gui select,
+#gui textarea {
+  width: 100% !important;
+  max-width: 100%;
+  box-sizing: border-box !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  border: 1px solid rgba(61, 47, 38, 0.25) !important;
+  color: #1c1410 !important;
+  border-radius: 10px !important;
+  font-family: var(--font-body), serif !important;
+  padding: 0.4rem 0.5rem;
 }
 
 #gui textarea {
-  background: rgba(255, 255, 255, 0.45) !important;
-  border: 1px solid rgba(61, 47, 38, 0.25) !important;
-  color: #1c1410 !important;
-  border-radius: 8px;
+  min-height: 10rem;
+  resize: vertical;
 }
 
 #gui button,
 #gui .ui-button {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  background: #0f5c4c !important;
+  color: #f7fff9 !important;
+  border: none !important;
+  border-radius: 12px !important;
+  font-family: var(--font-body), serif !important;
+  letter-spacing: 0.04em;
+}
+
+#gui .ui-button:hover {
+  background: #1a7a66 !important;
+}
+
+/* 新对局弹窗与弈馆风格对齐 */
+.ui-dialog {
+  background: rgba(255, 248, 235, 0.97) !important;
+  border: 1px solid rgba(255, 245, 220, 0.7) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 18px 40px rgba(20, 12, 8, 0.35) !important;
+  font-family: var(--font-body), "Noto Serif SC", serif !important;
+  color: #1c1410 !important;
+  padding: 0 !important;
+}
+
+.ui-dialog .ui-dialog-titlebar {
+  background: rgba(15, 92, 76, 0.14) !important;
+  border: none !important;
+  border-radius: 16px 16px 0 0 !important;
+  color: #1c1410 !important;
+  font-family: var(--font-display), "ZCOOL XiaoWei", serif !important;
+  letter-spacing: 0.08em;
+}
+
+.ui-dialog .ui-dialog-content {
+  background: transparent !important;
+  color: #3d2f26 !important;
+}
+
+.ui-dialog .ui-dialog-buttonpane {
+  background: transparent !important;
+  border-top: 1px solid rgba(61, 47, 38, 0.12) !important;
+}
+
+.ui-dialog .ui-button {
   background: #0f5c4c !important;
   color: #f7fff9 !important;
   border: none !important;
@@ -103,10 +185,12 @@ body.chess3d-body canvas {
 }
 
 #info {
-  top: 5.2rem !important;
-  right: 1rem !important;
+  top: 5.4rem !important;
+  right: 1.2rem !important;
   color: #f3c27a !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  font-family: var(--font-display), serif !important;
+  letter-spacing: 0.08em;
 }
 
 #progressbar {
@@ -116,7 +200,7 @@ body.chess3d-body canvas {
 #progress-label,
 #tips {
   color: #f8ecd6 !important;
-  font-family: "Noto Serif SC", serif;
+  font-family: var(--font-body), "Noto Serif SC", serif;
 }
 
 .webgl-fallback {
@@ -130,15 +214,21 @@ body.chess3d-body canvas {
   text-align: center;
   color: #f8ecd6;
   background: rgba(28, 20, 16, 0.82);
-  font-family: "Noto Serif SC", serif;
+  font-family: var(--font-body), "Noto Serif SC", serif;
 }
 
 .webgl-fallback h2 {
   margin: 0;
-  font-family: "ZCOOL XiaoWei", "Noto Serif SC", serif;
+  font-family: var(--font-display), "ZCOOL XiaoWei", serif;
   letter-spacing: 0.12em;
 }
 
 .webgl-fallback a {
   color: #7dcfb6;
+}
+
+@media (max-width: 720px) {
+  #gui {
+    width: min(300px, calc(100vw - 1.5rem)) !important;
+  }
 }

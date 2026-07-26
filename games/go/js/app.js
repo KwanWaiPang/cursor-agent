@@ -37,6 +37,18 @@ let aiThinking = false;
 let aiToken = 0;
 let lastTouchAt = 0;
 
+function playSound(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  try {
+    el.currentTime = 0;
+    const p = el.play();
+    if (p && typeof p.catch === "function") p.catch(() => {});
+  } catch (_) {
+    /* autoplay may be blocked until user gesture */
+  }
+}
+
 function isAiMode() {
   return els.modeSelect.value === "ai";
 }
@@ -323,6 +335,7 @@ async function maybeAiMove() {
       refresh("AI 着法无效，请悔棋或新开一局");
       return;
     }
+    playSound("clickAudio");
     const cap = res.captured?.length || 0;
     refresh(cap ? `AI 落子，提子 ${cap}` : "AI 已落子", true);
   } catch (err) {
@@ -363,6 +376,7 @@ function onBoardClick(evt) {
     draw();
     return;
   }
+  playSound("clickAudio");
   const cap = res.captured?.length || 0;
   refresh(cap ? `提子 ${cap}` : "", true);
   maybeAiMove();
