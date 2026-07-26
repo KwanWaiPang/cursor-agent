@@ -163,12 +163,14 @@ function countAttributed(map, cityId, factionId, factionCityIds) {
   return n;
 }
 
-function paintCityVoronoi(map, cityId, factionId, maxRadius = null) {
+function paintCityVoronoi(map, cityId, factionId, maxRadius = null, opts = {}) {
   const idx = map.cityCells[cityId];
   if (idx == null) return;
   const c0 = map.cells[idx];
+  const respectOthers = opts.respectOthers !== false;
   for (const c of map.cells) {
     if (!c.land || c.cityId !== cityId) continue;
+    if (respectOthers && c.owner && c.owner !== factionId) continue;
     if (maxRadius != null) {
       const d = Math.abs(c.x - c0.x) + Math.abs(c.y - c0.y);
       if (d > maxRadius) continue;
@@ -610,9 +612,10 @@ function captureCity(state, cityId, winnerId, loserId) {
     }
   }
   if (!winner.cities.includes(cityId)) winner.cities.push(cityId);
-  // 先清掉该城旧归属格，再整块重涂（含连片扩散）
+  // 只清守军/无主格，不动第三方已涂色块
   for (const c of state.map.cells) {
-    if (c.land && c.cityId === cityId) c.owner = null;
+    if (!c.land || c.cityId !== cityId) continue;
+    if (!c.owner || c.owner === loserId) c.owner = null;
   }
   claimCityTerritory(state.map, cityId, winnerId, state);
   for (const r of regionsOfCity(state, cityId)) {
