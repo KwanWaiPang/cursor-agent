@@ -147,23 +147,29 @@ export function createAK47ViewModel() {
       flash.material.opacity = 0.9;
       flash.scale.setScalar(1.2 + Math.random() * 0.6);
     },
-    update(dt, moving, reloading) {
+    update(dt, moving, reloading, opts = {}) {
       state.recoil = Math.max(0, state.recoil - dt * 8);
       if (state.flashTimer > 0) {
         state.flashTimer -= dt;
         if (state.flashTimer <= 0) flash.material.opacity = 0;
       }
-      if (moving) state.bob += dt * 10;
+      if (moving) state.bob += dt * (opts.crouching ? 7 : 10);
       else state.bob += dt * 2;
 
-      const bobY = Math.sin(state.bob) * (moving ? 0.012 : 0.004);
-      const bobX = Math.cos(state.bob * 0.5) * (moving ? 0.008 : 0.002);
-      const kickZ = state.recoil * 0.05;
-      const kickX = state.recoil * 0.08;
+      const aiming = !!opts.aiming;
+      const bobMul = aiming ? 0.25 : 1;
+      const bobY = Math.sin(state.bob) * (moving ? 0.012 : 0.004) * bobMul;
+      const bobX = Math.cos(state.bob * 0.5) * (moving ? 0.008 : 0.002) * bobMul;
+      const kickZ = state.recoil * (aiming ? 0.03 : 0.05);
+      const kickX = state.recoil * (aiming ? 0.04 : 0.08);
       const reloadDrop = reloading ? 0.15 : 0;
+      // 开镜：枪械靠中、略前伸
+      const baseX = aiming ? 0.02 : 0.22;
+      const baseY = aiming ? -0.18 : -0.28;
+      const baseZ = aiming ? -0.42 : -0.55;
 
-      gun.position.set(0.22 + bobX, -0.28 + bobY - reloadDrop, -0.55 + kickZ);
-      gun.rotation.set(0.04 + kickX, 0.12, 0.04 + state.recoil * 0.03);
+      gun.position.set(baseX + bobX, baseY + bobY - reloadDrop, baseZ + kickZ);
+      gun.rotation.set(0.04 + kickX, aiming ? 0.02 : 0.12, 0.04 + state.recoil * 0.03);
     },
   };
 }
@@ -213,16 +219,20 @@ export function createPistolViewModel() {
       state.flashTimer = 0.04;
       flash.material.opacity = 0.85;
     },
-    update(dt, moving, reloading) {
+    update(dt, moving, reloading, opts = {}) {
       state.recoil = Math.max(0, state.recoil - dt * 10);
       if (state.flashTimer > 0) {
         state.flashTimer -= dt;
         if (state.flashTimer <= 0) flash.material.opacity = 0;
       }
       if (moving) state.bob += dt * 10;
-      const bobY = Math.sin(state.bob) * (moving ? 0.01 : 0.003);
-      gun.position.set(0.2, -0.22 + bobY - (reloading ? 0.12 : 0), -0.4 + state.recoil * 0.04);
-      gun.rotation.set(state.recoil * 0.1, 0.05, 0);
+      const aiming = !!opts.aiming;
+      const bobY = Math.sin(state.bob) * (moving ? 0.01 : 0.003) * (aiming ? 0.3 : 1);
+      const x = aiming ? 0.02 : 0.2;
+      const y = aiming ? -0.14 : -0.22;
+      const z = aiming ? -0.32 : -0.4;
+      gun.position.set(x, y + bobY - (reloading ? 0.12 : 0), z + state.recoil * 0.04);
+      gun.rotation.set(state.recoil * 0.1, aiming ? 0.01 : 0.05, 0);
     },
   };
 }

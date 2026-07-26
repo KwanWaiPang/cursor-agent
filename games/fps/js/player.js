@@ -15,8 +15,13 @@ export class Player {
       right: false,
       sprint: false,
       jump: false,
+      crouch: false,
+      reload: false,
     };
-    this.eyeHeight = 1.7;
+    this.standHeight = 1.7;
+    this.crouchHeight = 1.05;
+    this.eyeHeight = this.standHeight;
+    this._eyeCurrent = this.standHeight;
     this.onGround = true;
     this.hp = 100;
     this.maxHp = 100;
@@ -56,9 +61,26 @@ export class Player {
       case "Space":
         if (down) this.keys.jump = true;
         break;
+      case "KeyQ":
+        this.keys.crouch = down;
+        break;
+      case "KeyR":
+        // 边沿触发换弹
+        if (down && !this.keys.reload) this.keys.reload = true;
+        break;
       default:
         break;
     }
+  }
+
+  consumeReloadRequest() {
+    if (!this.keys.reload) return false;
+    this.keys.reload = false;
+    return true;
+  }
+
+  get crouching() {
+    return !!this.keys.crouch;
   }
 
   lock() {
@@ -104,7 +126,16 @@ export class Player {
 
     this.applyRegen(dt);
 
-    const speed = (this.keys.sprint ? 11 : 6.5) * dt;
+    const wantEye = this.keys.crouch ? this.crouchHeight : this.standHeight;
+    this._eyeCurrent = THREE.MathUtils.lerp(this._eyeCurrent, wantEye, 1 - Math.pow(0.001, dt));
+    this.eyeHeight = this._eyeCurrent;
+
+    // 蹲下可走，略慢；蹲下时不能冲刺
+    const sprinting = this.keys.sprint && !this.keys.crouch;
+    let base = sprinting ? 11 : 6.5;
+    if (this.keys.crouch) base *= 0.55;
+    const speed = base * dt;
+
     this.direction.set(0, 0, 0);
     if (this.keys.forward) this.direction.z -= 1;
     if (this.keys.back) this.direction.z += 1;
@@ -112,7 +143,6 @@ export class Player {
     if (this.keys.right) this.direction.x += 1;
     if (this.direction.lengthSq() > 0) this.direction.normalize();
 
-    // 相对视角移动
     const forward = new THREE.Vector3();
     this.controls.getDirection(forward);
     forward.y = 0;
@@ -123,10 +153,12 @@ export class Player {
     move.addScaledVector(forward, -this.direction.z * speed);
     move.addScaledVector(right, this.direction.x * speed);
 
-    // 跳跃与重力
+    // 蹲下时可走不可跳
     if (this.onGround && this.keys.jump) {
-      this.velocity.y = 7.5;
-      this.onGround = false;
+      if (!this.keys.crouch) {
+        this.velocity.y = 7.5;
+        this.onGround = false;
+      }
       this.keys.jump = false;
     }
     this.velocity.y -= 22 * dt;
@@ -140,6 +172,9 @@ export class Player {
       pos.y = this.eyeHeight;
       this.velocity.y = 0;
       this.onGround = true;
+    } else if (this.onGround) {
+      // 视线高度变化时贴地
+      pos.y = this.eyeHeight;
     }
 
     this.world.resolvePosition(pos, this.radius);

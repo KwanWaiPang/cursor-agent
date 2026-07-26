@@ -26,11 +26,14 @@ export class Game {
     this.enemies = [];
     this.loot = [];
     this.shooting = false;
+    this.aiming = false;
+    this.baseFov = 75;
+    this.adsFov = 38;
     this._disposed = false;
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(
-      75,
+      this.baseFov,
       window.innerWidth / window.innerHeight,
       0.08,
       420
@@ -91,14 +94,15 @@ export class Game {
     this._onResize = () => this.onResize();
     this._onMouseDown = (e) => {
       if (e.button === 0) this.shooting = true;
-      // 右键换弹
+      // 右键开镜瞄准
       if (e.button === 2) {
         e.preventDefault();
-        tryReload(this.loadout, performance.now(), this.sfx);
+        this.aiming = true;
       }
     };
     this._onMouseUp = (e) => {
       if (e.button === 0) this.shooting = false;
+      if (e.button === 2) this.aiming = false;
     };
     this._onContextMenu = (e) => {
       // 锁定指针时屏蔽浏览器右键菜单
@@ -129,6 +133,8 @@ export class Game {
   }
 
   onUnlock() {
+    this.aiming = false;
+    this.shooting = false;
     if (!this.running || this._ended) return;
     this.paused = true;
     document.getElementById("pause")?.classList.remove("hidden");
@@ -160,6 +166,8 @@ export class Game {
       return;
     }
     consumeShot(this.loadout, now);
+    // 打空自动换弹（3 秒）
+    if (this.loadout.mag <= 0) tryReload(this.loadout, now, this.sfx);
     this.sfx.shoot(this.loadout.def.heavy);
     this.activeView?.kick();
     this.hud.flashFire();
@@ -167,8 +175,9 @@ export class Game {
     const origin = this.camera.getWorldPosition(new THREE.Vector3());
     const dir = new THREE.Vector3();
     this.camera.getWorldDirection(dir);
-    // 散布
-    const spread = this.loadout.def.spread;
+    // 开镜大幅收紧散布
+    const adsMul = this.aiming ? 0.28 : 1;
+    const spread = this.loadout.def.spread * adsMul;
     dir.x += (Math.random() - 0.5) * spread;
     dir.y += (Math.random() - 0.5) * spread;
     dir.z += (Math.random() - 0.5) * spread;
@@ -269,7 +278,16 @@ export class Game {
 
     if (this.running && !this.paused && !this._ended) {
       updateReload(this.loadout, now);
+      if (this.player.consumeReloadRequest()) {
+        tryReload(this.loadout, now, this.sfx);
+      }
       this.player.update(dt);
+
+      // 开镜 FOV
+      const wantFov = this.aiming && !this.loadout.reloading ? this.adsFov : this.baseFov;
+      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, wantFov, 1 - Math.pow(0.0008, dt));
+      this.camera.updateProjectionMatrix();
+
       if (this.shooting) this.shoot(now);
 
       const moving =
@@ -278,7 +296,10 @@ export class Game {
         this.player.keys.left ||
         this.player.keys.right;
       this.syncViewModel();
-      this.activeView?.update(dt, moving, this.loadout.reloading);
+      this.activeView?.update(dt, moving, this.loadout.reloading, {
+        aiming: this.aiming && !this.loadout.reloading,
+        crouching: this.player.crouching,
+      });
 
       for (const e of this.enemies) {
         e.update(dt, this.player, this.enemies, (shot) => {
