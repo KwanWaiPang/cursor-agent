@@ -24,7 +24,7 @@ export function inRange(attacker, tx, ty) {
 /** BFS 可移动格 */
 export function computeMoveRange(unit, tiles, units, width, height) {
   const cls = CLASSES[unit.classId];
-  const maxMove = cls.move;
+  const maxMove = cls.move + (unit.moveBonus || 0);
   const occupied = new Set(
     units.filter((u) => u.alive && u.id !== unit.id).map((u) => `${u.x},${u.y}`)
   );

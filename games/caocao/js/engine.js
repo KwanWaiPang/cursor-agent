@@ -11,16 +11,38 @@ import { enemyTurn } from "./ai.js";
 
 let uid = 1;
 
-function spawnUnit(def, team) {
+function applyGear(stats, gearList) {
+  if (!gearList?.length) return stats;
+  const s = { ...stats };
+  for (const g of gearList) {
+    if (g.atk) s.atk += g.atk;
+    if (g.def) s.def += g.def;
+    if (g.skl) s.skl += g.skl;
+    if (g.spd) s.spd += g.spd;
+    if (g.hp) {
+      s.hp += g.hp;
+      s.hpMax += g.hp;
+    }
+  }
+  return s;
+}
+
+function spawnUnit(def, team, gearBonus) {
   const tpl = GENERALS[def.generalId];
   if (!tpl) throw new Error("unknown general " + def.generalId);
   const level = def.level || 1;
-  const st = statsAtLevel(tpl, level);
+  let st = statsAtLevel(tpl, level);
+  if (team === "player" && gearBonus?.length) {
+    st = applyGear(st, gearBonus);
+  }
+  const moveBonus = (gearBonus || [])
+    .filter((g) => g.move)
+    .reduce((a, g) => a + g.move, 0);
   return {
     id: uid++,
     generalId: tpl.id,
     name: def.nameOverride || tpl.name,
-    classId: tpl.classId,
+    classId: def.classOverride || tpl.classId,
     team,
     x: def.x,
     y: def.y,
@@ -31,20 +53,23 @@ function spawnUnit(def, team) {
     def: st.def,
     skl: st.skl,
     spd: st.spd,
+    moveBonus,
     portrait: tpl.portrait,
     lord: !!tpl.lord && team === "player",
     boss: !!def.boss,
     alive: true,
     done: false,
+    exp: 0,
   };
 }
 
-export function createBattleState(stage) {
+export function createBattleState(stage, options = {}) {
   uid = 1;
   const tiles = parseStageMap(stage);
+  const gear = options.gear || [];
   const units = [
-    ...stage.player.map((u) => spawnUnit(u, "player")),
-    ...stage.enemy.map((u) => spawnUnit(u, "enemy")),
+    ...stage.player.map((u) => spawnUnit(u, "player", gear)),
+    ...stage.enemy.map((u) => spawnUnit(u, "enemy", null)),
   ];
   return {
     stage,
@@ -53,14 +78,15 @@ export function createBattleState(stage) {
     height: stage.height,
     units,
     turn: 1,
-    phase: "player", // player | enemy | talk | result
+    phase: "player",
     selectedId: null,
-    mode: "select", // select | move | action | attack
+    mode: "select",
     moveCells: [],
     attackTargets: [],
     origin: null,
     log: [],
     result: null,
+    lootGained: [],
   };
 }
 
@@ -108,6 +134,7 @@ export function tryMove(state, x, y) {
   state.mode = "action";
   state.moveCells = [];
   state.attackTargets = computeAttackTargets(unit, state.units);
+  checkEscapeWin(state);
   return true;
 }
 
@@ -124,7 +151,8 @@ export function waitUnit(state) {
   if (!unit) return;
   unit.done = true;
   clearSelection(state);
-  maybeEndPlayerTurn(state);
+  checkEscapeWin(state);
+  if (!state.result) maybeEndPlayerTurn(state);
 }
 
 export function beginAttack(state) {
@@ -151,7 +179,6 @@ export function confirmAttack(state, target) {
   };
   if (target.hp <= 0) {
     target.alive = false;
-    // 经验：简化，击败给经验升级
     gainExp(unit, 40 + target.level * 5);
   } else {
     gainExp(unit, 12 + target.level);
@@ -181,7 +208,9 @@ function gainExp(unit, amount) {
 }
 
 export function maybeEndPlayerTurn(state) {
-  const pending = state.units.some((u) => u.alive && u.team === "player" && !u.done);
+  const pending = state.units.some(
+    (u) => u.alive && u.team === "player" && !u.done
+  );
   if (pending) return;
   runEnemyPhase(state);
 }
@@ -197,16 +226,57 @@ export function endPlayerTurnManual(state) {
 function runEnemyPhase(state) {
   state.phase = "enemy";
   state.log.push({ turn: state.turn, text: "敌军行动" });
-  const events = [];
-  enemyTurn(state, (e) => events.push(e));
+  enemyTurn(state, () => {});
   checkResult(state);
   if (!state.result) {
     for (const u of state.units) u.done = false;
     state.turn += 1;
     state.phase = "player";
     state.log.push({ turn: state.turn, text: `第 ${state.turn} 回合` });
+    checkTurnWins(state);
   }
-  return events;
+}
+
+function checkEscapeWin(state) {
+  const winRule = state.stage.win || {};
+  if (winRule.type !== "escape") return;
+  const name = winRule.unit || "曹操";
+  const unit = state.units.find((u) => u.alive && u.name === name);
+  if (!unit) return;
+  const row =
+    winRule.row != null
+      ? winRule.row
+      : state.height - 1 - (winRule.rowFromBottom || 0);
+  if (unit.y >= row) {
+    state.result = { win: true, text: `${name}已突围成功！` };
+    state.phase = "result";
+    grantLoot(state);
+  }
+}
+
+function checkTurnWins(state) {
+  const winRule = state.stage.win || { type: "rout" };
+  if (winRule.type === "rout_or_turns" && state.turn > (winRule.turns || 20)) {
+    state.result = { win: true, text: "敌军气势已衰，我军胜利！" };
+    state.phase = "result";
+    grantLoot(state);
+    return;
+  }
+  if (winRule.type === "survive" && state.turn > (winRule.turns || 14)) {
+    state.result = { win: true, text: "苦战坚持到底，成功突围！" };
+    state.phase = "result";
+    grantLoot(state);
+  }
+}
+
+function grantLoot(state) {
+  if (state.lootGained?.length) return;
+  const loot = state.stage.loot || [];
+  state.lootGained = [...loot];
+  if (loot.length) {
+    const names = loot.map((l) => l.name).join("、");
+    state.result.text += ` 获得：${names}`;
+  }
 }
 
 export function checkResult(state) {
@@ -216,23 +286,58 @@ export function checkResult(state) {
     state.phase = "result";
     return;
   }
+
   const enemies = state.units.filter((u) => u.alive && u.team === "enemy");
   const winRule = state.stage.win || { type: "rout" };
-  if (winRule.type === "boss" || winRule.type === "rout_or_boss") {
-    const boss = state.units.find(
-      (u) => u.boss || u.generalId === winRule.bossId
-    );
-    if (boss && !boss.alive) {
-      state.result = { win: true, text: "敌方主将已破，我军大胜！" };
-      state.phase = "result";
-      return;
-    }
+
+  if (winRule.type === "escape") {
+    checkEscapeWin(state);
+    return;
   }
-  if (winRule.type === "rout" || winRule.type === "rout_or_boss") {
+
+  if (winRule.type === "survive") {
+    // 回合胜利在敌方阶段后判定；此处仅检查全灭加成
     if (!enemies.length) {
-      state.result = { win: true, text: "敌军全灭，胜利！" };
+      state.result = { win: true, text: "敌军全灭，大获全胜！" };
       state.phase = "result";
+      grantLoot(state);
     }
+    return;
+  }
+
+  const bossDead = (() => {
+    const byFlag = state.units.find((u) => u.boss);
+    if (byFlag && !byFlag.alive) return true;
+    if (winRule.bossName) {
+      const b = state.units.find((u) => u.name === winRule.bossName);
+      if (b && !b.alive) return true;
+    }
+    if (winRule.bossId) {
+      const b = state.units.find((u) => u.generalId === winRule.bossId);
+      if (b && !b.alive) return true;
+    }
+    return false;
+  })();
+
+  if (
+    (winRule.type === "boss" || winRule.type === "boss_or_rout") &&
+    bossDead
+  ) {
+    state.result = { win: true, text: "敌方主将已破，我军大胜！" };
+    state.phase = "result";
+    grantLoot(state);
+    return;
+  }
+
+  if (
+    (winRule.type === "rout" ||
+      winRule.type === "boss_or_rout" ||
+      winRule.type === "rout_or_turns") &&
+    !enemies.length
+  ) {
+    state.result = { win: true, text: "敌军全灭，胜利！" };
+    state.phase = "result";
+    grantLoot(state);
   }
 }
 

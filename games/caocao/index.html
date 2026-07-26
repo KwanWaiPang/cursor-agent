@@ -6,7 +6,7 @@
     <title>曹操传 · 战棋演义 · 游戏馆</title>
     <meta
       name="description"
-      content="网页版三国战棋：致敬《三国志 曹操传》，分阶段完整复刻。P1 战棋内核与开局关卡已可玩。"
+      content="网页版单机三国战棋：致敬光荣《三国志 曹操传》，原作全关卡/全剧本移植（自研素材），忠奸分歧。"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -22,17 +22,21 @@
       <header class="topbar">
         <div class="brand">
           <h1>曹操传 · 战棋演义</h1>
-          <p>游戏馆 · 分阶段完整复刻 · 当前 P1 战棋内核</p>
+          <p>游戏馆 · 单机全剧本 · 致敬光荣战棋</p>
         </div>
-        <a class="btn secondary" href="../../">返回游戏馆</a>
+        <div class="top-actions">
+          <button class="btn secondary" id="btnResetSave" type="button">重置进度</button>
+          <a class="btn secondary" href="../../">返回游戏馆</a>
+        </div>
       </header>
 
       <section class="panel">
         <h2>战役选择</h2>
         <p class="roadmap-note">
-          目标是系统级完整复刻《三国志 曹操传》体验。本阶段交付：格子战棋、地形、兵种克制、升级、敌军
-          AI、两关可通。后续将按 <code>ROADMAP.md</code> 补齐养成、战役地图与全主线。
+          目标：原作约 55 关全剧本移植（颍川→马超→忠臣/奸臣终章），单机无联机。第一章关名与推进已对齐原作；二、三章与分歧线已全部可通（模板地图持续精修对白/宝物/单挑）。详见
+          <code>ROADMAP.md</code>。
         </p>
+        <div id="campaignMeta" class="meta campaign-meta"></div>
         <div id="stageList" class="stage-list"></div>
       </section>
     </div>
@@ -73,6 +77,7 @@
       <div class="dialog-card">
         <div class="speaker" id="dialogSpeaker">—</div>
         <p id="dialogText">—</p>
+        <div id="dialogChoices" class="dialog-choices hidden"></div>
         <button class="btn" id="dialogNext" type="button">下一句</button>
       </div>
     </div>

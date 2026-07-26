@@ -1,118 +1,202 @@
 /**
- * 关卡数据
- * tiles: 二维数组，地形 key
- * units: { generalId, team: 'player'|'enemy', x, y, level }
+ * 由战役目录生成可玩关卡列表（原作关名 + 自研地图/敌军布局）
  */
-export const STAGES = [
-  {
-    id: "s01_yingchuan",
-    name: "颍川扫荡",
-    chapter: "第一章 · 黄巾之乱",
-    objective: "歼灭全部黄巾军，或击破张角",
-    fail: "曹操阵亡则败",
-    width: 12,
-    height: 10,
-    intro: [
-      { speaker: "曹操", text: "黄巾作乱，州郡烽烟。今日便以此战立威！" },
-      { speaker: "夏侯惇", text: "兄长下令，惇愿为先锋！" },
-      { speaker: "张角", text: "苍天已死，黄天当立……尔等官军，安敢犯我！" },
-    ],
-    victoryTalk: [
-      { speaker: "曹操", text: "初战告捷。乱世英雄，当由此始。" },
-      { speaker: "荀彧", text: "主公英武，天下可图。" },
-    ],
-    // P=plain F=forest H=hill R=road W=water T=fort
-    map: [
-      "PPPPPPPPPPPP",
-      "PPFFFPPPPPFP",
-      "PPRRRRPPPPPP",
-      "PPRWWRRPPPFP",
-      "PPRRRRPPHHPP",
-      "PPPPPPPPHHPP",
-      "PPFFFPPPPPPP",
-      "PPPPPPRRRRPP",
-      "PPPPPPTTTTPP",
-      "PPPPPPTTTTPP",
-    ],
-    player: [
-      { generalId: "caocao", x: 2, y: 7, level: 3 },
-      { generalId: "xiahou_dun", x: 1, y: 8, level: 3 },
-      { generalId: "dianwei", x: 3, y: 8, level: 2 },
-      { generalId: "xunyu", x: 2, y: 9, level: 2 },
-    ],
-    enemy: [
-      { generalId: "zhangjiao", x: 9, y: 1, level: 4, boss: true },
-      { generalId: "yellow_spear", x: 7, y: 2, level: 2 },
-      { generalId: "yellow_spear", x: 8, y: 3, level: 2 },
-      { generalId: "yellow_archer", x: 6, y: 1, level: 2 },
-      { generalId: "yellow_archer", x: 10, y: 2, level: 2 },
-      { generalId: "yellow_rider", x: 5, y: 3, level: 2 },
-    ],
-    win: { type: "rout_or_boss", bossId: "zhangjiao" },
-  },
-  {
-    id: "s02_sishui",
-    name: "汜水关前",
-    chapter: "第一章 · 讨董序章",
-    objective: "击破敌方主将华雄（黄巾余部头目）",
-    fail: "曹操阵亡则败",
-    width: 14,
-    height: 10,
-    intro: [
-      { speaker: "曹操", text: "董卓乱政，天下共讨。先扫关前余孽！" },
-      { speaker: "典韦", text: "谁敢拦路，便叫他知道我手中双戟！" },
-    ],
-    victoryTalk: [
-      { speaker: "曹操", text: "关前初定。来日洛阳，再较雌雄。" },
-    ],
-    map: [
-      "HHHHPPPPPPHHHH",
-      "HHPPPRRRRPPPHH",
-      "HPPPPRWWRRPPPH",
-      "PPPPPRRRRRPPPP",
-      "PPFFFPRRRRPFFF",
-      "PPPPPPRRRRPPPP",
-      "PPPPPPRRRRPPPP",
-      "PPFFFPPPPPPFFF",
-      "PPPPPTTTTPPPPP",
-      "PPPPPTTTTPPPPP",
-    ],
-    player: [
-      { generalId: "caocao", x: 6, y: 8, level: 5 },
-      { generalId: "xiahou_dun", x: 5, y: 9, level: 5 },
-      { generalId: "dianwei", x: 7, y: 9, level: 4 },
-      { generalId: "xunyu", x: 4, y: 8, level: 4 },
-    ],
-    enemy: [
-      { generalId: "zhangjiao", x: 6, y: 1, level: 6, boss: true, nameOverride: "华雄" },
-      { generalId: "yellow_spear", x: 4, y: 2, level: 3 },
-      { generalId: "yellow_spear", x: 8, y: 2, level: 3 },
-      { generalId: "yellow_rider", x: 3, y: 3, level: 3 },
-      { generalId: "yellow_rider", x: 9, y: 3, level: 3 },
-      { generalId: "yellow_archer", x: 5, y: 2, level: 3 },
-      { generalId: "yellow_archer", x: 7, y: 2, level: 3 },
-      { generalId: "yellow_spear", x: 6, y: 4, level: 3 },
-    ],
-    win: { type: "boss", bossId: "zhangjiao" },
-    unlockAfter: "s01_yingchuan",
-  },
+import { CAMPAIGN, orderedStageIds } from "./campaign.js";
+import { MAP_BUILDERS, parseMapRows } from "./mapgen.js";
+import { minionIdsForTheme, bossTemplateForClass } from "./generals.js";
+
+const CHAPTER_NAMES = Object.fromEntries(
+  CAMPAIGN.chapters.map((c) => [c.id, c.name])
+);
+
+const PLAYER_ROSTER = [
+  "caocao",
+  "xiahou_dun",
+  "dianwei",
+  "xunyu",
+  "xiahou_yuan",
+  "xuchu",
+  "guojia",
+  "zhangliao",
 ];
 
-const CHAR_MAP = {
-  P: "plain",
-  F: "forest",
-  H: "hill",
-  R: "road",
-  W: "water",
-  T: "fort",
-};
+function clamp(n, a, b) {
+  return Math.max(a, Math.min(b, n));
+}
+
+function playerSlots(w, h, count) {
+  const slots = [];
+  const baseY = h - 2;
+  const startX = Math.max(1, Math.floor(w / 2) - Math.ceil(count / 2));
+  for (let i = 0; i < count; i++) {
+    slots.push({
+      x: clamp(startX + i, 0, w - 1),
+      y: clamp(baseY - (i % 2), 0, h - 1),
+    });
+  }
+  return slots;
+}
+
+function enemySlots(w, h, count) {
+  const slots = [];
+  const startX = Math.max(1, Math.floor(w / 2) - Math.ceil(count / 2));
+  for (let i = 0; i < count; i++) {
+    const row = i < 3 ? 1 : 2 + Math.floor((i - 3) / 3);
+    const col = i < 3 ? startX + i : startX + ((i - 3) % 3);
+    slots.push({
+      x: clamp(col + (i % 2), 0, w - 1),
+      y: clamp(row, 0, Math.floor(h / 2) - 1),
+    });
+  }
+  return slots;
+}
+
+function buildDialogs(meta) {
+  const boss = meta.bossName || "敌军主将";
+  return {
+    intro: [
+      { speaker: "曹操", text: meta.brief || `出征：${meta.name}` },
+      { speaker: "夏侯惇", text: "兄长下令，惇愿为先锋！" },
+      { speaker: boss, text: `${boss}在此！曹军休得猖狂！` },
+    ],
+    victoryTalk: [
+      { speaker: "曹操", text: `${meta.name}已定。乱世方起，不可懈怠。` },
+      { speaker: "荀彧", text: "主公英武，此战胜矣。" },
+    ],
+  };
+}
+
+function normalizeWin(meta) {
+  const win = { ...(meta.win || { type: "rout" }) };
+  if (win.type === "boss_or_rout" && meta.bossName) {
+    win.bossName = meta.bossName;
+  }
+  return win;
+}
+
+function buildStageFromMeta(id, meta, prevId, index) {
+  const w = meta.w || 14;
+  const h = meta.h || 12;
+  const builder = MAP_BUILDERS[meta.map] || MAP_BUILDERS.field;
+  const mapRows = builder(w, h, index + 1);
+  const baseLevel = 2 + Math.floor((meta.no || index + 1) * 0.6);
+  const playerCount = Math.min(4 + Math.floor(index / 8), PLAYER_ROSTER.length);
+  const pSlots = playerSlots(w, h, playerCount);
+  const player = PLAYER_ROSTER.slice(0, playerCount).map((gid, i) => ({
+    generalId: gid,
+    x: pSlots[i].x,
+    y: pSlots[i].y,
+    level: baseLevel + (gid === "caocao" ? 1 : 0),
+  }));
+
+  const minions = minionIdsForTheme(meta.enemyTheme);
+  const enemyCount = 5 + Math.min(4, Math.floor(index / 5));
+  const eSlots = enemySlots(w, h, enemyCount);
+  const bossTpl = bossTemplateForClass(meta.bossClass || "cavalry");
+  const enemy = [
+    {
+      generalId: bossTpl,
+      x: eSlots[0].x,
+      y: eSlots[0].y,
+      level: baseLevel + 2 + (meta.bossLevelBonus || 0),
+      boss: true,
+      nameOverride: meta.bossName || "敌军主将",
+    },
+  ];
+  for (let i = 1; i < enemyCount; i++) {
+    enemy.push({
+      generalId: minions[(i - 1) % minions.length],
+      x: eSlots[i].x,
+      y: eSlots[i].y,
+      level: baseLevel + (i % 3 === 0 ? 1 : 0),
+    });
+  }
+
+  const talks = buildDialogs(meta);
+  return {
+    id,
+    no: meta.no,
+    name: meta.name,
+    chapter: CHAPTER_NAMES[meta.chapter] || meta.chapter,
+    chapterId: meta.chapter,
+    route: meta.chapter === "blue" ? "blue" : meta.chapter === "red" ? "red" : null,
+    status: meta.status,
+    brief: meta.brief,
+    objective: meta.objective,
+    fail: "曹操阵亡则败",
+    width: w,
+    height: h,
+    map: mapRows,
+    player,
+    enemy,
+    intro: talks.intro,
+    victoryTalk: talks.victoryTalk,
+    win: normalizeWin(meta),
+    loot: meta.loot || [],
+    battleChoice: meta.battleChoice || null,
+    branchAfter: !!meta.branchAfter,
+    ending: meta.ending || null,
+    optional: !!meta.optional,
+    unlockAfter: prevId,
+  };
+}
+
+function buildAllStages() {
+  const common = orderedStageIds(null);
+  const blue = orderedStageIds("blue");
+  const red = orderedStageIds("red");
+  const sequence = [...common, ...blue, ...red];
+  const stages = [];
+  let prevCommon = null;
+  let prevBlue = "machao";
+  let prevRed = "machao";
+
+  for (let i = 0; i < sequence.length; i++) {
+    const id = sequence[i];
+    const meta = CAMPAIGN.stages[id];
+    if (!meta) continue;
+    let prev = null;
+    if (meta.chapter === "blue") {
+      prev = prevBlue;
+    } else if (meta.chapter === "red") {
+      prev = prevRed;
+    } else {
+      prev = prevCommon;
+    }
+
+    // 可选关不挡主线：挂在前一主线关之后
+    if (id === "chibi_escape") prev = "chibi";
+    if (id === "red_hanshui" || id === "red_xiegu") prev = "red_dingjun";
+
+    stages.push(buildStageFromMeta(id, meta, prev, i));
+
+    // 可选关不推进主线解锁指针
+    if (meta.optional) continue;
+    if (meta.chapter === "blue") prevBlue = id;
+    else if (meta.chapter === "red") prevRed = id;
+    else prevCommon = id;
+  }
+  return stages;
+}
+
+export const STAGES = buildAllStages();
 
 export function parseStageMap(stage) {
-  return stage.map.map((row) =>
-    [...row].map((ch) => CHAR_MAP[ch] || "plain")
-  );
+  if (Array.isArray(stage.map) && typeof stage.map[0] === "string") {
+    return parseMapRows(stage.map);
+  }
+  // 已是地形 id 二维数组
+  return stage.map;
 }
 
 export function getStage(id) {
   return STAGES.find((s) => s.id === id) || STAGES[0];
+}
+
+export function stagesForMenu(route) {
+  return STAGES.filter((s) => {
+    if (!s.route) return true;
+    if (!route) return false;
+    return s.route === route;
+  });
 }
