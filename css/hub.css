@@ -25,9 +25,17 @@
 
 .game-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.1rem;
   animation: rise 900ms 60ms ease both;
+}
+
+.game-card-fps .mark {
+  color: #5a6b3a;
+}
+
+.game-card-fps::before {
+  background: radial-gradient(circle, rgba(90, 107, 58, 0.22), transparent 65%);
 }
 
 .game-card {

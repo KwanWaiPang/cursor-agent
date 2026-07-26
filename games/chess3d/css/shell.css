@@ -75,7 +75,7 @@ body.chess3d-body #tips {
   letter-spacing: 0.05em;
 }
 
-/* 侧边菜单加宽，并与弈馆面板风格统一 */
+/* 侧边菜单加宽，并与游戏馆面板风格统一 */
 #gui {
   top: 5.6rem !important;
   left: 1rem !important;
@@ -162,7 +162,7 @@ body.chess3d-body #tips {
   background: #1a7a66 !important;
 }
 
-/* 新对局弹窗与弈馆风格对齐 */
+/* 新对局弹窗与游戏馆风格对齐 */
 .ui-dialog {
   background: rgba(255, 248, 235, 0.97) !important;
   border: 1px solid rgba(255, 245, 220, 0.7) !important;

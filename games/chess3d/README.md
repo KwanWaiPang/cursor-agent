@@ -1,6 +1,6 @@
-# 国际象棋 · 3D · 弈馆
+# 国际象棋 · 3D · 游戏馆
 
-WebGL 立体国际象棋，适配 Chess3D，并套入弈馆统一界面与中文菜单。
+WebGL 立体国际象棋，适配 Chess3D，并套入游戏馆统一界面与中文菜单。
 
 ## 功能
 
@@ -14,7 +14,7 @@ WebGL 立体国际象棋，适配 Chess3D，并套入弈馆统一界面与中文
 
 ```
 index.html       # 页面入口
-css/shell.css    # 弈馆壳层与侧栏样式
+css/shell.css    # 游戏馆壳层与侧栏样式
 js/              # Three.js 场景、GUI、Garbochess AI
 3D/json/         # 棋子与棋盘模型
 texture/         # 贴图
@@ -29,7 +29,7 @@ python3 -m http.server 8080
 
 打开：<http://localhost:8080/games/chess3d/>
 
-需要浏览器支持 **WebGL**。若不支持，页面会提示并引导返回大厅。
+需要浏览器支持 **WebGL**。若不支持，页面会提示并引导返回游戏馆。
 
 ## 来源
 
