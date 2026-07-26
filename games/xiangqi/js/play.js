@@ -49,9 +49,11 @@ play.init = function (depth, map){
 	}
 	play.show();
 	
-	//绑定点击事件（避免重复绑定）
+	//绑定点击 / 触控（避免重复绑定）
 	com.canvas.removeEventListener("click", play.clickCanvas);
+	com.canvas.removeEventListener("touchstart", play.touchCanvas);
 	com.canvas.addEventListener("click", play.clickCanvas);
+	com.canvas.addEventListener("touchstart", play.touchCanvas, { passive: false });
 	//clearInterval(play.timer);
 	//com.get("autoPlay").addEventListener("click", function(e) {
 		//clearInterval(play.timer);
@@ -144,9 +146,24 @@ play.regret = function (){
 
 
 
+play._lastTouchAt = 0;
+
 //点击棋盘事件
 play.clickCanvas = function (e){
 	if (!play.isPlay) return false;
+	// 忽略 touch 后合成的 click，避免移动端连下两手
+	if (Date.now() - play._lastTouchAt < 600) return false;
+	play.handleBoardPointer(e);
+}
+
+play.touchCanvas = function (e){
+	if (!play.isPlay) return false;
+	play._lastTouchAt = Date.now();
+	if (e.cancelable) e.preventDefault();
+	play.handleBoardPointer(e);
+}
+
+play.handleBoardPointer = function (e){
 	var key = play.getClickMan(e);
 	var point = play.getClickPoint(e);
 	
@@ -310,13 +327,16 @@ play.indexOfPs = function (ps,xy){
 	
 }
 
-//获得点击的着点（兼容棋盘 CSS 缩放：先换算到 canvas 内部坐标）
+//获得点击的着点（兼容棋盘 CSS 缩放 + 触控）
 play.getClickPoint = function (e){
 	var rect = com.canvas.getBoundingClientRect();
 	var scaleX = com.canvas.width / Math.max(rect.width, 1);
 	var scaleY = com.canvas.height / Math.max(rect.height, 1);
-	var px = (e.clientX - rect.left) * scaleX;
-	var py = (e.clientY - rect.top) * scaleY;
+	var touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+	var clientX = touch ? touch.clientX : e.clientX;
+	var clientY = touch ? touch.clientY : e.clientY;
+	var px = (clientX - rect.left) * scaleX;
+	var py = (clientY - rect.top) * scaleY;
 	// 原逻辑含约 20px 偏移，对应棋子图中心
 	var x = Math.round((px - com.pointStartX - 20) / com.spaceX);
 	var y = Math.round((py - com.pointStartY - 20) / com.spaceY);

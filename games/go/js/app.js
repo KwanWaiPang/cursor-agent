@@ -553,6 +553,7 @@ canvas.addEventListener(
   "touchstart",
   (e) => {
     lastTouchAt = Date.now();
+    if (e.cancelable) e.preventDefault();
     onBoardClick(e);
   },
   { passive: false }

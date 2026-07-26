@@ -271,17 +271,52 @@ body.chess3d-body #tips {
 }
 
 @media (max-width: 720px) {
+  .chess3d-bar {
+    padding: 0.7rem 0.85rem;
+    padding-top: calc(0.7rem + env(safe-area-inset-top));
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .chess3d-bar .brand h1 {
+    font-size: clamp(1.45rem, 7vw, 2rem);
+  }
+
+  .chess3d-bar .brand p {
+    font-size: 0.8rem;
+  }
+
+  .chess3d-bar .btn.secondary {
+    min-height: 40px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.88rem;
+  }
+
   #gui {
     top: auto !important;
-    bottom: 0.75rem !important;
-    right: 0.75rem !important;
-    left: 0.75rem !important;
+    bottom: calc(0.65rem + env(safe-area-inset-bottom)) !important;
+    right: 0.65rem !important;
+    left: 0.65rem !important;
     width: auto !important;
-    max-height: 42vh;
+    max-height: min(38vh, 320px);
     overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #gui ul {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #gui button,
+  #gui .ui-button {
+    min-height: 40px;
   }
 
   #info {
-    top: 5.4rem !important;
+    top: auto !important;
+    bottom: calc(min(38vh, 320px) + 1rem + env(safe-area-inset-bottom)) !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    font-size: 0.9rem;
   }
 }

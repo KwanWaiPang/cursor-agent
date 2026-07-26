@@ -306,13 +306,30 @@ function redo() {
   maybeAi();
 }
 
-canvas.addEventListener("click", (e) => {
+let lastTouchAt = 0;
+
+function onBoardPointer(e) {
   if (state.over || state.aiThinking) return;
   if (state.mode === "ai" && state.turn !== state.humanColor) return;
   const p = posFromEvent(e);
   if (!p) return;
   applyMove(p.x, p.y);
+}
+
+canvas.addEventListener("click", (e) => {
+  // 忽略 touch 后合成的 click，避免移动端连下两手
+  if (Date.now() - lastTouchAt < 600) return;
+  onBoardPointer(e);
 });
+canvas.addEventListener(
+  "touchstart",
+  (e) => {
+    lastTouchAt = Date.now();
+    e.preventDefault();
+    onBoardPointer(e);
+  },
+  { passive: false }
+);
 
 btnNew.addEventListener("click", newGame);
 btnUndo.addEventListener("click", undo);

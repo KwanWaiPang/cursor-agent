@@ -119,3 +119,35 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 600px) {
+  .shell {
+    width: calc(100% - 0.85rem);
+    padding: 0.85rem 0 calc(1.35rem + env(safe-area-inset-bottom));
+  }
+
+  .hub-hero {
+    margin-bottom: 1.1rem;
+  }
+
+  .hub-hero h1 {
+    letter-spacing: 0.12em;
+  }
+
+  .hub-hero p {
+    font-size: 0.95rem;
+  }
+
+  .game-card {
+    min-height: 0;
+    padding: 1.1rem 1rem 1.15rem;
+  }
+
+  .game-card .mark {
+    font-size: 2.2rem;
+  }
+
+  .game-card h2 {
+    font-size: 1.45rem;
+  }
+}

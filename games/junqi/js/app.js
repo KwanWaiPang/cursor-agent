@@ -559,7 +559,9 @@ async function scheduleAi() {
   doMove(move, true);
 }
 
-canvas.addEventListener("click", (e) => {
+let lastTouchAt = 0;
+
+function onBoardPointer(e) {
   if (state.phase === "deploy") {
     setMsg("布阵阶段请先「开始作战」。敌子始终立起（暗棋）。");
     return;
@@ -577,7 +579,21 @@ canvas.addEventListener("click", (e) => {
     }
   }
   selectPiece(r, c);
+}
+
+canvas.addEventListener("click", (e) => {
+  if (Date.now() - lastTouchAt < 600) return;
+  onBoardPointer(e);
 });
+canvas.addEventListener(
+  "touchstart",
+  (e) => {
+    lastTouchAt = Date.now();
+    e.preventDefault();
+    onBoardPointer(e);
+  },
+  { passive: false }
+);
 
 btnNew.addEventListener("click", newDeploy);
 btnRedeploy.addEventListener("click", () => {

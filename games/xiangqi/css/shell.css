@@ -242,13 +242,35 @@ body:not(.is-playing) #opsCard button {
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
   }
 
-  .topbar {
-    flex-direction: column;
-    align-items: start;
+  .board-wrap {
+    display: flex !important;
+    justify-content: center;
+  }
+
+  .board-wrap canvas,
+  #chess {
+    width: min(100%, 560px);
+    max-width: 100%;
+    height: auto;
+  }
+
+  .bn_box,
+  .controls {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .status-row {
+    flex-wrap: wrap;
+  }
+
+  .menu-link {
+    font-size: 1rem;
   }
 }
