@@ -64,7 +64,7 @@ export const SCENARIO_190 = {
       color: FACTION_COLORS.caocao,
       ruler: officerByName("曹操")?.id,
       powerId: POWER.caocao,
-      cities: ["chenliu", "puyang"],
+      cities: ["chenliu", "puyang", "dongjun", "jiyin", "qiao"],
       officers: roster(POWER.caocao, [], "曹操"),
     },
     liubei: {
@@ -73,7 +73,7 @@ export const SCENARIO_190 = {
       color: FACTION_COLORS.liubei,
       ruler: officerByName("刘备")?.id,
       powerId: POWER.liubei,
-      cities: ["xiaopei"],
+      cities: ["xiaopei", "pei"],
       officers: roster(POWER.liubei, [], "刘备"),
     },
     sunjian: {
@@ -82,7 +82,7 @@ export const SCENARIO_190 = {
       color: FACTION_COLORS.sunjian,
       ruler: officerByName("孙坚")?.id,
       powerId: POWER.sunjian,
-      cities: ["changsha", "lujiang"],
+      cities: ["changsha", "lujiang", "huan", "chaisang"],
       officers: roster(POWER.sunjian, [], "孙坚"),
     },
     yuanshao: {
@@ -91,8 +91,7 @@ export const SCENARIO_190 = {
       color: FACTION_COLORS.yuanshao,
       ruler: officerByName("袁绍")?.id,
       powerId: POWER.yuanshao,
-      cities: ["ye", "nanpi", "ji"],
-      // 沮授、张郃等在数据中或属邻势力，按历史编入客将
+      cities: ["ye", "nanpi", "ji", "julu", "anping", "bohai"],
       officers: roster(POWER.yuanshao, ["沮授", "张郃", "田丰"], "袁绍"),
     },
     yuanshu: {
@@ -101,7 +100,7 @@ export const SCENARIO_190 = {
       color: FACTION_COLORS.yuanshu,
       ruler: officerByName("袁术")?.id,
       powerId: POWER.yuanshu,
-      cities: ["shouchun"],
+      cities: ["shouchun", "jiujiang", "hefei"],
       officers: roster(POWER.yuanshu, [], "袁术"),
     },
     dongzhuo: {
@@ -110,7 +109,7 @@ export const SCENARIO_190 = {
       color: FACTION_COLORS.dongzhuo,
       ruler: officerByName("董卓")?.id,
       powerId: POWER.dongzhuo,
-      cities: ["changan", "luoyang", "wan"],
+      cities: ["changan", "luoyang", "wan", "hongnong", "fengyi", "fufeng", "henei"],
       officers: roster(POWER.dongzhuo, ["吕布", "貂蝉", "贾诩"], "董卓"),
     },
     gongsunzan: {
@@ -119,7 +118,7 @@ export const SCENARIO_190 = {
       color: FACTION_COLORS.gongsunzan,
       ruler: officerByName("公孙瓒")?.id,
       powerId: POWER.gongsunzan,
-      cities: ["beiping", "xiangping"],
+      cities: ["beiping", "xiangping", "zhuo", "yuyang"],
       officers: roster(POWER.gongsunzan, ["田豫"], "公孙瓒"),
     },
     liubiao: {
@@ -128,7 +127,7 @@ export const SCENARIO_190 = {
       color: FACTION_COLORS.liubiao,
       ruler: officerByName("刘表")?.id,
       powerId: POWER.liubiao,
-      cities: ["xiangyang", "jiangling", "jiangxia"],
+      cities: ["xiangyang", "jiangling", "jiangxia", "xinye", "yicheng"],
       officers: roster(POWER.liubiao, [], "刘表"),
     },
     mateng: {
@@ -137,7 +136,7 @@ export const SCENARIO_190 = {
       color: FACTION_COLORS.mateng,
       ruler: officerByName("马腾")?.id,
       powerId: POWER.mateng,
-      cities: ["tianshui", "anding", "wuwei"],
+      cities: ["tianshui", "anding", "wuwei", "jincheng", "longxi", "hanyang"],
       officers: roster(POWER.mateng, ["韩遂"], "马腾"),
     },
     shixie: {
@@ -146,7 +145,7 @@ export const SCENARIO_190 = {
       color: FACTION_COLORS.shixie,
       ruler: officerByName("士燮")?.id,
       powerId: 38,
-      cities: ["jiaozhi", "nanhai"],
+      cities: ["jiaozhi", "nanhai", "cangwu", "hepu"],
       officers: [officerByName("士燮")?.id].filter(Boolean),
     },
   },

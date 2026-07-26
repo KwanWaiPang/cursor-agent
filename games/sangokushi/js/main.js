@@ -1,5 +1,5 @@
 import { SCENARIO_190 } from "../data/factions.js";
-import { totalRegions } from "../data/cities.js";
+import { totalRegions, CITY_COUNT } from "../data/cities.js";
 import {
   createGame,
   playerFaction,
@@ -69,7 +69,7 @@ function renderMenu() {
   els.factionPick.innerHTML = "";
   const note = document.createElement("p");
   note.className = "hint";
-  note.textContent = `地图含 ${SCENARIO_190 ? 46 : 46} 都市 · ${totalRegions()} 地区（府）`;
+  note.textContent = `中原战区 · ${CITY_COUNT} 城池 · ${totalRegions()} 地区（府）· 大色块占田`;
   // place note above via prepend on panel — append into grid as full width not needed
   for (const id of SCENARIO_190.playable) {
     const f = SCENARIO_190.factions[id];
@@ -107,7 +107,7 @@ function refresh() {
   const f = playerFaction(state);
   els.dateChip.textContent = `${state.year}年${state.month}月`;
   els.landChip.textContent = `领地 ${landCount(state, f.id)}`;
-  els.cityChip.textContent = `都市 ${f.cities.length}/46`;
+  els.cityChip.textContent = `都市 ${f.cities.length}/${CITY_COUNT}`;
   els.factionChip.textContent = f.name;
   els.goldChip.textContent = `金 ${f.gold}`;
   els.foodChip.textContent = `粮 ${f.food}`;
