@@ -45,13 +45,15 @@ function teamColors(team) {
 
 /**
  * 绘制战场棋子
+ * @param {{ flash?: number }} [opts]
  */
-export function drawUnitSprite(ctx, u, cx, cy, tile, selected) {
+export function drawUnitSprite(ctx, u, cx, cy, tile, selected, opts = {}) {
   const scale = tile / 56;
   const body = u.portrait || (u.team === "player" ? "#4a7a58" : "#8a5050");
   const tc = teamColors(u.team);
   const st = styleOf(u);
   const bulk = st.bulk || 1;
+  const flash = opts.flash || 0;
 
   // 阴影
   ctx.fillStyle = "rgba(0,0,0,0.3)";
@@ -80,6 +82,18 @@ export function drawUnitSprite(ctx, u, cx, cy, tile, selected) {
   else if (cls === "archer") drawArcher(ctx, cx, cy, scale, body, tc.ring, st, bulk);
   else if (cls === "strategist") drawStrategist(ctx, cx, cy, scale, body, tc.ring, st, bulk);
   else drawInfantry(ctx, cx, cy, scale, body, tc.ring, st, bulk);
+
+  if (flash > 0.05) {
+    ctx.fillStyle = `rgba(255,248,220,${0.4 * flash})`;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 2 * scale, 15 * scale * bulk, 19 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255,230,180,${0.65 * flash})`;
+    ctx.lineWidth = 3 * scale;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 2 * scale, 17 * scale * bulk, 21 * scale, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   if (selected) {
     ctx.strokeStyle = "#f3d48a";

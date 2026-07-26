@@ -17,6 +17,7 @@ import {
   endPlayerTurnManual,
 } from "./engine.js";
 import { createRenderer, describeTile, formatUnit, drawPortrait } from "./render.js";
+import { createFx } from "./fx.js";
 import { TERRAIN, terrainMoveCost } from "../data/classes.js";
 import { GENERALS, isHostile } from "../data/generals.js";
 import { inventoryToGear } from "../data/equipment.js";
@@ -74,6 +75,7 @@ const els = {
 
 const renderer = createRenderer(els.canvas);
 const deployRenderer = createRenderer(els.deployBoard);
+const fx = createFx();
 
 let state = null;
 let hover = null;
@@ -82,6 +84,7 @@ let talkMode = null; // intro | victory | choice | battleChoice | branch
 let pendingStageId = null;
 let pendingChoice = null;
 let deployState = null;
+let inputLocked = false;
 
 function defaultSave() {
   return {
@@ -485,16 +488,26 @@ function pushLog(text) {
   els.log.prepend(div);
 }
 
+function paint() {
+  if (!state || els.battle.classList.contains("hidden")) return;
+  fx.update();
+  renderer.draw(state, hover, fx);
+}
+
 function refresh() {
   if (!state) return;
-  renderer.draw(state, hover);
+  paint();
   els.turnLabel.textContent = `第 ${state.turn} 回合`;
-  els.phaseLabel.textContent =
+  const phase =
     state.phase === "player"
       ? "我军阶段"
       : state.phase === "enemy"
         ? "敌军阶段"
-        : "—";
+        : state.phase === "ally"
+          ? "友军阶段"
+          : "—";
+  els.phaseLabel.textContent = phase;
+  els.phaseLabel.dataset.phase = state.phase || "";
 
   const sel = getUnit(state, state.selectedId);
   let shown = sel;
@@ -512,7 +525,6 @@ function refresh() {
 
   if (hover) {
     const tid = state.tiles[hover.y][hover.x];
-    const t = TERRAIN[tid];
     const cls = getUnit(state, state.selectedId)?.classId || "infantry";
     const cost = terrainMoveCost(tid, cls);
     els.tileInfo.textContent = `${describeTile(state, hover.x, hover.y)} · 移动消耗 ${
@@ -528,21 +540,29 @@ function refresh() {
     state.mode === "magic" ||
     state.mode === "magicPick";
   els.actionBar.classList.toggle("hidden", !inAction && state.mode !== "move");
-  els.btnAttack.disabled = !(state.mode === "action" && state.attackTargets.length);
-  els.btnMagic.disabled = !(state.mode === "action" && state.magicList?.length);
-  els.btnWait.disabled = !(
-    state.mode === "action" ||
-    state.mode === "attack" ||
-    state.mode === "magic" ||
-    state.mode === "magicPick"
-  );
-  els.btnCancel.disabled = !(
-    state.mode === "move" ||
-    state.mode === "action" ||
-    state.mode === "attack" ||
-    state.mode === "magic" ||
-    state.mode === "magicPick"
-  );
+  const busy = inputLocked || fx.isBusy();
+  els.btnAttack.disabled =
+    busy || !(state.mode === "action" && state.attackTargets.length);
+  els.btnMagic.disabled =
+    busy || !(state.mode === "action" && state.magicList?.length);
+  els.btnWait.disabled =
+    busy ||
+    !(
+      state.mode === "action" ||
+      state.mode === "attack" ||
+      state.mode === "magic" ||
+      state.mode === "magicPick"
+    );
+  els.btnCancel.disabled =
+    busy ||
+    !(
+      state.mode === "move" ||
+      state.mode === "action" ||
+      state.mode === "attack" ||
+      state.mode === "magic" ||
+      state.mode === "magicPick"
+    );
+  els.btnEndTurn.disabled = busy || state.phase !== "player";
 
   if (state.mode === "magicPick") {
     show(els.magicBar);
@@ -552,6 +572,7 @@ function refresh() {
       b.type = "button";
       b.className = "btn";
       b.textContent = `${m.name}（MP ${m.mp}）`;
+      b.disabled = busy;
       b.addEventListener("click", () => {
         selectMagic(state, m.id);
         refresh();
@@ -570,6 +591,14 @@ function refresh() {
     show(els.result);
   }
 }
+
+function tickLoop() {
+  if (state && !els.battle.classList.contains("hidden")) {
+    paint();
+  }
+  requestAnimationFrame(tickLoop);
+}
+requestAnimationFrame(tickLoop);
 
 function flushSpeakQueue() {
   if (!state?.speakQueue?.length || talkMode) return;
@@ -594,11 +623,31 @@ els.canvas.addEventListener("mousemove", (e) => {
   if (p.x < 0 || p.y < 0 || p.x >= state.width || p.y >= state.height) {
     hover = null;
   } else hover = p;
-  refresh();
+  // 悬停只刷新侧栏文案，画面由 rAF 绘制
+  if (!inputLocked) refreshSidebarHover();
 });
 
-els.canvas.addEventListener("click", (e) => {
-  if (!state || state.phase !== "player" || talkMode) return;
+function refreshSidebarHover() {
+  if (!state) return;
+  const sel = getUnit(state, state.selectedId);
+  let shown = sel;
+  if (!shown && hover) shown = unitAt(state, hover.x, hover.y);
+  if (shown) {
+    els.unitInfo.textContent = formatUnit(shown);
+    drawPortrait(els.portrait, shown);
+  }
+  if (hover) {
+    const tid = state.tiles[hover.y][hover.x];
+    const cls = getUnit(state, state.selectedId)?.classId || "infantry";
+    const cost = terrainMoveCost(tid, cls);
+    els.tileInfo.textContent = `${describeTile(state, hover.x, hover.y)} · 移动消耗 ${
+      cost >= 9 ? "不可进入" : cost
+    }`;
+  }
+}
+
+els.canvas.addEventListener("click", async (e) => {
+  if (!state || state.phase !== "player" || talkMode || inputLocked || fx.isBusy()) return;
   const { x, y } = canvasPos(e);
   if (x < 0 || y < 0 || x >= state.width || y >= state.height) return;
 
@@ -619,6 +668,9 @@ els.canvas.addEventListener("click", (e) => {
     if (t && atk && isHostile(atk, t)) {
       const evt = confirmAttack(state, t);
       if (evt) {
+        inputLocked = true;
+        refresh();
+        await fx.playAttack(evt, renderer.TILE);
         if (evt.miss) {
           pushLog(`${evt.attacker.name} 攻击 ${evt.defender.name}，未命中！`);
         } else {
@@ -629,6 +681,7 @@ els.canvas.addEventListener("click", (e) => {
           );
           if (!evt.defender.alive) pushLog(`${evt.defender.name} 被击破！`);
         }
+        inputLocked = false;
       }
     }
   } else if (state.mode === "magic") {
@@ -636,6 +689,9 @@ els.canvas.addEventListener("click", (e) => {
     if (t) {
       const evt = confirmMagic(state, t);
       if (evt) {
+        inputLocked = true;
+        refresh();
+        await fx.playMagic(evt, renderer.TILE);
         if (evt.miss) {
           pushLog(`${evt.caster.name} 施展「${evt.magic.name}」失败`);
         } else if (evt.heal) {
@@ -648,6 +704,7 @@ els.canvas.addEventListener("click", (e) => {
           );
           if (!evt.target.alive) pushLog(`${evt.target.name} 被击破！`);
         }
+        inputLocked = false;
       }
     }
   }
@@ -655,19 +712,23 @@ els.canvas.addEventListener("click", (e) => {
 });
 
 els.btnAttack.addEventListener("click", () => {
+  if (inputLocked || fx.isBusy()) return;
   beginAttack(state);
   refresh();
 });
 els.btnMagic.addEventListener("click", () => {
+  if (inputLocked || fx.isBusy()) return;
   beginMagicPick(state);
   refresh();
 });
 els.btnWait.addEventListener("click", () => {
+  if (inputLocked || fx.isBusy()) return;
   waitUnit(state);
   pushLog("待机");
   refresh();
 });
 els.btnCancel.addEventListener("click", () => {
+  if (inputLocked || fx.isBusy()) return;
   if (state.mode === "attack" || state.mode === "magic" || state.mode === "magicPick") {
     state.mode = "action";
     state.pendingMagic = null;
@@ -679,7 +740,7 @@ els.btnCancel.addEventListener("click", () => {
   refresh();
 });
 els.btnEndTurn.addEventListener("click", () => {
-  if (!state || state.phase !== "player") return;
+  if (!state || state.phase !== "player" || inputLocked || fx.isBusy()) return;
   endPlayerTurnManual(state);
   pushLog("结束回合，敌军行动完毕");
   refresh();
