@@ -84,6 +84,24 @@ export class Sfx {
     }
   }
 
+  /** 敌方枪声：更响，并按距离略衰减 */
+  enemyShoot(distance = 12) {
+    this.ensure();
+    const d = Math.max(4, distance);
+    const gain = Math.min(1.35, 1.55 * (18 / (d + 6)));
+    const ok = this.playBuffer("ak", {
+      gain,
+      rate: 0.92 + Math.random() * 0.12,
+    });
+    if (!ok) {
+      this.tone(140, 0.11, "sawtooth", 0.09 * (gain / 1.2), -100);
+      this.tone(60, 0.1, "triangle", 0.06 * (gain / 1.2), -50);
+    }
+    if (d < 16) {
+      this.tone(90, 0.05, "square", 0.035, -60);
+    }
+  }
+
   hit() {
     this.tone(880, 0.04, "square", 0.03, -200);
   }

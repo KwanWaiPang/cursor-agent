@@ -33,7 +33,7 @@ export class Game {
       75,
       window.innerWidth / window.innerHeight,
       0.08,
-      250
+      420
     );
     try {
       this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -45,7 +45,7 @@ export class Game {
     this.renderer.shadowMap.enabled = true;
     document.body.appendChild(this.renderer.domElement);
 
-    this.world = createWorld(this.scene, mode === "royale" ? 100 : 90);
+    this.world = createWorld(this.scene, mode === "royale" ? 210 : 170);
     this.player = new Player(this.camera, this.renderer.domElement, this.world);
     this.loadout = createLoadout("rifle");
 
@@ -59,7 +59,7 @@ export class Game {
     this.syncViewModel();
 
     this.raycaster = new THREE.Raycaster();
-    this.bulletLine = null;
+    this.tracers = [];
 
     const ctx = {
       scene: this.scene,
@@ -220,32 +220,45 @@ export class Game {
 
     const traceDist = blocked
       ? blockHit.distance
-      : enemyHit?.distance ?? Math.min(40, this.loadout.def.range);
-    this.spawnTracer(origin, dir, traceDist);
+      : enemyHit?.distance ?? Math.min(55, this.loadout.def.range);
+    this.spawnTracer(origin, dir, traceDist, { enemy: false });
   }
 
-  spawnTracer(origin, dir, dist) {
-    if (this.bulletLine) {
-      this.scene.remove(this.bulletLine);
-      this.bulletLine.geometry.dispose();
-      this.bulletLine.material.dispose();
-    }
-    const end = origin.clone().addScaledVector(dir, Math.min(dist, 40));
+  /** 多条弹道可并存；敌方来弹用醒目橙色 */
+  spawnTracer(origin, dir, dist, opts = {}) {
+    const enemy = !!opts.enemy;
+    const len = Math.min(Math.max(dist, 2), enemy ? 70 : 55);
+    const end = origin.clone().addScaledVector(dir, len);
     const geo = new THREE.BufferGeometry().setFromPoints([origin, end]);
     const mat = new THREE.LineBasicMaterial({
-      color: 0xe8d48a,
+      color: enemy ? 0xff5533 : 0xe8d48a,
       transparent: true,
-      opacity: 0.85,
+      opacity: enemy ? 0.95 : 0.85,
+      depthTest: true,
     });
-    this.bulletLine = new THREE.Line(geo, mat);
-    this.scene.add(this.bulletLine);
-    setTimeout(() => {
-      if (!this.bulletLine) return;
-      this.scene.remove(this.bulletLine);
-      this.bulletLine.geometry.dispose();
-      this.bulletLine.material.dispose();
-      this.bulletLine = null;
-    }, 40);
+    const line = new THREE.Line(geo, mat);
+    this.scene.add(line);
+    this.tracers.push({
+      line,
+      life: enemy ? 0.16 : 0.05,
+      fade: enemy ? 0.95 : 0.85,
+    });
+  }
+
+  updateTracers(dt) {
+    for (let i = this.tracers.length - 1; i >= 0; i--) {
+      const t = this.tracers[i];
+      t.life -= dt;
+      if (t.line.material) {
+        t.line.material.opacity = Math.max(0, t.fade * (t.life > 0 ? 1 : 0));
+      }
+      if (t.life <= 0) {
+        this.scene.remove(t.line);
+        t.line.geometry.dispose();
+        t.line.material.dispose();
+        this.tracers.splice(i, 1);
+      }
+    }
   }
 
   animate() {
@@ -268,11 +281,17 @@ export class Game {
       this.activeView?.update(dt, moving, this.loadout.reloading);
 
       for (const e of this.enemies) {
-        e.update(dt, this.player, (dmg) => {
-          if (!this.player.alive) return;
-          this.player.damage(dmg);
-          this.sfx.hurt();
-          this.hud.flashDamage();
+        e.update(dt, this.player, (shot) => {
+          if (!shot) return;
+          this.sfx.enemyShoot(shot.dist);
+          this.spawnTracer(shot.origin, shot.dir, shot.traceDist ?? shot.dist, {
+            enemy: true,
+          });
+          if (shot.hit && this.player.alive) {
+            this.player.damage(shot.damage);
+            this.sfx.hurt();
+            this.hud.flashDamage();
+          }
         });
       }
       // 原地移除，保持与 mode 共用的同一数组引用
@@ -280,6 +299,7 @@ export class Game {
         if (this.enemies[i].gone) this.enemies.splice(i, 1);
       }
 
+      this.updateTracers(dt);
       const result = this.mode.update(dt);
       this.hud.updatePlayer(this.player, this.loadout);
       this.hud.tick(dt);
