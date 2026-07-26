@@ -9,7 +9,7 @@ import { getCitySprite } from "./city_sprites.js";
 
 export function createMapRenderer(canvas) {
   const ctx = canvas.getContext("2d");
-  let view = { zoom: 1.12, ox: 0, oy: 0 };
+  let view = { zoom: 1.25, ox: 0, oy: 0 };
   let cellW = 10;
   let cellH = 10;
   let cssW = 960;
@@ -243,21 +243,44 @@ export function createMapRenderer(canvas) {
 
   function paintOwnershipLayer(g, state, mapW, mapH, cw, ch) {
     const factions = state.factions;
-    // 柔和圆斑涂色，消除格子感
+    const cols = state.map.cols;
+    const rows = state.map.rows;
+    /**
+     * 三国志14 式「大色块占田」：
+     * 整格铺色抹平接缝；同势力连片更厚重，势力交界略描边。
+     */
     for (const cell of state.map.cells) {
       if (!cell.land || !cell.owner || !factions[cell.owner]) continue;
       const col = factions[cell.owner].color;
-      const px = cell.x * cw + cw / 2;
-      const py = cell.y * ch + ch / 2;
-      const r = Math.max(cw, ch) * (cell.isCity ? 1.35 : 1.15);
-      const grad = g.createRadialGradient(px, py, r * 0.15, px, py, r);
-      grad.addColorStop(0, hexAlpha(col, cell.isCity ? 0.55 : 0.42));
-      grad.addColorStop(0.7, hexAlpha(col, 0.22));
-      grad.addColorStop(1, hexAlpha(col, 0));
-      g.fillStyle = grad;
-      g.beginPath();
-      g.arc(px, py, r, 0, Math.PI * 2);
-      g.fill();
+      const px = cell.x * cw;
+      const py = cell.y * ch;
+      g.fillStyle = hexAlpha(col, cell.isCity ? 0.66 : 0.54);
+      g.fillRect(px - 0.55, py - 0.55, cw + 1.2, ch + 1.2);
+    }
+    // 势力交界线（邻格不同 owner）
+    g.lineWidth = Math.max(1, Math.min(cw, ch) * 0.18);
+    for (const cell of state.map.cells) {
+      if (!cell.land || !cell.owner) continue;
+      const px = cell.x * cw;
+      const py = cell.y * ch;
+      const col = factions[cell.owner]?.color;
+      if (!col) continue;
+      g.strokeStyle = hexAlpha(col, 0.35);
+      const neigh = [
+        [1, 0, px + cw, py, px + cw, py + ch],
+        [0, 1, px, py + ch, px + cw, py + ch],
+      ];
+      for (const [dx, dy, x1, y1, x2, y2] of neigh) {
+        const nx = cell.x + dx;
+        const ny = cell.y + dy;
+        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+        const n = state.map.cells[ny * cols + nx];
+        if (!n?.land || n.owner === cell.owner) continue;
+        g.beginPath();
+        g.moveTo(x1, y1);
+        g.lineTo(x2, y2);
+        g.stroke();
+      }
     }
   }
 
@@ -509,7 +532,7 @@ export function createMapRenderer(canvas) {
   }
 
   function resetView() {
-    view = { zoom: 1.12, ox: 0, oy: 0 };
+    view = { zoom: 1.25, ox: 0, oy: 0 };
     baseCache = null;
     paintCache = null;
   }

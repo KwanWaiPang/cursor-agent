@@ -28,11 +28,10 @@ export function createGame(playerFactionId = "caocao") {
     };
   }
 
-  // 初始涂色：都市势力范围 + 邻域空白扩张（不互抢已占格）
+  // 初始涂色：大色块占田（整座都市势力范围）
   for (const f of Object.values(factions)) {
     for (const cid of f.cities) {
       claimCityTerritory(map, cid, f.id);
-      paintEmptyAroundCity(map, cid, f.id, 6);
       const reg = map.regions.filter((r) => r.cityId === cid);
       for (const r of reg) {
         map.cells[r.cell].owner = f.id;
@@ -81,15 +80,47 @@ function makeOfficerState(oid, factionId) {
 function claimCityTerritory(map, cityId, factionId) {
   const idx = map.cityCells[cityId];
   if (idx == null) return;
-  const c0 = map.cells[idx];
-  // 细网格下按都市势力范围认领，并以半径封顶，避免边陲城吞掉大片空白
-  const maxR = 11;
+  // 大色块：整座都市势力范围（最近城归属）一次性染色
   for (const c of map.cells) {
     if (!c.land || c.cityId !== cityId) continue;
-    const d = Math.abs(c.x - c0.x) + Math.abs(c.y - c0.y);
-    if (d <= maxR) c.owner = factionId;
+    c.owner = factionId;
   }
-  c0.owner = factionId;
+  map.cells[idx].owner = factionId;
+  // 再向无主邻格扩散数步，形成三国志14式连片色块（不吞他城城心）
+  expandOwnedBlob(map, factionId, 5);
+}
+
+/** 从势力已有领地向无主陆地曼扩张（曼哈顿邻接） */
+function expandOwnedBlob(map, factionId, steps) {
+  const cols = map.cols;
+  const rows = map.rows;
+  const idxOf = (x, y) => y * cols + x;
+  let frontier = [];
+  for (const c of map.cells) {
+    if (c.land && c.owner === factionId) frontier.push(c);
+  }
+  for (let s = 0; s < steps; s++) {
+    const next = [];
+    for (const c of frontier) {
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const nx = c.x + dx;
+        const ny = c.y + dy;
+        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+        const n = map.cells[idxOf(nx, ny)];
+        if (!n?.land || n.owner) continue;
+        if (n.isCity && n.cityId) continue;
+        n.owner = factionId;
+        next.push(n);
+      }
+    }
+    frontier = next;
+    if (!frontier.length) break;
+  }
 }
 
 function paintEmptyAroundCity(map, cityId, factionId, radius) {
@@ -418,7 +449,11 @@ function captureCity(state, cityId, winnerId, loserId) {
   const winner = state.factions[winnerId];
   loser.cities = loser.cities.filter((c) => c !== cityId);
   if (!winner.cities.includes(cityId)) winner.cities.push(cityId);
-  paintAroundCity(state.map, cityId, winnerId, 5);
+  // 先清掉该城旧归属格，再整块重涂（含连片扩散）
+  for (const c of state.map.cells) {
+    if (c.land && c.cityId === cityId) c.owner = null;
+  }
+  claimCityTerritory(state.map, cityId, winnerId);
   for (const r of state.map.regions.filter((r) => r.cityId === cityId)) {
     state.map.cells[r.cell].owner = winnerId;
   }
@@ -508,9 +543,13 @@ function checkVictory(state) {
     state.result = { win: true, text: "海内归一，君已涂满中华大地！" };
     return;
   }
-  // 软性胜利：占领都市过半
-  if (p.cities.length >= 24) {
-    state.result = { win: true, text: "已掌控半数以上都市，大势在握！" };
+  // 软性胜利：占领约三成要城
+  const need = Math.max(28, Math.ceil(CITIES.length * 0.28));
+  if (p.cities.length >= need) {
+    state.result = {
+      win: true,
+      text: `已掌控天下要冲（${p.cities.length}/${CITIES.length}），大势在握！`,
+    };
   }
 }
 
