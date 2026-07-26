@@ -1,16 +1,15 @@
 /**
- * 浏览器端围棋 AI
+ * 浏览器端围棋 AI（支持 9 / 13 / 19 路）
  * - 入门/普通：启发式 + 浅层搜索
- * - 进阶/专家：启发式先验 + 蒙特卡洛树搜索（MCTS）
- * 小路盘（9/13）棋力明显更强。
+ * - 进阶/专家：启发式先验 + 限时蒙特卡洛树搜索（MCTS）
  */
 
 import { BLACK, WHITE, opponent } from "./engine.js";
 
 /**
- * 难度配置（可选级别）
- * sims: MCTS 模拟次数（按棋盘再缩放）
- * depth: 启发对抗深度
+ * 难度配置
+ * sims: MCTS 基准模拟次数（大棋盘会提高，并由 timeMs 封顶）
+ * timeMs: 大棋盘思考时间预算
  */
 const DIFFICULTY = {
   easy: {
@@ -19,8 +18,9 @@ const DIFFICULTY = {
     topN: 10,
     depth: 0,
     sims: 0,
-    priorTop: 24,
+    priorTop: 28,
     thinkMs: 160,
+    timeMs: { 9: 200, 13: 260, 19: 320 },
   },
   medium: {
     label: "普通",
@@ -28,26 +28,29 @@ const DIFFICULTY = {
     topN: 3,
     depth: 1,
     sims: 0,
-    priorTop: 36,
-    thinkMs: 260,
+    priorTop: 40,
+    thinkMs: 220,
+    timeMs: { 9: 280, 13: 380, 19: 480 },
   },
   hard: {
     label: "进阶",
     noise: 0.04,
     topN: 1,
     depth: 1,
-    sims: 500,
-    priorTop: 28,
-    thinkMs: 200,
+    sims: 700,
+    priorTop: 36,
+    thinkMs: 120,
+    timeMs: { 9: 900, 13: 1600, 19: 2600 },
   },
   expert: {
     label: "专家",
     noise: 0,
     topN: 1,
     depth: 1,
-    sims: 1600,
-    priorTop: 36,
-    thinkMs: 120,
+    sims: 1800,
+    priorTop: 44,
+    thinkMs: 80,
+    timeMs: { 9: 1600, 13: 2800, 19: 4200 },
   },
 };
 
@@ -96,57 +99,85 @@ export class GoAI {
     this.cfg = DIFFICULTY[this.difficulty];
   }
 
-  /** 按棋盘大小缩放 MCTS 次数 */
+  sizeKey(size) {
+    if (size <= 9) return 9;
+    if (size <= 13) return 13;
+    return 19;
+  }
+
+  /**
+   * 大棋盘给更多搜索，而不是削减。
+   * 返回 { sims, timeMs, priorTop, candLimit }
+   */
+  searchPlan(size) {
+    const sk = this.sizeKey(size);
+    const timeMs = this.cfg.timeMs[sk] ?? this.cfg.thinkMs;
+    if (!this.cfg.sims) {
+      return {
+        sims: 0,
+        timeMs,
+        priorTop: this.cfg.priorTop + (sk === 19 ? 12 : sk === 13 ? 6 : 0),
+        candLimit: sk === 19 ? 110 : sk === 13 ? 90 : 70,
+      };
+    }
+
+    // 13/19 提高模拟上限，用时间预算防止卡死
+    const simScale = sk === 9 ? 1 : sk === 13 ? 1.35 : 1.7;
+    const priorBoost = sk === 9 ? 0 : sk === 13 ? 8 : 14;
+    return {
+      sims: Math.round(this.cfg.sims * simScale),
+      timeMs,
+      priorTop: this.cfg.priorTop + priorBoost,
+      candLimit: sk === 19 ? 120 : sk === 13 ? 96 : 72,
+    };
+  }
+
+  /** 兼容旧测试 */
   scaledSims(size) {
-    if (!this.cfg.sims) return 0;
-    if (size <= 9) return this.cfg.sims;
-    if (size <= 13) return Math.round(this.cfg.sims * 0.55);
-    return Math.round(this.cfg.sims * 0.28);
+    return this.searchPlan(size).sims;
   }
 
   async chooseMove(engine) {
     const started = performance.now();
     const color = engine.toPlay;
+    const plan = this.searchPlan(engine.size);
     const urgents = this.findUrgentMoves(engine, color);
+    const captures = urgents.filter((u) => u.urgent >= 40);
 
-    // 有强制提子/逃气时，优先在紧急点中决策
-    let seedMoves = urgents.length
-      ? urgents
-      : this.collectCandidates(engine, this.cfg.priorTop + 20);
-
-    const scored = this.scoreMoves(engine, seedMoves, color);
-
-    if (!scored.length) {
-      await this.ensureThinkTime(started);
-      return { type: "pass" };
+    // 必提优先；逃气则与全局候选混合（大棋盘尤其需要）
+    let seedMoves;
+    if (captures.length) {
+      seedMoves = captures;
+    } else {
+      const global = this.collectCandidates(engine, plan.candLimit);
+      seedMoves = [...urgents, ...global];
     }
 
+    const scored = this.scoreMoves(engine, seedMoves, color);
+    if (!scored.length) {
+      await this.ensureThinkTime(started, plan.timeMs);
+      return { type: "pass" };
+    }
     scored.sort((a, b) => b.score - a.score);
 
     let pick;
-    const sims = this.scaledSims(engine.size);
-    if (sims > 0) {
-      const prior = scored.slice(0, this.cfg.priorTop);
-      pick = await this.mctsSelect(engine, prior, sims);
+    if (plan.sims > 0) {
+      const prior = scored.slice(0, plan.priorTop);
+      pick = await this.mctsSelect(engine, prior, plan.sims, plan.timeMs);
     } else {
       pick = this.sample(scored);
+      await this.ensureThinkTime(started, Math.min(plan.timeMs, this.cfg.thinkMs));
     }
 
-    // 终盘 / 对方已停着：收益不足则停着
     if (this.shouldPass(engine, pick, scored[0])) {
-      await this.ensureThinkTime(started);
       return { type: "pass" };
     }
-
-    await this.ensureThinkTime(started);
     return { type: "play", x: pick.x, y: pick.y };
   }
 
-  async ensureThinkTime(started) {
+  async ensureThinkTime(started, minMs) {
     const elapsed = performance.now() - started;
-    if (elapsed < this.cfg.thinkMs) {
-      await sleep(this.cfg.thinkMs - elapsed);
-    }
+    if (elapsed < minMs) await sleep(minMs - elapsed);
   }
 
   shouldPass(engine, pick, bestHeuristic) {
@@ -154,7 +185,6 @@ export class GoAI {
     const boardArea = engine.size * engine.size;
     const late = stoneCount > boardArea * 0.58;
     const score = pick.score ?? bestHeuristic?.score ?? 0;
-
     if (engine.consecutivePasses === 1 && score < 3.2) return true;
     if (late && score < 1.0) return true;
     return false;
@@ -175,9 +205,14 @@ export class GoAI {
       if (this.cfg.depth >= 1) {
         score -= 0.9 * this.bestOpponentReply(engine, trial, color, x, y);
       }
-      // 紧急点额外加权（在 findUrgent 已标 urgent）
       if (m.urgent) score += m.urgent;
-      scored.push({ x, y, score, captured: trial.captured.length, prior: score });
+      scored.push({
+        x,
+        y,
+        score,
+        captured: trial.captured.length,
+        prior: score,
+      });
     }
     return scored;
   }
@@ -202,9 +237,6 @@ export class GoAI {
     return pool[0];
   }
 
-  /**
-   * 扫描叫吃：优先提子 / 逃气
-   */
   findUrgentMoves(engine, color) {
     const opp = opponent(color);
     const board = engine.board;
@@ -223,12 +255,9 @@ export class GoAI {
         if (g.liberties.size !== 1) continue;
         const [lx, ly] = [...g.liberties][0].split(",").map(Number);
         if (c === opp) {
-          // 提对方
           out.push({ x: lx, y: ly, urgent: 40 + g.stones.length * 3 });
         } else {
-          // 逃自己的气（也可能是打劫点）
           out.push({ x: lx, y: ly, urgent: 28 + g.stones.length * 2 });
-          // 同时考虑提对方来反杀
           for (const [ax, ay] of g.stones) {
             for (const [nx, ny] of engine.neighbors(ax, ay)) {
               if (board[ny][nx] !== opp) continue;
@@ -245,13 +274,90 @@ export class GoAI {
     return out;
   }
 
+  /**
+   * 13/19 路布局要点：星位、小目/高目、挂角、拆边
+   */
+  fusekiPoints(size) {
+    const pts = [];
+    const add = (x, y) => {
+      if (x >= 0 && y >= 0 && x < size && y < size) pts.push([x, y]);
+    };
+
+    if (size === 19) {
+      const stars = [3, 9, 15];
+      for (const y of stars) for (const x of stars) add(x, y);
+      // 各角 3-4 / 4-3 / 5-3 守角与挂
+      const corners = [
+        [3, 3],
+        [3, 15],
+        [15, 3],
+        [15, 15],
+      ];
+      for (const [cx, cy] of corners) {
+        const sx = cx < 9 ? 1 : -1;
+        const sy = cy < 9 ? 1 : -1;
+        add(cx - sx, cy); // 3-4
+        add(cx, cy - sy);
+        add(cx - 2 * sx, cy); // 5-3 方向附近
+        add(cx, cy - 2 * sy);
+        add(cx + sx, cy + 2 * sy); // 挂角一带
+        add(cx + 2 * sx, cy + sy);
+        add(cx + 3 * sx, cy); // 拆边
+        add(cx, cy + 3 * sy);
+      }
+      // 边上要点
+      for (const s of [3, 15]) {
+        add(9, s);
+        add(s, 9);
+        add(6, s);
+        add(12, s);
+        add(s, 6);
+        add(s, 12);
+      }
+    } else if (size === 13) {
+      const stars = [3, 6, 9];
+      for (const y of stars) for (const x of stars) add(x, y);
+      const corners = [
+        [3, 3],
+        [3, 9],
+        [9, 3],
+        [9, 9],
+      ];
+      for (const [cx, cy] of corners) {
+        const sx = cx < 6 ? 1 : -1;
+        const sy = cy < 6 ? 1 : -1;
+        add(cx - sx, cy);
+        add(cx, cy - sy);
+        add(cx + 2 * sx, cy + sy);
+        add(cx + 3 * sx, cy);
+        add(cx, cy + 3 * sy);
+      }
+      add(6, 6);
+    } else {
+      for (const [x, y] of [
+        [2, 2],
+        [2, 6],
+        [6, 2],
+        [6, 6],
+        [4, 4],
+        [2, 4],
+        [4, 2],
+        [6, 4],
+        [4, 6],
+      ]) {
+        add(x, y);
+      }
+    }
+    return pts;
+  }
+
   collectCandidates(engine, limit = 80) {
     const size = engine.size;
     const board = engine.board;
     const near = new Set();
     let stones = 0;
 
-    const radius = size <= 9 ? 3 : 2;
+    const radius = size >= 19 ? 2 : size >= 13 ? 3 : 3;
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         if (!board[y][x]) continue;
@@ -269,21 +375,29 @@ export class GoAI {
       }
     }
 
-    if (stones < 10) {
+    // 开局与中盘初：布局点始终纳入（13/19 关键）
+    const openingHorizon = size >= 19 ? 48 : size >= 13 ? 28 : 14;
+    if (stones < openingHorizon) {
+      for (const [x, y] of this.fusekiPoints(size)) {
+        if (board[y][x] === 0) near.add(keyOf(x, y));
+      }
       for (const [x, y] of engine.starPoints()) {
         if (board[y][x] === 0) near.add(keyOf(x, y));
-        for (const [nx, ny] of engine.neighbors(x, y)) {
-          if (board[ny][nx] === 0) near.add(keyOf(nx, ny));
-        }
       }
-      const c = (size - 1) >> 1;
-      if (board[c][c] === 0) near.add(keyOf(c, c));
+    }
+
+    // 空角优先：大棋盘若某角附近无子，加入该角落子点
+    if (size >= 13 && stones < openingHorizon) {
+      for (const [x, y] of this.emptyCornerTargets(engine)) {
+        near.add(keyOf(x, y));
+      }
     }
 
     if (engine.lastMove && !engine.lastMove.pass) {
       const { x, y } = engine.lastMove;
-      for (let dy = -3; dy <= 3; dy++) {
-        for (let dx = -3; dx <= 3; dx++) {
+      const localR = size >= 19 ? 4 : 3;
+      for (let dy = -localR; dy <= localR; dy++) {
+        for (let dx = -localR; dx <= localR; dx++) {
           const nx = x + dx;
           const ny = y + dy;
           if (engine.inBounds(nx, ny) && board[ny][nx] === 0) {
@@ -293,18 +407,16 @@ export class GoAI {
       }
     }
 
-    // 二气点：收紧 / 做眼相关
     for (const u of this.findLibertyTargets(engine, 2)) {
       near.add(keyOf(u.x, u.y));
     }
 
     if (!near.size) {
-      for (const [x, y] of engine.starPoints()) near.add(keyOf(x, y));
-      const c = (size - 1) >> 1;
-      near.add(keyOf(c, c));
+      for (const [x, y] of this.fusekiPoints(size)) near.add(keyOf(x, y));
     }
 
-    if (near.size < 16 && stones > 0 && size <= 13) {
+    // 9/13 路候选过少时扩全盘；19 路用更大局部即可
+    if (near.size < 20 && stones > 0 && size <= 13) {
       for (let y = 0; y < size; y++) {
         for (let x = 0; x < size; x++) {
           if (board[y][x] === 0) near.add(keyOf(x, y));
@@ -319,6 +431,7 @@ export class GoAI {
 
     if (arr.length <= limit) return arr;
 
+    // 排序：紧急局部 + 空角布局价值
     const lx =
       engine.lastMove && !engine.lastMove.pass
         ? engine.lastMove.x
@@ -327,12 +440,57 @@ export class GoAI {
       engine.lastMove && !engine.lastMove.pass
         ? engine.lastMove.y
         : (size - 1) / 2;
+    const fuseki = new Set(this.fusekiPoints(size).map(([x, y]) => keyOf(x, y)));
+
     arr.sort((a, b) => {
+      const fa = fuseki.has(keyOf(a.x, a.y)) ? 0 : 1;
+      const fb = fuseki.has(keyOf(b.x, b.y)) ? 0 : 1;
+      if (stones < openingHorizon && fa !== fb) return fa - fb;
       const da = Math.abs(a.x - lx) + Math.abs(a.y - ly);
       const db = Math.abs(b.x - lx) + Math.abs(b.y - ly);
       return da - db;
     });
     return arr.slice(0, limit);
+  }
+
+  emptyCornerTargets(engine) {
+    const size = engine.size;
+    const corners =
+      size >= 19
+        ? [
+            [3, 3],
+            [3, 15],
+            [15, 3],
+            [15, 15],
+          ]
+        : [
+            [3, 3],
+            [3, 9],
+            [9, 3],
+            [9, 9],
+          ];
+    const out = [];
+    for (const [cx, cy] of corners) {
+      let occupied = false;
+      for (let dy = -3; dy <= 3 && !occupied; dy++) {
+        for (let dx = -3; dx <= 3; dx++) {
+          const x = cx + dx;
+          const y = cy + dy;
+          if (engine.inBounds(x, y) && engine.board[y][x]) {
+            occupied = true;
+            break;
+          }
+        }
+      }
+      if (!occupied) {
+        out.push([cx, cy]);
+        // 小目备选
+        const sx = cx < size / 2 ? 1 : -1;
+        const sy = cy < size / 2 ? 1 : -1;
+        out.push([cx - sx, cy], [cx, cy - sy]);
+      }
+    }
+    return out;
   }
 
   findLibertyTargets(engine, libertyCount) {
@@ -361,6 +519,8 @@ export class GoAI {
     const before = engine.board;
     const after = trial.board;
     let score = 0;
+    const size = engine.size;
+    const stones = countStones(engine);
 
     score += trial.captured.length * 18;
 
@@ -369,18 +529,19 @@ export class GoAI {
     if (self.liberties.size === 1) score -= 12;
     if (self.liberties.size === 2) score -= 2.2;
 
-    // 救自己的叫吃
     for (const [nx, ny] of engine.neighbors(x, y)) {
       if (before[ny][nx] !== color) continue;
       const gBefore = engine.getGroup(nx, ny, before);
       if (gBefore.liberties.size === 1 && gBefore.liberties.has(keyOf(x, y))) {
         score += 16 + gBefore.stones.length * 2;
-      } else if (gBefore.liberties.size === 2 && gBefore.liberties.has(keyOf(x, y))) {
+      } else if (
+        gBefore.liberties.size === 2 &&
+        gBefore.liberties.has(keyOf(x, y))
+      ) {
         score += 3 + gBefore.stones.length * 0.4;
       }
     }
 
-    // 叫吃 / 收紧对方
     const seenOpp = new Set();
     for (const [nx, ny] of engine.neighbors(x, y)) {
       if (after[ny][nx] !== opp) continue;
@@ -392,29 +553,50 @@ export class GoAI {
       else if (g.liberties.size === 2) score += 4 + g.stones.length * 0.35;
     }
 
-    // 粗略地域：落子后周围空点“归属感”
     score += this.localTerritoryDelta(engine, after, x, y, color) * 0.85;
 
-    const stones = countStones(engine);
-    if (stones < 14) {
+    // 布局评估：9/13/19 通用，大棋盘权重更高
+    const openingHorizon = size >= 19 ? 48 : size >= 13 ? 28 : 14;
+    if (stones < openingHorizon) {
+      const fuseki = new Set(
+        this.fusekiPoints(size).map(([sx, sy]) => keyOf(sx, sy))
+      );
       const stars = new Set(
         engine.starPoints().map(([sx, sy]) => keyOf(sx, sy))
       );
-      if (stars.has(keyOf(x, y))) score += 4.2;
-      const edge = Math.min(x, y, engine.size - 1 - x, engine.size - 1 - y);
-      if (edge >= 2 && edge <= 3) score += 2.0;
-      if (edge === 0) score -= 1.8;
-      if (engine.size <= 13) {
-        const c = (engine.size - 1) / 2;
+      if (stars.has(keyOf(x, y))) score += size >= 13 ? 5.5 : 4.2;
+      else if (fuseki.has(keyOf(x, y))) score += size >= 13 ? 3.8 : 2.5;
+
+      const edge = Math.min(x, y, size - 1 - x, size - 1 - y);
+      if (size >= 13) {
+        // 占角/占边，避免太早钻第三线以内或中腹乱战
+        if (edge >= 2 && edge <= 4) score += 2.4;
+        if (edge === 0) score -= 2.5;
+        if (edge >= 6) score -= stones < 20 ? 1.8 : 0.2;
+      } else {
+        if (edge >= 2 && edge <= 3) score += 2.0;
+        if (edge === 0) score -= 1.8;
+        const c = (size - 1) / 2;
         score += 1.4 - (Math.abs(x - c) + Math.abs(y - c)) * 0.09;
       }
+
+      // 空角奖励
+      score += this.emptyCornerBonus(engine, x, y) * (size >= 19 ? 1.4 : 1.1);
     }
 
-    if (engine.lastMove && !engine.lastMove.pass && engine.lastMove.color === opp) {
+    if (
+      engine.lastMove &&
+      !engine.lastMove.pass &&
+      engine.lastMove.color === opp
+    ) {
       const d =
         Math.abs(x - engine.lastMove.x) + Math.abs(y - engine.lastMove.y);
       if (d <= 2) score += 2.2;
       else if (d <= 3) score += 0.8;
+      else if (size >= 13 && d >= 8 && stones < openingHorizon) {
+        // 开局可脱先占另一角
+        score += this.emptyCornerBonus(engine, x, y) * 0.8;
+      }
     }
 
     let ownN = 0;
@@ -431,18 +613,62 @@ export class GoAI {
     if (ownN === 4 && trial.captured.length === 0) score -= 25;
 
     score += ownN * 0.55;
-    score += oppN * 0.25; // 靠拢/贴紧
+    score += oppN * 0.25;
     score += emptyN * 0.08;
     score += ((x * 13 + y * 7) % 5) * 0.01;
 
     return score;
   }
 
+  emptyCornerBonus(engine, x, y) {
+    const size = engine.size;
+    const corners =
+      size >= 19
+        ? [
+            [3, 3],
+            [3, 15],
+            [15, 3],
+            [15, 15],
+          ]
+        : size >= 13
+          ? [
+              [3, 3],
+              [3, 9],
+              [9, 3],
+              [9, 9],
+            ]
+          : [
+              [2, 2],
+              [2, 6],
+              [6, 2],
+              [6, 6],
+            ];
+    let best = 0;
+    for (const [cx, cy] of corners) {
+      const dist = Math.abs(x - cx) + Math.abs(y - cy);
+      if (dist > 4) continue;
+      let occupied = false;
+      for (let dy = -3; dy <= 3 && !occupied; dy++) {
+        for (let dx = -3; dx <= 3; dx++) {
+          const px = cx + dx;
+          const py = cy + dy;
+          if (engine.inBounds(px, py) && engine.board[py][px]) {
+            occupied = true;
+            break;
+          }
+        }
+      }
+      if (!occupied) best = Math.max(best, 3.2 - dist * 0.45);
+    }
+    return best;
+  }
+
   localTerritoryDelta(engine, after, x, y, color) {
     const opp = opponent(color);
     let delta = 0;
-    for (let dy = -2; dy <= 2; dy++) {
-      for (let dx = -2; dx <= 2; dx++) {
+    const span = engine.size >= 19 ? 3 : 2;
+    for (let dy = -span; dy <= span; dy++) {
+      for (let dx = -span; dx <= span; dx++) {
         const nx = x + dx;
         const ny = y + dy;
         if (!engine.inBounds(nx, ny) || after[ny][nx] !== 0) continue;
@@ -463,9 +689,12 @@ export class GoAI {
     const tmp = applyTrial(engine, trial, color, x, y);
     const opp = tmp.toPlay;
     const urgents = this.findUrgentMoves(tmp, opp);
+    const captures = urgents.filter((u) => u.urgent >= 40);
     const cands = (
-      urgents.length ? urgents : this.collectCandidates(tmp, 30)
-    ).slice(0, 30);
+      captures.length
+        ? captures
+        : [...urgents, ...this.collectCandidates(tmp, 32)]
+    ).slice(0, 32);
     let best = 0;
     for (const m of cands) {
       const cx = m.x ?? m[0];
@@ -479,11 +708,9 @@ export class GoAI {
     return best;
   }
 
-  /**
-   * MCTS：用启发分做先验，快速对局评估胜率
-   */
-  async mctsSelect(engine, priorMoves, sims) {
+  async mctsSelect(engine, priorMoves, sims, timeMs) {
     const rootColor = engine.toPlay;
+    const deadline = performance.now() + timeMs;
     const root = {
       engine,
       children: [],
@@ -495,25 +722,26 @@ export class GoAI {
       prior: 1,
     };
 
-    // 先验 softmax
     const maxP = Math.max(...priorMoves.map((m) => m.prior ?? m.score));
     for (const m of root.untried) {
       m.prior = Math.exp(((m.prior ?? m.score) - maxP) / 3.5);
     }
 
+    const playoutLen = engine.size >= 19 ? 22 : engine.size >= 13 ? 30 : 40;
+    const childPrior = engine.size >= 19 ? 14 : 18;
+
     for (let i = 0; i < sims; i++) {
+      if (performance.now() > deadline) break;
+
       let node = root;
       let state = engine;
 
-      // Selection
       while (!node.untried.length && node.children.length) {
         node = this.uctSelect(node);
         state = node.engine;
       }
 
-      // Expansion
       if (node.untried.length && state.phase === "playing") {
-        // 按先验加权抽取扩展着法
         const move = this.weightedPick(node.untried);
         node.untried = node.untried.filter(
           (m) => !(m.x === move.x && m.y === move.y)
@@ -532,7 +760,7 @@ export class GoAI {
             children: [],
             visits: 0,
             value: 0,
-            untried: this.legalPriorMoves(childEngine, 18),
+            untried: this.legalPriorMoves(childEngine, childPrior),
             move: { x: move.x, y: move.y, score: move.score ?? move.prior },
             parent: node,
             prior: move.prior || 1,
@@ -543,10 +771,7 @@ export class GoAI {
         }
       }
 
-      // Simulation
-      const result = this.playout(state, rootColor, engine.size <= 9 ? 40 : 28);
-
-      // Backprop
+      const result = this.playout(state, rootColor, playoutLen);
       let cur = node;
       while (cur) {
         cur.visits += 1;
@@ -554,14 +779,11 @@ export class GoAI {
         cur = cur.parent;
       }
 
-      if (i % 64 === 63) await sleep(0);
+      if (i % 40 === 39) await sleep(0);
     }
 
-    if (!root.children.length) {
-      return priorMoves[0];
-    }
+    if (!root.children.length) return priorMoves[0];
 
-    // 选访问最多（稳健），专家再偏向价值
     root.children.sort((a, b) => {
       if (this.difficulty === "expert") {
         const va = a.visits ? a.value / a.visits : -1;
@@ -616,29 +838,31 @@ export class GoAI {
     if (engine.phase !== "playing") return [];
     const color = engine.toPlay;
     const urgents = this.findUrgentMoves(engine, color);
-    const base = urgents.length
-      ? urgents
-      : this.collectCandidates(engine, limit);
+    const captures = urgents.filter((u) => u.urgent >= 40);
+    const base = captures.length
+      ? captures
+      : [...urgents, ...this.collectCandidates(engine, limit)];
     const scored = [];
-    for (const m of base.slice(0, limit)) {
+    const seen = new Set();
+    for (const m of base) {
       const x = m.x ?? m[0];
       const y = m.y ?? m[1];
+      const k = keyOf(x, y);
+      if (seen.has(k)) continue;
+      seen.add(k);
       const trial = engine.tryPlay(x, y, color);
       if (!trial.ok) continue;
       const score =
         this.evaluateMove(engine, x, y, color, trial) + (m.urgent || 0);
       scored.push({ x, y, score, prior: Math.exp(score / 4) });
+      if (scored.length >= limit * 2) break;
     }
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, limit);
   }
 
-  /**
-   * 快速对局：启发式偏置随机，返回相对 rootColor 的胜负分 [0,1]
-   */
   playout(engine, rootColor, maxMoves) {
     const state = engine.clone();
-    // 限制历史长度，加速同形判断
     if (state.positionHistory.length > 8) {
       state.positionHistory = state.positionHistory.slice(-8);
     }
@@ -660,7 +884,6 @@ export class GoAI {
         }
       }
       if (passes >= 2) break;
-      // 截断超长历史
       if (state.positionHistory.length > 10) {
         state.positionHistory = state.positionHistory.slice(-8);
       }
@@ -672,9 +895,12 @@ export class GoAI {
   policyMove(engine) {
     const color = engine.toPlay;
     const urgents = this.findUrgentMoves(engine, color);
-    const pool = urgents.length
-      ? urgents
-      : this.collectCandidates(engine, 16);
+    const captures = urgents.filter((u) => u.urgent >= 40);
+    const pool = captures.length
+      ? captures
+      : urgents.length
+        ? urgents
+        : this.collectCandidates(engine, engine.size >= 19 ? 20 : 16);
     const legal = [];
     for (const m of pool) {
       const x = m.x ?? m[0];
@@ -688,7 +914,6 @@ export class GoAI {
     }
     if (!legal.length) return null;
     legal.sort((a, b) => b.s - a.s);
-    // 在前几名中随机，保持探索
     const top = legal.slice(0, Math.min(5, legal.length));
     return top[Math.floor(Math.random() * top.length)];
   }
@@ -699,7 +924,6 @@ export class GoAI {
     let black = engine.captures[BLACK];
     let white = engine.captures[WHITE] + engine.komi;
 
-    // 子 + 粗略包围空点
     const visited = Array.from({ length: size }, () =>
       Array(size).fill(false)
     );

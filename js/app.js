@@ -382,7 +382,7 @@ function newGame() {
   let tip = "新对局开始，黑先。";
   if (isAiMode()) {
     const you = colorName(humanColor());
-    tip = `人机对战开始：你执${you}，AI 执${colorName(aiColor())}（${els.difficultySelect.selectedOptions[0].text}）。专家级在 9 路上更强，思考也会稍久。`;
+    tip = `人机对战开始：你执${you}，AI 执${colorName(aiColor())}（${els.difficultySelect.selectedOptions[0].text} · ${size}路）。大棋盘 AI 思考会稍久。`;
   }
   refresh(tip, true);
   maybeAiMove();

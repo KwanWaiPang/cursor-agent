@@ -89,9 +89,9 @@
             <div class="field">
               <label for="sizeSelect">棋盘规格</label>
               <select id="sizeSelect">
-                <option value="9" selected>9路（推荐人机）</option>
+                <option value="9">9路</option>
                 <option value="13">13路</option>
-                <option value="19">19路（标准）</option>
+                <option value="19" selected>19路（标准）</option>
               </select>
             </div>
             <div class="field">
@@ -115,7 +115,7 @@
               <li>禁止同形再现（含劫争）。</li>
               <li>双方连续停着后进入点目，点击棋子标记死子。</li>
               <li>计分采用中国规则：子空皆地，白贴目。</li>
-              <li>AI 为浏览器本地引擎：入门/普通偏启发式，进阶/专家用 MCTS 搜索；9 路棋力最强。</li>
+              <li>AI 支持 9 / 13 / 19 路；进阶/专家用限时 MCTS，大棋盘会多想一会儿。</li>
             </ul>
           </section>
         </aside>
