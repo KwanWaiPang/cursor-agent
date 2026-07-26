@@ -120,11 +120,11 @@ var levels = [
 		camera.position.set( 0, 100, 100 );
 
 
-		// LIGHTING
-		var spotlight = new THREE.SpotLight( 0xFFFFFF, 1.0);
+		// LIGHTING（略提环境光与侧光，避免棋子糊成一团）
+		var spotlight = new THREE.SpotLight( 0xFFFFFF, 1.05);
 		spotlight.position.set( 0, 300, 0 );
 		spotlight.angle =  Math.PI / 2;
-		spotlight.exponent = 50.0;
+		spotlight.exponent = 40.0;
 		spotlight.target.position.set( 0, 0, 0 );
 
 		if ( SHADOW ) {
@@ -136,10 +136,12 @@ var levels = [
 		}
 
 
-		var whiteLight = new THREE.PointLight( 0xFFEEDD, 0.2);
-		whiteLight.position.set(0,0,100);
-		var blackLight = new THREE.PointLight( 0xFFEEDD, 0.2);
-		blackLight.position.set(0,0,-100);
+		var whiteLight = new THREE.PointLight( 0xFFF2E0, 0.45);
+		whiteLight.position.set(0,40,110);
+		var blackLight = new THREE.PointLight( 0xE8F0FF, 0.4);
+		blackLight.position.set(0,40,-110);
+		var fillLight = new THREE.PointLight( 0xFFFFFF, 0.22);
+		fillLight.position.set(80, 120, 0);
 
 		// generate createPiece and createCell functions
 		initPieceFactory();
@@ -158,12 +160,13 @@ var levels = [
 		scene.add(spotlight);
 		scene.add(whiteLight);
 		scene.add(blackLight);
+		scene.add(fillLight);
 		scene.add(chessBoard);
 
 		// to make everything black in the background
-		scene.fog = new THREE.FogExp2( 0x000000, 0.001 );
-		// little reddish to fake a bit of bounce lighting
-		scene.add(new THREE.AmbientLight(0x330000));
+		scene.fog = new THREE.FogExp2( 0x000000, 0.0008 );
+		// 中性环境光，便于辨认象牙/乌木棋子
+		scene.add(new THREE.AmbientLight(0x606060));
 
 		// for picking
 		projector = new THREE.Projector();
