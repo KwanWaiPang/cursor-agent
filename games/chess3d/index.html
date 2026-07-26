@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>国际象棋 · 3D · 弈馆</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=ZCOOL+XiaoWei&display=swap"
+      rel="stylesheet"
+    />
+    <link href="./css/dark-hive/jquery-ui-1.10.3.custom.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="../../css/shared.css" />
+    <link rel="stylesheet" href="./css/shell.css" />
+
+    <script src="./js/lib/three.min.js"></script>
+    <script src="./js/lib/OrbitAndPanControls.js"></script>
+    <script src="./js/jquery/jquery-1.9.1.js"></script>
+    <script src="./js/jquery/jquery-ui-1.10.3.custom.min.js"></script>
+    <script src="./js/AI/garbochess.js"></script>
+    <script>
+      var WIREFRAME = false;
+      var SHADOW = false;
+      var BLACK = 0;
+      var WHITE = 1;
+      var FEEDBACK = 2;
+      var DEBUG = false;
+      var BOARD_SIZE = 100;
+      var PIECE_SIZE = 0.4;
+      var FLOOR_SIZE = 2000;
+      var COLS = 8;
+      var ROWS = 8;
+      var LOADING_BAR_SCALE = 0.3;
+    </script>
+    <script src="./js/three-extend.js"></script>
+    <script src="./js/loading.js"></script>
+    <script src="./js/Cell.js"></script>
+    <script src="./js/factory.js"></script>
+    <script src="./js/pgnParser.js"></script>
+    <script src="./js/gui.js"></script>
+    <script src="./js/chess.js"></script>
+  </head>
+  <body id="container" class="theme-yi chess3d-body">
+    <header class="chess3d-bar">
+      <div class="brand">
+        <a href="../../"><h1>国际象棋</h1></a>
+        <p>弈馆 · 3D WebGL · 可与 AI 对弈</p>
+      </div>
+      <div class="topbar-actions">
+        <a class="btn secondary" href="../../">返回大厅</a>
+      </div>
+    </header>
+  </body>
+</html>

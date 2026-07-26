@@ -1,53 +1,38 @@
-# 围棋 · 网页对局
+# 弈馆
 
-纯前端网页围棋，支持本地双人对弈，可部署到 GitHub Pages 后直接点击打开。
+统一风格的网页棋类游戏集合：围棋、中国象棋、3D 国际象棋。可部署到 GitHub Pages，从大厅任选开玩。
 
-## 功能
+## 在线地址
 
-- 标准围棋规则：落子、提子、禁自杀、禁止同形再现（劫争）
-- 对战模式：人人对战 / 人机对战（浏览器本地 AI）
-- AI：可选手执黑/白；难度四级可选
-  - 入门：轻松，着法有随机性
-  - 普通：启发式评估
-  - 进阶：启发式 + 蒙特卡洛树搜索（MCTS）
-  - 专家：更多模拟，棋力更强（思考稍慢）
-- 棋盘规格：9 / 13 / 19 路（人机均可）
-- 双方停着后进入点目，自动标记死子（可手动调整）
-- 中国规则计分（子空皆地 + 贴目）
-- 停着、认输、悔棋、新对局
+合并并启用 Pages 后：
 
-> AI 在浏览器本地运行，支持 9/13/19。13/19 路会给更多搜索时间；不是职业级（如 KataGo）棋力。
+**https://kwanwaipang.github.io/cursor-agent/**
+
+## 目录
+
+```
+index.html              # 游戏大厅入口
+css/shared.css          # 统一视觉变量
+css/hub.css             # 大厅样式
+games/go/               # 围棋（含本地 AI）
+games/xiangqi/          # 中国象棋（适配开源实现）
+games/chess3d/          # 3D 国际象棋（适配 Chess3D）
+THIRD_PARTY_NOTICES.md  # 第三方许可说明
+```
 
 ## 本地预览
-
-仓库为静态站点，用任意本地服务器打开即可（ES Module 需要 HTTP）：
 
 ```bash
 python3 -m http.server 8080
 ```
 
-浏览器访问：<http://localhost:8080>
+打开 <http://localhost:8080>
 
 ## GitHub Pages
 
-合并到 `main` 后：
+1. Settings → Pages → Source 选 **GitHub Actions**
+2. 推送到 `main` 后自动部署
 
-1. 打开仓库 **Settings → Pages**
-2. Source 选择 **GitHub Actions**（本仓库已提供部署工作流）
-3. 等待 Actions 中的 *Deploy GitHub Pages* 完成
+## 第三方来源
 
-在线地址：
-
-**https://kwanwaipang.github.io/cursor-agent/**
-
-若尚未启用 Pages，也可在 Settings → Pages 中将分支设为 `main` / 根目录 `/`。
-
-## 目录
-
-```
-index.html      # 页面入口
-css/styles.css  # 样式
-js/engine.js    # 规则引擎
-js/ai.js        # 本地 AI
-js/app.js       # 棋盘绘制与交互
-```
+详见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。

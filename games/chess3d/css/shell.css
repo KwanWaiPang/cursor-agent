@@ -1,0 +1,144 @@
+html,
+body.chess3d-body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+body.chess3d-body {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(255, 220, 160, 0.35), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 80%, rgba(15, 92, 76, 0.2), transparent 50%),
+    linear-gradient(160deg, #2a1c12 0%, #4a321f 38%, #6b4528 72%, #3a2618 100%);
+}
+
+body.chess3d-body canvas {
+  display: block;
+}
+
+.chess3d-bar {
+  position: fixed;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(28, 20, 16, 0.55), transparent);
+}
+
+.chess3d-bar .brand,
+.chess3d-bar .topbar-actions {
+  pointer-events: auto;
+}
+
+.chess3d-bar .brand h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: var(--cream);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.chess3d-bar .brand a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.chess3d-bar .brand p {
+  margin: 0.2rem 0 0;
+  color: rgba(248, 236, 214, 0.8);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+}
+
+/* 统一侧边菜单观感 */
+#gui {
+  top: 5.5rem !important;
+  left: 0.75rem !important;
+  width: 180px !important;
+  background: rgba(255, 248, 235, 0.92) !important;
+  border: 1px solid rgba(255, 245, 220, 0.55);
+  border-radius: 16px;
+  box-shadow: 0 12px 28px rgba(20, 12, 8, 0.28);
+  color: #1c1410;
+  font-family: "Noto Serif SC", serif;
+  overflow: hidden;
+}
+
+#gui .ui-accordion-header,
+#gui p {
+  background: rgba(15, 92, 76, 0.12) !important;
+  color: #1c1410 !important;
+  border: none !important;
+  font-family: "ZCOOL XiaoWei", "Noto Serif SC", serif;
+  letter-spacing: 0.08em;
+}
+
+#gui .ui-accordion-content {
+  background: transparent !important;
+  color: #3d2f26;
+}
+
+#gui textarea {
+  background: rgba(255, 255, 255, 0.45) !important;
+  border: 1px solid rgba(61, 47, 38, 0.25) !important;
+  color: #1c1410 !important;
+  border-radius: 8px;
+}
+
+#gui button,
+#gui .ui-button {
+  background: #0f5c4c !important;
+  color: #f7fff9 !important;
+  border: none !important;
+  border-radius: 10px !important;
+}
+
+#info {
+  top: 5.2rem !important;
+  right: 1rem !important;
+  color: #f3c27a !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+#progressbar {
+  border-color: rgba(248, 236, 214, 0.45) !important;
+}
+
+#progress-label,
+#tips {
+  color: #f8ecd6 !important;
+  font-family: "Noto Serif SC", serif;
+}
+
+.webgl-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+  color: #f8ecd6;
+  background: rgba(28, 20, 16, 0.82);
+  font-family: "Noto Serif SC", serif;
+}
+
+.webgl-fallback h2 {
+  margin: 0;
+  font-family: "ZCOOL XiaoWei", "Noto Serif SC", serif;
+  letter-spacing: 0.12em;
+}
+
+.webgl-fallback a {
+  color: #7dcfb6;
+}

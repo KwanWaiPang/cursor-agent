@@ -1,0 +1,138 @@
+body.theme-yi {
+  text-align: left;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.xiangqi-shell {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+}
+
+.xiangqi-shell .topbar {
+  width: min(100%, 720px);
+}
+
+.xiangqi-shell .brand h1 {
+  font-size: clamp(2rem, 4vw, 2.8rem);
+}
+
+.board-panel {
+  width: min(100%, 560px);
+  padding: 1rem;
+  text-align: center;
+}
+
+.chess_box {
+  display: none;
+}
+
+.chess_box canvas {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(70, 40, 10, 0.15);
+}
+
+.bn_box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.85rem;
+}
+
+.bn_box button,
+.menu-link {
+  appearance: none;
+  border: none;
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  background: var(--accent);
+  color: #f7fff9;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.bn_box button.secondary,
+.menu-link.secondary {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid rgba(61, 47, 38, 0.28);
+}
+
+.menu_box {
+  width: min(100%, 420px);
+  padding: 1.25rem;
+  display: block;
+}
+
+.menu_init,
+.menu_dy,
+.menu_qj {
+  display: none;
+  grid-gap: 0.65rem;
+}
+
+.menu_init {
+  display: grid;
+}
+
+.menu_dy,
+.menu_qj {
+  display: none;
+}
+
+.menu-link {
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
+}
+
+.menu_info {
+  background: rgba(15, 92, 76, 0.08);
+  border: 1px solid rgba(15, 92, 76, 0.14);
+  border-radius: 12px;
+  color: var(--ink-soft);
+  padding: 0.85rem 1rem;
+  text-align: left;
+  display: grid;
+  gap: 0.45rem;
+  position: relative;
+}
+
+.menu_info label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+}
+
+.menu_fh {
+  position: absolute;
+  right: 0.7rem;
+  top: 0.7rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(61, 47, 38, 0.15);
+  cursor: pointer;
+}
+
+.menu_fh::before {
+  content: "×";
+  color: var(--ink-soft);
+  font-size: 1.1rem;
+  line-height: 1.4rem;
+}
+
+/* 覆盖原 css 依赖图片背景的菜单样式 */
+.menu_box.panel {
+  background: var(--panel);
+}
