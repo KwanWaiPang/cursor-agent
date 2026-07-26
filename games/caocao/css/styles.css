@@ -185,6 +185,64 @@ body.caocao-body {
   font-size: 0.9rem;
 }
 
+.deploy-shell {
+  padding-bottom: 2rem;
+}
+
+.deploy-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 0.85rem;
+}
+
+.deploy-side h3 {
+  margin: 0.6rem 0 0.35rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+.deploy-slots,
+.deploy-pool {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.deploy-slot,
+.deploy-pool button {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(61, 47, 38, 0.2);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  background: rgba(255, 255, 255, 0.4);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.deploy-slot.active {
+  border-color: #8b2e2e;
+  background: rgba(139, 46, 46, 0.12);
+}
+
+.deploy-slot.locked {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.deploy-actions {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .deploy-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .stage-card {
   appearance: none;
   width: 100%;

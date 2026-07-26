@@ -42,6 +42,30 @@
       </section>
     </div>
 
+    <div id="deploy" class="hidden">
+      <div class="shell deploy-shell">
+        <section class="panel">
+          <h2>出征部署</h2>
+          <p class="roadmap-note" id="deployHint">点选空位，再从武将池指定出战人选。锁定武将不可更换。</p>
+          <div class="deploy-layout">
+            <div class="board-wrap">
+              <canvas id="deployBoard" width="576" height="480"></canvas>
+            </div>
+            <div class="deploy-side">
+              <h3>空位武将</h3>
+              <div id="deploySlots" class="deploy-slots"></div>
+              <h3>可选武将池</h3>
+              <div id="deployPool" class="deploy-pool"></div>
+              <div class="deploy-actions">
+                <button class="btn" id="btnDeployStart" type="button">出征</button>
+                <button class="btn secondary" id="btnDeployCancel" type="button">返回</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
     <div id="battle" class="hidden">
       <div class="board-wrap">
         <canvas id="board" width="576" height="480"></canvas>

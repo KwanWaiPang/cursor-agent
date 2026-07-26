@@ -19,6 +19,8 @@ import {
   tickConditions,
   Status,
 } from "./script.js";
+import { assignLoadout } from "../data/equipment.js";
+import { onTurnBegin, onActionDone } from "./effects.js";
 
 let uid = 1;
 
@@ -39,17 +41,16 @@ function applyGear(stats, gearList) {
   return s;
 }
 
-function spawnUnit(def, team, gearBonus) {
+function spawnUnit(def, team, loadout) {
   const tpl = GENERALS[def.generalId];
   if (!tpl) throw new Error("unknown general " + def.generalId);
   const level = def.level || 1;
   let st = statsAtLevel(tpl, level);
-  if (team === "player" && gearBonus?.length) {
-    st = applyGear(st, gearBonus);
+  const gear = loadout || def.loadout || [];
+  if (team === "player" && gear.length) {
+    st = applyGear(st, gear);
   }
-  const moveBonus = (gearBonus || [])
-    .filter((g) => g.move)
-    .reduce((a, g) => a + g.move, 0);
+  const moveBonus = gear.filter((g) => g.move).reduce((a, g) => a + g.move, 0);
   const classId = def.classOverride || tpl.classId;
   const cls = CLASSES[classId];
   const mpMax = (cls?.mpBase || 10) + (cls?.mpGrowth || 1) * (level - 1);
@@ -73,9 +74,11 @@ function spawnUnit(def, team, gearBonus) {
     itl: st.itl,
     mor: st.mor,
     moveBonus,
+    loadout: gear,
     portrait: tpl.portrait,
     lord: !!tpl.lord && team === "player",
     boss: !!def.boss,
+    aiMode: def.aiMode || null,
     alive: true,
     done: false,
     exp: 0,
@@ -87,18 +90,19 @@ export function createBattleState(stage, options = {}) {
   uid = 1;
   const tiles = parseStageMap(stage);
   const gear = options.gear || [];
+  const playerDefs = options.player || stage.player;
+  const withLoadout = assignLoadout(playerDefs, gear);
   const units = [
-    ...stage.player.map((u) => spawnUnit(u, "player", gear)),
+    ...withLoadout.map((u) => spawnUnit(u, "player", u.loadout)),
     ...(stage.ally || []).map((u) => spawnUnit(u, u.team || "ally", null)),
     ...stage.enemy.map((u) => spawnUnit(u, "enemy", null)),
   ];
   const script = stage.script || buildDefaultScript(stage);
-  // 克隆事件以免污染模板
   const runtimeScript = {
     ...script,
     events: (script.events || []).map((e) => ({ ...e, done: false })),
   };
-  return {
+  const state = {
     stage,
     script: runtimeScript,
     tiles,
@@ -108,7 +112,7 @@ export function createBattleState(stage, options = {}) {
     turn: 1,
     phase: "player",
     selectedId: null,
-    mode: "select", // select | move | action | attack | magic | magicPick
+    mode: "select",
     moveCells: [],
     attackTargets: [],
     magicList: [],
@@ -119,6 +123,13 @@ export function createBattleState(stage, options = {}) {
     lootGained: [],
     speakQueue: [],
   };
+  // 开战回合初效果
+  for (const u of state.units) {
+    if (u.alive && u.team === "player") {
+      onTurnBegin(u, (t) => state.log.push({ turn: 1, text: t }));
+    }
+  }
+  return state;
 }
 
 export function getUnit(state, id) {
@@ -192,6 +203,7 @@ export function cancelMove(state) {
 export function waitUnit(state) {
   const unit = getUnit(state, state.selectedId);
   if (!unit) return;
+  onActionDone(unit, (t) => state.log.push({ turn: state.turn, text: t }));
   unit.done = true;
   clearSelection(state);
   runScriptChecks(state);
@@ -255,6 +267,7 @@ export function confirmAttack(state, target) {
       gainExp(unit, computeExp(unit, target));
     }
   }
+  onActionDone(unit, (t) => state.log.push({ turn: state.turn, text: t }));
   unit.done = true;
   clearSelection(state);
   runScriptChecks(state);
@@ -302,6 +315,7 @@ export function confirmMagic(state, target) {
     }
   }
 
+  onActionDone(unit, (t) => state.log.push({ turn: state.turn, text: t }));
   unit.done = true;
   clearSelection(state);
   runScriptChecks(state);
@@ -363,10 +377,13 @@ function runEnemyPhase(state) {
     tickConditions(state);
     for (const u of state.units) u.done = false;
     state.turn += 1;
-    // 回合开始小回复 MP（策士）
     for (const u of state.units) {
-      if (u.alive && u.classId === "strategist") {
+      if (!u.alive) continue;
+      if (u.classId === "strategist") {
         u.mp = Math.min(u.mpMax, u.mp + 2);
+      }
+      if (u.team === "player") {
+        onTurnBegin(u, (t) => state.log.push({ turn: state.turn, text: t }));
       }
     }
     state.phase = "player";

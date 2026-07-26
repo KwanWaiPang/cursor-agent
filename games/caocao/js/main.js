@@ -18,13 +18,28 @@ import {
 } from "./engine.js";
 import { createRenderer, describeTile, formatUnit, drawPortrait } from "./render.js";
 import { TERRAIN, terrainMoveCost } from "../data/classes.js";
-import { isHostile } from "../data/generals.js";
+import { GENERALS, isHostile } from "../data/generals.js";
 import { inventoryToGear } from "../data/equipment.js";
+import {
+  createDeployState,
+  availableForSlot,
+  assignSlot,
+  clearSlot,
+  finalizeDeploy,
+  rosterFromSave,
+} from "./deploy.js";
 
 const SAVE_KEY = "caocao_campaign_v2";
 
 const els = {
   menu: document.getElementById("menu"),
+  deploy: document.getElementById("deploy"),
+  deployBoard: document.getElementById("deployBoard"),
+  deploySlots: document.getElementById("deploySlots"),
+  deployPool: document.getElementById("deployPool"),
+  deployHint: document.getElementById("deployHint"),
+  btnDeployStart: document.getElementById("btnDeployStart"),
+  btnDeployCancel: document.getElementById("btnDeployCancel"),
   battle: document.getElementById("battle"),
   canvas: document.getElementById("board"),
   stageList: document.getElementById("stageList"),
@@ -58,6 +73,7 @@ const els = {
 };
 
 const renderer = createRenderer(els.canvas);
+const deployRenderer = createRenderer(els.deployBoard);
 
 let state = null;
 let hover = null;
@@ -65,6 +81,7 @@ let talkQueue = [];
 let talkMode = null; // intro | victory | choice | battleChoice | branch
 let pendingStageId = null;
 let pendingChoice = null;
+let deployState = null;
 
 function defaultSave() {
   return {
@@ -289,26 +306,97 @@ function startStage(id) {
   pendingStageId = id;
   const stage = getStage(id);
   const save = loadSave();
-  state = createBattleState(stage, { gear: inventoryToGear(save.inventory) });
-  renderer.resize(state);
+  deployState = createDeployState(stage, rosterFromSave(save));
   hide(els.menu);
+  hide(els.battle);
   hide(els.result);
+  show(els.deploy);
+  els.deployHint.textContent = `【${stage.name}】点选空位，再从武将池指定出战人选。锁定武将不可更换。`;
+  renderDeploy();
+}
+
+function renderDeploy() {
+  if (!deployState) return;
+  deployRenderer.drawDeployPreview(deployState.stage, deployState, null);
+  els.deploySlots.innerHTML = "";
+
+  for (const [i, p] of deployState.locked.entries()) {
+    const tpl = GENERALS[p.generalId];
+    const row = document.createElement("div");
+    row.className = "deploy-slot locked";
+    row.textContent = `锁定·${tpl?.name || p.generalId}（${p.x},${p.y}）`;
+    els.deploySlots.appendChild(row);
+    void i;
+  }
+
+  for (const [i, s] of deployState.slots.entries()) {
+    const tpl = s.generalId ? GENERALS[s.generalId] : null;
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className =
+      "deploy-slot" + (deployState.selectedSlot === i ? " active" : "");
+    row.textContent = tpl
+      ? `空位${i + 1}·${tpl.name}`
+      : `空位${i + 1}·（未指定）`;
+    row.addEventListener("click", () => {
+      deployState.selectedSlot = i;
+      renderDeploy();
+    });
+    els.deploySlots.appendChild(row);
+  }
+
+  els.deployPool.innerHTML = "";
+  const avail = availableForSlot(deployState, deployState.selectedSlot);
+  const clearBtn = document.createElement("button");
+  clearBtn.type = "button";
+  clearBtn.textContent = "清空当前空位";
+  clearBtn.addEventListener("click", () => {
+    clearSlot(deployState, deployState.selectedSlot);
+    renderDeploy();
+  });
+  els.deployPool.appendChild(clearBtn);
+
+  for (const id of avail) {
+    const tpl = GENERALS[id];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = `${tpl.name} · ${tpl.classId}`;
+    btn.addEventListener("click", () => {
+      assignSlot(deployState, deployState.selectedSlot, id);
+      renderDeploy();
+    });
+    els.deployPool.appendChild(btn);
+  }
+}
+
+function confirmDeployAndBattle() {
+  if (!deployState) return;
+  const players = finalizeDeploy(deployState);
+  if (!players?.length) {
+    alert("请至少部署一名武将。");
+    return;
+  }
+  const stage = deployState.stage;
+  const save = loadSave();
+  hide(els.deploy);
+  state = createBattleState(stage, {
+    gear: inventoryToGear(save.inventory),
+    player: players,
+  });
+  renderer.resize(state);
   show(els.battle);
   els.objective.textContent = stage.objective;
   els.log.innerHTML = "";
   pushLog(`出征：${stage.name}`);
+  deployState = null;
 
-  const runIntro = () => {
-    if (stage.intro?.length) {
-      talkMode = "intro";
-      talkQueue = [...stage.intro];
-      showTalk();
-    } else {
-      maybeBattleChoice();
-    }
-  };
-
-  runIntro();
+  if (stage.intro?.length) {
+    talkMode = "intro";
+    talkQueue = [...stage.intro];
+    showTalk();
+  } else {
+    maybeBattleChoice();
+  }
 }
 
 function maybeBattleChoice() {
@@ -601,6 +689,7 @@ els.btnMenu.addEventListener("click", () => {
   state = null;
   talkMode = null;
   hide(els.battle);
+  hide(els.deploy);
   hide(els.result);
   hide(els.dialog);
   show(els.menu);
@@ -629,6 +718,14 @@ els.btnResultOk.addEventListener("click", () => {
 els.btnResetSave?.addEventListener("click", () => {
   if (!confirm("清空战役进度、忠奸值与宝物？")) return;
   writeSave(defaultSave());
+  renderMenu();
+});
+
+els.btnDeployStart?.addEventListener("click", () => confirmDeployAndBattle());
+els.btnDeployCancel?.addEventListener("click", () => {
+  deployState = null;
+  hide(els.deploy);
+  show(els.menu);
   renderMenu();
 });
 

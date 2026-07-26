@@ -18,19 +18,19 @@ import {
   applyTerrainEffect,
   computeExp,
 } from "../data/formulae.js";
+import {
+  attackBonusChances,
+  modifyAttackRoll,
+  modifyIncomingDamage,
+  modifyMagicDamage,
+} from "./effects.js";
 
 export { computeExp };
 
 export function calcDamage(attacker, defender, terrainId) {
   const atkPct = terrainEffectPct(terrainId, attacker.classId);
-  // 防御侧用地形；防方用其所站地形在调用处传入
   const atkEff = applyTerrainEffect(attacker.atk, atkPct);
-  const defPct = terrainEffectPct(
-    // defender terrain passed as terrainId (defender's tile)
-    terrainId,
-    defender.classId
-  );
-  // 攻方地形加成用攻击者所在格更合理；此处简化：攻防都用目标格防效 + 攻方平地
+  const defPct = terrainEffectPct(terrainId, defender.classId);
   const defEff = applyTerrainEffect(defender.def, defPct);
   const force = Math.round(100 * classAdvantage(attacker.classId, defender.classId));
   let damage = computeBasicAttackDamage(attacker, defender, atkEff, defEff, force);
@@ -41,21 +41,18 @@ export function calcDamage(attacker, defender, terrainId) {
     return { damage: 0, miss: true, crit: false, dual: false, adv: force / 100, exp: 0 };
   }
 
-  const critChance = computeCriticalChance(attacker, defender);
-  const dualChance = computeDoubleChance(attacker, defender);
+  const bonus = attackBonusChances(attacker);
+  const critChance = computeCriticalChance(attacker, defender) + bonus.crit;
+  const dualChance = computeDoubleChance(attacker, defender) + bonus.dual;
   const crit = Math.random() * 100 < critChance;
   const dual = Math.random() * 100 < dualChance;
   if (crit) damage = Math.floor(damage * 1.5);
   if (dual) damage *= 2;
 
-  return {
-    damage,
-    miss: false,
-    crit,
-    dual,
-    adv: force / 100,
-    exp: computeExp(attacker, defender),
-  };
+  let roll = { damage, miss: false, crit, dual, adv: force / 100, exp: computeExp(attacker, defender) };
+  roll = modifyAttackRoll(attacker, roll);
+  roll.damage = modifyIncomingDamage(defender, roll.damage);
+  return roll;
 }
 
 export function calcMagicDamage(attacker, defender, magic) {
@@ -66,10 +63,12 @@ export function calcMagicDamage(attacker, defender, magic) {
   if (!hit) return { damage: 0, heal: 0, miss: true };
 
   if (power >= 0) {
-    const heal = computeMagicDamage(attacker, defender, power);
+    let heal = computeMagicDamage(attacker, defender, power);
+    heal = modifyMagicDamage(attacker, heal);
     return { damage: 0, heal, miss: false };
   }
-  const damage = computeMagicDamage(attacker, defender, force);
+  let damage = computeMagicDamage(attacker, defender, force);
+  damage = modifyMagicDamage(attacker, damage);
   return { damage, heal: 0, miss: false };
 }
 

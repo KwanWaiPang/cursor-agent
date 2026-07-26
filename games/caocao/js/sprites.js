@@ -336,56 +336,107 @@ function drawStrategist(ctx, cx, cy, scale, body, accent) {
   ctx.stroke();
 }
 
-/** 侧栏头像（简化半身像） */
+const FACE = {
+  caocao: { beard: true, crown: "#c4a574", brow: 0.02 },
+  xiahou_dun: { eyePatch: true, crown: "#8b2e2e" },
+  dianwei: { thick: true, crown: "#5a3a20" },
+  xuchu: { thick: true, crown: "#6a4028" },
+  xunyu: { scholar: true, crown: "#3a4a6b" },
+  guojia: { scholar: true, crown: "#2a3a5b" },
+  sunjian: { crown: "#2a5a8a", beard: true },
+  guanyu: { beard: true, longBeard: true, crown: "#6b1a1a" },
+  zhangfei: { thick: true, crown: "#2a2a4a", beard: true },
+  lvbu: { crown: "#5a1a2a", brow: -0.01 },
+  zhangjiao: { scholar: true, crown: "#5a2a6b", hat: true },
+};
+
+/** 侧栏头像（自研半身像，按武将微调） */
 export function drawPortrait(canvas, u) {
   if (!canvas || !u) return;
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
+  const face = FACE[u.generalId] || {};
 
-  // 背景
   const grd = ctx.createLinearGradient(0, 0, 0, h);
-  grd.addColorStop(0, u.team === "enemy" ? "#4a2828" : "#243828");
+  grd.addColorStop(
+    0,
+    u.team === "enemy" ? "#4a2828" : u.team === "ally" ? "#243048" : "#243828"
+  );
   grd.addColorStop(1, "#1a1410");
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, w, h);
 
-  // 肩甲
+  // 肩甲 / 袍
   ctx.fillStyle = u.portrait || "#6a5040";
   ctx.beginPath();
-  ctx.moveTo(w * 0.1, h);
-  ctx.lineTo(w * 0.2, h * 0.55);
-  ctx.lineTo(w * 0.8, h * 0.55);
-  ctx.lineTo(w * 0.9, h);
+  ctx.moveTo(w * 0.08, h);
+  ctx.lineTo(w * 0.18, h * 0.52);
+  ctx.lineTo(w * 0.82, h * 0.52);
+  ctx.lineTo(w * 0.92, h);
   ctx.closePath();
   ctx.fill();
+  if (face.scholar) {
+    ctx.fillStyle = "rgba(240,232,200,0.25)";
+    ctx.fillRect(w * 0.35, h * 0.58, w * 0.3, h * 0.3);
+  }
 
   // 头
   ctx.fillStyle = "#f0d0b0";
   ctx.beginPath();
-  ctx.arc(w / 2, h * 0.38, w * 0.22, 0, Math.PI * 2);
+  ctx.arc(w / 2, h * 0.38, w * (face.thick ? 0.24 : 0.22), 0, Math.PI * 2);
   ctx.fill();
 
-  // 发冠
+  // 发
   ctx.fillStyle = "#1c1410";
   ctx.beginPath();
   ctx.arc(w / 2, h * 0.32, w * 0.23, Math.PI, 0);
   ctx.fill();
-  ctx.fillStyle = u.team === "enemy" ? "#8b2e2e" : "#c4a574";
-  ctx.fillRect(w * 0.35, h * 0.12, w * 0.3, h * 0.1);
+  ctx.fillStyle = face.crown || (u.team === "enemy" ? "#8b2e2e" : "#c4a574");
+  if (face.hat) {
+    ctx.beginPath();
+    ctx.moveTo(w * 0.28, h * 0.22);
+    ctx.lineTo(w * 0.5, h * 0.06);
+    ctx.lineTo(w * 0.72, h * 0.22);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    ctx.fillRect(w * 0.35, h * 0.12, w * 0.3, h * 0.1);
+  }
 
   // 眼
   ctx.fillStyle = "#2a1c10";
-  ctx.fillRect(w * 0.38, h * 0.38, w * 0.06, w * 0.04);
-  ctx.fillRect(w * 0.56, h * 0.38, w * 0.06, w * 0.04);
+  const ey = h * (0.38 + (face.brow || 0));
+  if (face.eyePatch) {
+    ctx.fillRect(w * 0.36, ey, w * 0.1, w * 0.05);
+    ctx.fillStyle = "#1a1010";
+    ctx.fillRect(w * 0.34, ey - 2, w * 0.14, w * 0.08);
+    ctx.fillStyle = "#2a1c10";
+    ctx.fillRect(w * 0.56, ey, w * 0.06, w * 0.04);
+  } else {
+    ctx.fillRect(w * 0.38, ey, w * 0.06, w * 0.04);
+    ctx.fillRect(w * 0.56, ey, w * 0.06, w * 0.04);
+  }
 
-  // 兵种小标
+  // 须
+  if (face.beard) {
+    ctx.fillStyle = "#2a1c10";
+    ctx.beginPath();
+    if (face.longBeard) {
+      ctx.moveTo(w * 0.42, h * 0.48);
+      ctx.quadraticCurveTo(w * 0.5, h * 0.72, w * 0.58, h * 0.48);
+    } else {
+      ctx.ellipse(w / 2, h * 0.5, w * 0.1, h * 0.06, 0, 0, Math.PI);
+    }
+    ctx.fill();
+  }
+
   const clsName = { infantry: "步", cavalry: "骑", archer: "弓", strategist: "策" }[
     u.classId
   ];
   ctx.fillStyle = "#f8ecd6";
   ctx.font = "12px serif";
   ctx.textAlign = "center";
-  ctx.fillText(clsName || "", w / 2, h - 8);
+  ctx.fillText(`${u.name.slice(0, 2)}·${clsName || ""}`, w / 2, h - 8);
 }
