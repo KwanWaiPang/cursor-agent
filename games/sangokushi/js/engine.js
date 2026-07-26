@@ -5,8 +5,7 @@
 import { CITIES, cityById } from "../data/cities.js";
 import { buildMap } from "../data/mapgen.js";
 import { SCENARIO_190 } from "../data/factions.js";
-import { officerById, officerPower } from "../data/officers.js";
-import { describeTraits } from "../data/traits.js";
+import { officerById, officerPower, describeOfficerTraits } from "../data/officers.js";
 
 let uid = 1;
 
@@ -22,7 +21,7 @@ export function createGame(playerFactionId = "caocao") {
       color: def.color,
       ruler: def.ruler,
       cities: [...def.cities],
-      officers: def.officers.map((oid) => makeOfficerState(oid, id)),
+      officers: def.officers.map((oid) => makeOfficerState(oid, id)).filter(Boolean),
       gold: 2000 + def.cities.length * 800,
       food: 5000 + def.cities.length * 1500,
       alive: true,
@@ -159,8 +158,8 @@ export function formArmy(state, cityId, officerIds, troops) {
     .sort((a, b) => b.lead - a.lead)[0];
 
   const paintBonus = available.reduce((sum, id) => {
-    const t = describeTraits(officerById(id)?.traits || []);
-    return sum + t.reduce((s, tr) => s + (tr.effects.paintBonus || 0), 0);
+    const t = describeOfficerTraits(officerById(id));
+    return sum + t.reduce((s, tr) => s + (tr.effects?.paintBonus || 0), 0);
   }, 0);
 
   const army = {
@@ -367,9 +366,9 @@ function siegePower(state, army) {
     const o = officerById(id);
     if (!o) continue;
     p += o.lead * 0.35 + o.force * 0.2;
-    for (const t of describeTraits(o.traits)) {
-      if (t.effects.forceMul) p *= 0.5 + t.effects.forceMul * 0.5;
-      if (t.effects.atkAura) p += t.effects.atkAura * 20;
+    for (const t of describeOfficerTraits(o)) {
+      if (t.effects?.forceMul) p *= 0.5 + t.effects.forceMul * 0.5;
+      if (t.effects?.atkAura) p += t.effects.atkAura * 20;
     }
   }
   return p;
@@ -425,8 +424,8 @@ function aiFaction(state, factionId) {
       for (const o of idle) o.status = "army";
       const cell = state.map.cells[state.map.cityCells[cityId]];
       const paintBonus = idle.reduce((sum, o) => {
-        const t = describeTraits(officerById(o.id)?.traits || []);
-        return sum + t.reduce((s, tr) => s + (tr.effects.paintBonus || 0), 0);
+        const t = describeOfficerTraits(officerById(o.id));
+        return sum + t.reduce((s, tr) => s + (tr.effects?.paintBonus || 0), 0);
       }, 0);
       state.armies.push({
         id: uid++,
@@ -498,7 +497,7 @@ export function getOfficerView(oid) {
   if (!tpl) return null;
   return {
     ...tpl,
-    traitDetails: describeTraits(tpl.traits),
+    traitDetails: describeOfficerTraits(tpl),
     power: Math.round(officerPower(tpl)),
   };
 }

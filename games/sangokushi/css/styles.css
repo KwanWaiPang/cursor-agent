@@ -151,6 +151,21 @@ body.sk-body {
   vertical-align: middle;
 }
 
+.faction-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.faction-face {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(61, 47, 38, 0.25);
+  flex-shrink: 0;
+}
+
 .game-layout {
   display: grid;
   grid-template-columns: 1fr 300px;
@@ -242,7 +257,7 @@ body.sk-body {
 .officer-list {
   display: grid;
   gap: 0.4rem;
-  max-height: 220px;
+  max-height: 260px;
   overflow: auto;
 }
 
@@ -252,11 +267,59 @@ body.sk-body {
   text-align: left;
   border: 1px solid rgba(61, 47, 38, 0.18);
   border-radius: 8px;
-  padding: 0.45rem 0.55rem;
+  padding: 0.35rem 0.45rem;
   background: rgba(255, 255, 255, 0.4);
   font-family: inherit;
   cursor: pointer;
   font-size: 0.88rem;
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.officer-row img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #2a2218;
+}
+
+.officer-row .thumb-fallback {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #5a4030, #2a2218);
+  color: #e8d5b5;
+  font-size: 0.85rem;
+  font-family: var(--font-display);
+}
+
+.officer-hero {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 0.55rem;
+  align-items: start;
+  margin-top: 0.35rem;
+}
+
+.officer-portrait {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(61, 47, 38, 0.25);
+  background: #2a2218;
+}
+
+.officer-hero h4 {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .officer-row.active {
