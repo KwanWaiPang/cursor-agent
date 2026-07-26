@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>曹操传 · 战棋演义 · 游戏馆</title>
+    <meta
+      name="description"
+      content="网页版三国战棋：致敬《三国志 曹操传》，分阶段完整复刻。P1 战棋内核与开局关卡已可玩。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=ZCOOL+XiaoWei&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../css/shared.css" />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body class="theme-yi caocao-body">
+    <div id="menu" class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <h1>曹操传 · 战棋演义</h1>
+          <p>游戏馆 · 分阶段完整复刻 · 当前 P1 战棋内核</p>
+        </div>
+        <a class="btn secondary" href="../../">返回游戏馆</a>
+      </header>
+
+      <section class="panel">
+        <h2>战役选择</h2>
+        <p class="roadmap-note">
+          目标是系统级完整复刻《三国志 曹操传》体验。本阶段交付：格子战棋、地形、兵种克制、升级、敌军
+          AI、两关可通。后续将按 <code>ROADMAP.md</code> 补齐养成、战役地图与全主线。
+        </p>
+        <div id="stageList" class="stage-list"></div>
+      </section>
+    </div>
+
+    <div id="battle" class="hidden">
+      <div class="board-wrap">
+        <canvas id="board" width="576" height="480"></canvas>
+      </div>
+      <aside class="side">
+        <div class="panel">
+          <h3>战况</h3>
+          <div class="meta">
+            <span class="chip" id="turnLabel">第 1 回合</span>
+            <span class="chip" id="phaseLabel">我军阶段</span>
+          </div>
+          <p id="objective" style="margin: 0; font-size: 0.9rem; color: #3d2f26"></p>
+        </div>
+        <div class="panel">
+          <h3>武将</h3>
+          <p id="unitInfo" style="margin: 0; font-size: 0.9rem; line-height: 1.5">—</p>
+          <p id="tileInfo" style="margin: 0.45rem 0 0; font-size: 0.85rem; color: #5a4a3a">—</p>
+        </div>
+        <div class="panel actions" id="actionBar">
+          <button class="btn" id="btnAttack" type="button">攻击</button>
+          <button class="btn" id="btnWait" type="button">待机</button>
+          <button class="btn secondary" id="btnCancel" type="button">取消</button>
+          <button class="btn secondary" id="btnEndTurn" type="button">结束回合</button>
+        </div>
+        <div class="panel">
+          <h3>战报</h3>
+          <div id="battleLog"></div>
+        </div>
+        <button class="btn secondary" id="btnMenu" type="button">返回选关</button>
+      </aside>
+    </div>
+
+    <div id="dialog" class="overlay hidden">
+      <div class="dialog-card">
+        <div class="speaker" id="dialogSpeaker">—</div>
+        <p id="dialogText">—</p>
+        <button class="btn" id="dialogNext" type="button">下一句</button>
+      </div>
+    </div>
+
+    <div id="result" class="overlay hidden">
+      <div class="result-card">
+        <h2 id="resultTitle">胜利</h2>
+        <p id="resultBody">—</p>
+        <button class="btn" id="btnResultOk" type="button">确定</button>
+      </div>
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>

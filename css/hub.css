@@ -38,6 +38,14 @@
   background: radial-gradient(circle, rgba(90, 107, 58, 0.22), transparent 65%);
 }
 
+.game-card-caocao .mark {
+  color: #8b2e2e;
+}
+
+.game-card-caocao::before {
+  background: radial-gradient(circle, rgba(139, 46, 46, 0.2), transparent 65%);
+}
+
 .game-card {
   position: relative;
   display: grid;
