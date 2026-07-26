@@ -1,7 +1,9 @@
-/** 简易程序化音效（无外部资源） */
+/** 枪声等音效：优先播放 WAV，失败时回退到简易合成 */
 export class Sfx {
   constructor() {
     this.ctx = null;
+    this.buffers = {};
+    this.ready = this.loadAll();
   }
 
   ensure() {
@@ -12,6 +14,43 @@ export class Sfx {
     }
     if (this.ctx.state === "suspended") this.ctx.resume();
     return this.ctx;
+  }
+
+  async loadAll() {
+    const files = {
+      ak: "./assets/ak47_shot.wav",
+      pistol: "./assets/pistol_shot.wav",
+      reload: "./assets/reload.wav",
+    };
+    const ctx = this.ensure();
+    if (!ctx) return;
+    await Promise.all(
+      Object.entries(files).map(async ([key, url]) => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(String(res.status));
+          const arr = await res.arrayBuffer();
+          this.buffers[key] = await ctx.decodeAudioData(arr.slice(0));
+        } catch (e) {
+          console.warn("SFX load failed", key, e);
+        }
+      })
+    );
+  }
+
+  playBuffer(key, opts = {}) {
+    const ctx = this.ensure();
+    const buf = this.buffers[key];
+    if (!ctx || !buf) return false;
+    const src = ctx.createBufferSource();
+    const g = ctx.createGain();
+    src.buffer = buf;
+    src.playbackRate.value = opts.rate ?? 1;
+    g.gain.value = opts.gain ?? 0.7;
+    src.connect(g);
+    g.connect(ctx.destination);
+    src.start(0);
+    return true;
   }
 
   tone(freq, dur, type = "square", gain = 0.04, slide = 0) {
@@ -32,8 +71,17 @@ export class Sfx {
   }
 
   shoot(heavy = false) {
-    this.tone(heavy ? 140 : 220, heavy ? 0.09 : 0.05, "sawtooth", heavy ? 0.05 : 0.035, -80);
-    this.tone(heavy ? 60 : 90, 0.07, "triangle", 0.03, -30);
+    this.ensure();
+    const key = heavy ? "ak" : "pistol";
+    const ok = this.playBuffer(key, {
+      gain: heavy ? 0.85 : 0.7,
+      rate: 0.96 + Math.random() * 0.08,
+    });
+    if (!ok) {
+      // 回退
+      this.tone(heavy ? 120 : 200, heavy ? 0.1 : 0.06, "sawtooth", 0.05, -90);
+      this.tone(heavy ? 55 : 80, 0.08, "triangle", 0.035, -40);
+    }
   }
 
   hit() {
@@ -41,8 +89,10 @@ export class Sfx {
   }
 
   reload() {
-    this.tone(320, 0.06, "triangle", 0.025);
-    setTimeout(() => this.tone(240, 0.08, "triangle", 0.02), 80);
+    if (!this.playBuffer("reload", { gain: 0.55 })) {
+      this.tone(320, 0.06, "triangle", 0.025);
+      setTimeout(() => this.tone(240, 0.08, "triangle", 0.02), 80);
+    }
   }
 
   hurt() {

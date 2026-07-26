@@ -22,9 +22,9 @@ body.fps-body {
   height: 100%;
   overflow: hidden;
   background:
-    radial-gradient(ellipse 70% 50% at 20% 10%, rgba(90, 107, 58, 0.35), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 90% 80%, rgba(196, 165, 116, 0.18), transparent 50%),
-    linear-gradient(165deg, #12160e 0%, #2a3220 45%, #1a1f14 100%);
+    radial-gradient(ellipse 70% 50% at 20% 10%, rgba(180, 200, 140, 0.35), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 90% 80%, rgba(196, 165, 116, 0.22), transparent 50%),
+    linear-gradient(165deg, #3a4530 0%, #5a6a48 45%, #2f3828 100%);
   color: #e8e2d4;
   font-family: var(--font-ui);
 }

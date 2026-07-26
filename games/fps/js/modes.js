@@ -110,9 +110,9 @@ export function createRoyaleMode(ctx) {
     { t: 30, r: 4 },
   ];
 
-  // 开局手枪
-  ctx.loadout = createLoadout("pistol");
-  hud.toast("搜寻补给 · 注意安全区收缩");
+  // 开局即装备 AK-47（备弹 200）
+  ctx.loadout = createLoadout("rifle");
+  hud.toast("AK-47 就位 · 搜寻补给 · 注意安全区收缩");
 
   // 分散出生
   const start = world.spawnPoints[Math.floor(Math.random() * world.spawnPoints.length)].clone();
@@ -195,8 +195,8 @@ export function createRoyaleMode(ctx) {
         } else if (kind === "rifle") {
           const keepReserve = ctx.loadout.reserve;
           ctx.loadout = createLoadout("rifle");
-          ctx.loadout.reserve = Math.max(ctx.loadout.reserve, keepReserve);
-          hud.toast("获得突击步枪");
+          ctx.loadout.reserve = Math.min(200, Math.max(ctx.loadout.reserve, keepReserve + 60));
+          hud.toast("补充 AK-47 弹药");
         }
       }
 
