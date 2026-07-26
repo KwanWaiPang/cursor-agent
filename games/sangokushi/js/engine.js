@@ -644,8 +644,8 @@ function aiFaction(state, factionId) {
   const f = state.factions[factionId];
   if (!f.cities.length) return;
   let armies = state.armies.filter((a) => a.factionId === factionId);
-  const armyCap = Math.min(3, Math.max(1, Math.ceil(f.cities.length / 2)));
-  if (armies.length < armyCap && f.food > 1800) {
+  const armyCap = Math.min(2, Math.max(1, Math.ceil(f.cities.length / 3)));
+  if (armies.length < armyCap && f.food > 2200) {
     // 优先从边境城出兵
     const cityId = pickBorderCity(state, factionId) || f.cities[0];
     const idle = f.officers
