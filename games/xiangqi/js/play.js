@@ -49,8 +49,9 @@ play.init = function (depth, map){
 	}
 	play.show();
 	
-	//绑定点击事件
-	com.canvas.addEventListener("click",play.clickCanvas)
+	//绑定点击事件（避免重复绑定）
+	com.canvas.removeEventListener("click", play.clickCanvas);
+	com.canvas.addEventListener("click", play.clickCanvas);
 	//clearInterval(play.timer);
 	//com.get("autoPlay").addEventListener("click", function(e) {
 		//clearInterval(play.timer);
@@ -309,12 +310,17 @@ play.indexOfPs = function (ps,xy){
 	
 }
 
-//获得点击的着点
+//获得点击的着点（兼容棋盘 CSS 缩放：先换算到 canvas 内部坐标）
 play.getClickPoint = function (e){
-	var domXY = com.getDomXY(com.canvas);
-	var x=Math.round((e.pageX-domXY.x-com.pointStartX-20)/com.spaceX)
-	var y=Math.round((e.pageY-domXY.y-com.pointStartY-20)/com.spaceY)
-	return {"x":x,"y":y}
+	var rect = com.canvas.getBoundingClientRect();
+	var scaleX = com.canvas.width / Math.max(rect.width, 1);
+	var scaleY = com.canvas.height / Math.max(rect.height, 1);
+	var px = (e.clientX - rect.left) * scaleX;
+	var py = (e.clientY - rect.top) * scaleY;
+	// 原逻辑含约 20px 偏移，对应棋子图中心
+	var x = Math.round((px - com.pointStartX - 20) / com.spaceX);
+	var y = Math.round((py - com.pointStartY - 20) / com.spaceY);
+	return {"x": x, "y": y};
 }
 
 //获得棋子
