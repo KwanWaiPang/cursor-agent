@@ -648,8 +648,8 @@ var levels = [
 			window.scene = scene;
 			window.renderer = renderer;
 		}
-		// 默认执白、普通难度；侧栏可改后点「开始新对局」
-		newGame(WHITE, 2);
+		// 默认执白、等级 5；侧栏可改后点「开始新对局」
+		newGame(WHITE, 4);
 		animate();
 
 		//setTimeout(loadFEN('8/Q5P1/8/8/8/8/8/2K1k3 w - -'),2000);
