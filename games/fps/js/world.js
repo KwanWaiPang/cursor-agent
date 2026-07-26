@@ -329,15 +329,82 @@ function rectBuilding(ctx, opts) {
   }
 }
 
-export function createWorld(scene, size = 90) {
+/** 外围街区：沿次干道排布可穿行楼块，形成街道枪战空间 */
+function populateOuterBlocks(ctx, half) {
+  const colors = [0xc9c2b4, 0x8a5a42, 0x5a6570, 0x4a6a58, 0xb0aea2, 0x6e4634];
+  const roofs = [0x4a5560, 0x6b3a32, 0x3a424a, 0x5a5048];
+  const doors = ["n", "s", "e", "w"];
+  let n = 0;
+  // 街区中心点（避开中央开阔区与主干道）
+  const cells = [];
+  for (let gx = -2; gx <= 2; gx++) {
+    for (let gz = -2; gz <= 2; gz++) {
+      if (gx === 0 && gz === 0) continue;
+      const cx = gx * 38;
+      const cz = gz * 38;
+      if (Math.abs(cx) < 28 && Math.abs(cz) < 28) continue;
+      if (Math.abs(cx) > half - 18 || Math.abs(cz) > half - 18) continue;
+      cells.push({ cx, cz });
+    }
+  }
+  for (const { cx, cz } of cells) {
+    // 每个街区 2 栋楼 + 巷道
+    for (let k = 0; k < 2; k++) {
+      const ox = cx + (k === 0 ? -8 : 8) + (Math.abs(cx * 0.01) % 2) - 0.5;
+      const oz = cz + (k === 0 ? 6 : -6);
+      const w = 10 + (n % 3) * 2;
+      const d = 8 + (n % 2) * 2;
+      const h = 6 + (n % 4);
+      if (Math.abs(ox) + w / 2 > half - 4 || Math.abs(oz) + d / 2 > half - 4) continue;
+      // 不要紧贴十字主路中央
+      if (Math.abs(ox) < 10 && Math.abs(oz) < 10) continue;
+      rectBuilding(ctx, {
+        x: ox,
+        z: oz,
+        w,
+        d,
+        h,
+        color: colors[n % colors.length],
+        roofColor: roofs[n % roofs.length],
+        door: doors[n % 4],
+        doorW: 2.6,
+        doorH: 2.9,
+        windows: n % 3 !== 0,
+      });
+      n += 1;
+    }
+    // 街口沙袋 / 路障
+    addBox(ctx.scene, ctx.colliders, ctx.meshes, {
+      w: 3.2,
+      h: 1.1,
+      d: 1.1,
+      x: cx + 14,
+      y: 0.55,
+      z: cz,
+      color: 0xc4a86a,
+    });
+    addBox(ctx.scene, ctx.colliders, ctx.meshes, {
+      w: 1.1,
+      h: 1.1,
+      d: 3.2,
+      x: cx,
+      y: 0.55,
+      z: cz + 14,
+      color: 0xc4a86a,
+    });
+  }
+}
+
+export function createWorld(scene, size = 170) {
   const colliders = [];
   const meshes = [];
+  const coverPoints = [];
   const half = size / 2;
   const ctx = { scene, colliders, meshes };
 
   // 地面
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(size + 8, size + 8, 1, 1),
+    new THREE.PlaneGeometry(size + 12, size + 12, 1, 1),
     makeMat(0x6e7568, 1)
   );
   ground.rotation.x = -Math.PI / 2;
@@ -345,22 +412,27 @@ export function createWorld(scene, size = 90) {
   scene.add(ground);
   meshes.push(ground);
 
-  // 主干道（十字沥青）
+  // 街道网：主干十字 + 次干道
   const roadMat = makeMat(0x3a3e44, 0.95, 0.05);
-  const roadNS = new THREE.Mesh(new THREE.PlaneGeometry(12, size - 6), roadMat);
-  roadNS.rotation.x = -Math.PI / 2;
-  roadNS.position.y = 0.03;
-  scene.add(roadNS);
-  meshes.push(roadNS);
-  const roadEW = new THREE.Mesh(new THREE.PlaneGeometry(size - 6, 12), roadMat);
-  roadEW.rotation.x = -Math.PI / 2;
-  roadEW.position.y = 0.035;
-  scene.add(roadEW);
-  meshes.push(roadEW);
+  function addRoad(w, d, x, z, y = 0.03) {
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), roadMat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+    meshes.push(mesh);
+  }
+  addRoad(14, size - 8, 0, 0, 0.03);
+  addRoad(size - 8, 14, 0, 0, 0.035);
+  // 次干道（形成街区感）
+  for (const o of [-38, 38, -76, 76]) {
+    if (Math.abs(o) > half - 10) continue;
+    addRoad(10, size - 10, o, 0, 0.028);
+    addRoad(size - 10, 10, 0, o, 0.029);
+  }
 
-  // 道牙线
-  for (let i = -half + 8; i <= half - 8; i += 4) {
-    if (Math.abs(i) < 14) continue;
+  // 道牙线（主干）
+  for (let i = -half + 10; i <= half - 10; i += 4) {
+    if (Math.abs(i) < 16) continue;
     addBox(scene, colliders, meshes, {
       w: 0.35,
       h: 0.04,
@@ -383,21 +455,23 @@ export function createWorld(scene, size = 90) {
     });
   }
 
-  scene.fog = new THREE.Fog(0xd0e0ec, 50, 145);
+  const fogFar = Math.min(260, size * 1.15);
+  scene.fog = new THREE.Fog(0xd0e0ec, size * 0.35, fogFar);
   scene.background = new THREE.Color(0xb8cde0);
 
   const hemi = new THREE.HemisphereLight(0xf2f6ff, 0xb8a888, 1.05);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff6e0, 1.35);
-  sun.position.set(40, 70, 30);
+  sun.position.set(55, 90, 40);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 180;
-  sun.shadow.camera.left = -70;
-  sun.shadow.camera.right = 70;
-  sun.shadow.camera.top = 70;
-  sun.shadow.camera.bottom = -70;
+  sun.shadow.camera.far = size + 40;
+  const shadowSpan = half + 10;
+  sun.shadow.camera.left = -shadowSpan;
+  sun.shadow.camera.right = shadowSpan;
+  sun.shadow.camera.top = shadowSpan;
+  sun.shadow.camera.bottom = -shadowSpan;
   scene.add(sun);
 
   // 边界墙（四面开口）
@@ -889,6 +963,9 @@ export function createWorld(scene, size = 90) {
   scene.add(zoneFill);
   meshes.push(zoneFill);
 
+  // 外围街区（大地图街道战）
+  if (half >= 70) populateOuterBlocks(ctx, half);
+
   // —— 街道掩体 ——
   const covers = [
     { w: 3.5, h: 1.15, d: 1.15, x: -8, y: 0.58, z: -10, color: 0xc4a86a },
@@ -909,18 +986,40 @@ export function createWorld(scene, size = 90) {
     { w: 1.1, h: 1.1, d: 1.1, x: 22, y: 0.55, z: -16, color: 0x6b5344 },
     { w: 1.1, h: 1.1, d: 1.1, x: 23.2, y: 0.55, z: -16, color: 0x6b5344 },
     { w: 1.1, h: 1.1, d: 1.1, x: 22.6, y: 1.65, z: -16, color: 0x6b5344 },
+    // 外环掩体
+    { w: 6.0, h: 2.5, d: 2.4, x: -48, y: 1.25, z: 20, color: 0x3d6a8a },
+    { w: 2.4, h: 2.5, d: 6.0, x: 48, y: 1.25, z: -18, color: 0x7a3a3a },
+    { w: 3.5, h: 1.15, d: 1.15, x: -40, y: 0.58, z: -40, color: 0xc4a86a },
+    { w: 3.5, h: 1.15, d: 1.15, x: -37, y: 0.58, z: -40, color: 0xc4a86a },
+    { w: 3.5, h: 1.15, d: 1.15, x: 40, y: 0.58, z: 42, color: 0xc4a86a },
+    { w: 6.0, h: 2.5, d: 2.4, x: 0, y: 1.25, z: 55, color: 0x2f6b4a },
+    { w: 6.0, h: 2.5, d: 2.4, x: -55, y: 1.25, z: 0, color: 0x8a5a2a },
   ];
-  for (const c of covers) addBox(scene, colliders, meshes, c);
+  for (const c of covers) {
+    if (Math.abs(c.x) > half - 3 || Math.abs(c.z) > half - 3) continue;
+    addBox(scene, colliders, meshes, c);
+    coverPoints.push(new THREE.Vector3(c.x, 0, c.z));
+  }
 
   // 灯柱（点光）
-  for (const [lx, lz] of [
+  const lamps = [
     [-14, -14],
     [14, -14],
     [-14, 14],
     [14, 14],
     [0, -28],
     [0, 28],
-  ]) {
+    [-38, -38],
+    [38, -38],
+    [-38, 38],
+    [38, 38],
+    [-38, 0],
+    [38, 0],
+    [0, -38],
+    [0, 38],
+  ];
+  for (const [lx, lz] of lamps) {
+    if (Math.abs(lx) > half - 6 || Math.abs(lz) > half - 6) continue;
     addBox(scene, colliders, meshes, {
       w: 0.22,
       h: 5.2,
@@ -942,30 +1041,46 @@ export function createWorld(scene, size = 90) {
     bulb.position.set(lx, 5.4, lz);
     scene.add(bulb);
     meshes.push(bulb);
-    const pl = new THREE.PointLight(0xffcc88, 0.45, 26);
+    const pl = new THREE.PointLight(0xffcc88, 0.4, 24);
     pl.position.set(lx, 5.2, lz);
     scene.add(pl);
   }
+
+  const spawnPoints = [
+    new THREE.Vector3(0, 0, 22),
+    new THREE.Vector3(-24, 0, 0),
+    new THREE.Vector3(24, 0, 0),
+    new THREE.Vector3(0, 0, -24),
+    new THREE.Vector3(-18, 0, -18),
+    new THREE.Vector3(18, 0, 18),
+    new THREE.Vector3(-18, 0, 18),
+    new THREE.Vector3(18, 0, -18),
+    new THREE.Vector3(36, 0, 14),
+    new THREE.Vector3(-36, 0, -10),
+    new THREE.Vector3(52, 0, -30),
+    new THREE.Vector3(-52, 0, 30),
+    new THREE.Vector3(30, 0, 52),
+    new THREE.Vector3(-30, 0, -52),
+    new THREE.Vector3(60, 0, 8),
+    new THREE.Vector3(-60, 0, -8),
+  ].filter((p) => Math.abs(p.x) < half - 6 && Math.abs(p.z) < half - 6);
+
+  coverPoints.push(
+    new THREE.Vector3(-12, 0, 10),
+    new THREE.Vector3(12, 0, -10),
+    new THREE.Vector3(-40, 0, 20),
+    new THREE.Vector3(40, 0, -20)
+  );
 
   return {
     size,
     half,
     colliders,
     meshes,
+    coverPoints,
     zoneCenter: new THREE.Vector3(0, 0, 0),
     zoneRadius,
-    spawnPoints: [
-      new THREE.Vector3(0, 0, 18),
-      new THREE.Vector3(-20, 0, 0),
-      new THREE.Vector3(20, 0, 0),
-      new THREE.Vector3(0, 0, -20),
-      new THREE.Vector3(-15, 0, -15),
-      new THREE.Vector3(15, 0, 15),
-      new THREE.Vector3(-15, 0, 15),
-      new THREE.Vector3(15, 0, -15),
-      new THREE.Vector3(30, 0, 12),
-      new THREE.Vector3(-30, 0, -8),
-    ],
+    spawnPoints,
     resolvePosition(pos, radius = 0.45) {
       const lim = half - 1.2;
       pos.x = THREE.MathUtils.clamp(pos.x, -lim, lim);

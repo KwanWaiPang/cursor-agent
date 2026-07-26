@@ -2,6 +2,9 @@ import * as THREE from "three";
 
 const _tmp = new THREE.Vector3();
 const _tmp2 = new THREE.Vector3();
+const _side = new THREE.Vector3();
+const _move = new THREE.Vector3();
+const _shotDir = new THREE.Vector3();
 
 function mat(color, opts = {}) {
   return new THREE.MeshStandardMaterial({
@@ -19,7 +22,6 @@ function makeCSCharacter(variant = "t") {
   const g = new THREE.Group();
   const isT = variant === "t";
 
-  // 提高对比度，远处也能和亮色地面区分开
   const skin = mat(0xd2b48c);
   const pants = mat(isT ? 0x5c4a2e : 0x243044);
   const shirt = mat(isT ? 0x7a8f4a : 0xe8ecf2);
@@ -28,7 +30,6 @@ function makeCSCharacter(variant = "t") {
   const headCover = mat(isT ? 0x222222 : 0x445566);
   const accent = mat(isT ? 0xc45c2a : 0xd0d6e0);
 
-  // 腿
   const legGeo = new THREE.CapsuleGeometry(0.11, 0.45, 3, 6);
   const legL = new THREE.Mesh(legGeo, pants);
   const legR = new THREE.Mesh(legGeo, pants);
@@ -37,28 +38,24 @@ function makeCSCharacter(variant = "t") {
   legL.castShadow = legR.castShadow = true;
   g.add(legL, legR);
 
-  // 靴
   const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.28), boot);
   const bootR = bootL.clone();
   bootL.position.set(-0.12, 0.06, 0.04);
   bootR.position.set(0.12, 0.06, 0.04);
   g.add(bootL, bootR);
 
-  // 躯干
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.55, 0.28), shirt);
   torso.position.y = 1.05;
   torso.castShadow = true;
   torso.userData.hitZone = "body";
   g.add(torso);
 
-  // 战术背心
   const vestMesh = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.32), vest);
   vestMesh.position.y = 1.12;
   vestMesh.castShadow = true;
   vestMesh.userData.hitZone = "body";
   g.add(vestMesh);
 
-  // 口袋/装备带
   const pouch = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.08), accent);
   pouch.position.set(0.14, 1.0, 0.18);
   g.add(pouch);
@@ -66,7 +63,6 @@ function makeCSCharacter(variant = "t") {
   pouch2.position.x = -0.14;
   g.add(pouch2);
 
-  // 手臂
   const armGeo = new THREE.CapsuleGeometry(0.08, 0.38, 3, 6);
   const armL = new THREE.Mesh(armGeo, shirt);
   const armR = new THREE.Mesh(armGeo, shirt);
@@ -79,28 +75,23 @@ function makeCSCharacter(variant = "t") {
   armR.userData.hitZone = "body";
   g.add(armL, armR);
 
-  // 头 / 头套 / 头盔（避免非均匀缩放，否则射线难打中）
   let headMesh;
   if (isT) {
-    // 头套（CS 恐）
     const balaclava = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), headCover);
     balaclava.position.y = 1.56;
     balaclava.castShadow = true;
     balaclava.userData.hitZone = "head";
     g.add(balaclava);
     headMesh = balaclava;
-    // 眼缝
     const eyes = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.06), mat(0x111111));
     eyes.position.set(0, 1.58, 0.16);
     eyes.userData.hitZone = "head";
     g.add(eyes);
-    // 肩带背包
     const pack = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.38, 0.16), mat(0x3a4028));
     pack.position.set(0, 1.15, -0.22);
     pack.userData.hitZone = "body";
     g.add(pack);
   } else {
-    // CT 头盔（均匀球体，保证可被射线击中）
     const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), headCover);
     helmet.position.y = 1.58;
     helmet.castShadow = true;
@@ -111,14 +102,12 @@ function makeCSCharacter(variant = "t") {
     face.position.set(0, 1.5, 0.06);
     face.userData.hitZone = "head";
     g.add(face);
-    // 护目/面罩条
     const visor = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.08), mat(0x223344, { metalness: 0.4 }));
     visor.position.set(0, 1.56, 0.18);
     visor.userData.hitZone = "head";
     g.add(visor);
   }
 
-  // 隐形头部判定球（略大，保证爆头稳定）
   const headHit = new THREE.Mesh(
     new THREE.SphereGeometry(0.3, 8, 8),
     new THREE.MeshBasicMaterial({ visible: false })
@@ -127,7 +116,6 @@ function makeCSCharacter(variant = "t") {
   headHit.userData.hitZone = "head";
   g.add(headHit);
 
-  // 手持短步枪提示（挂在身前）
   const gun = new THREE.Group();
   const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.28), mat(0x222522, { metalness: 0.6 }));
   const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.2, 6), mat(0x111111, { metalness: 0.7 }));
@@ -140,7 +128,6 @@ function makeCSCharacter(variant = "t") {
   gun.rotation.set(0.1, -0.4, 0.15);
   g.add(gun);
 
-  // 略放大，便于辨认
   g.scale.setScalar(1.12);
 
   g.userData.body = vestMesh;
@@ -161,18 +148,27 @@ export class Enemy {
     scene.add(this.mesh);
     this.hp = opts.hp ?? 70;
     this.maxHp = this.hp;
-    this.speed = opts.speed ?? 3.2;
+    this.speed = opts.speed ?? 3.6;
     this.damage = opts.damage ?? 8;
     this.alive = true;
     this.radius = 0.4;
-    this.fireCd = 0;
+    this.fireCd = 0.2 + Math.random() * 0.4;
     this.state = "patrol";
     this.patrolTarget = position.clone();
-    this.reactRange = opts.reactRange ?? 28;
-    this.fireRange = opts.fireRange ?? 22;
+    this.reactRange = opts.reactRange ?? 42;
+    this.fireRange = opts.fireRange ?? 34;
     this.fade = 1;
     this.scoreValue = opts.scoreValue ?? 1;
     this.walkPhase = Math.random() * Math.PI * 2;
+
+    // 机动
+    this.strafeSign = Math.random() < 0.5 ? 1 : -1;
+    this.tacticCd = Math.random() * 0.6;
+    this.idealRange = 8 + Math.random() * 8;
+    this.moveDir = new THREE.Vector3();
+    this.lastPos = position.clone();
+    this.stuckTimer = 0;
+    this.sprintBoost = 1;
   }
 
   get position() {
@@ -198,16 +194,61 @@ export class Enemy {
       this.state = "down";
       return true;
     }
+    // 受击后立刻变招：换侧移方向并拉开/压上
     this.state = "chase";
+    this.strafeSign *= -1;
+    this.tacticCd = 0;
+    this.sprintBoost = 1.35;
     return false;
   }
 
   pickPatrol() {
     const sp = this.world.spawnPoints;
-    this.patrolTarget = sp[Math.floor(Math.random() * sp.length)].clone();
+    const cover = this.world.coverPoints;
+    if (cover?.length && Math.random() < 0.55) {
+      this.patrolTarget = cover[Math.floor(Math.random() * cover.length)].clone();
+    } else {
+      this.patrolTarget = sp[Math.floor(Math.random() * sp.length)].clone();
+    }
+    this.patrolTarget.x += (Math.random() - 0.5) * 4;
+    this.patrolTarget.z += (Math.random() - 0.5) * 4;
   }
 
-  update(dt, player, shootAtPlayer) {
+  /** 重新规划战斗步法：侧移 / 包抄 / 后撤 / 突进 */
+  replanCombat(toPlayer, dist) {
+    const fwd = _tmp2.copy(toPlayer).normalize();
+    _side.set(-fwd.z, 0, fwd.x).multiplyScalar(this.strafeSign);
+
+    if (dist < this.idealRange - 2.5) {
+      // 过近：边撤边横移
+      this.moveDir
+        .copy(_side)
+        .multiplyScalar(0.9)
+        .addScaledVector(fwd, -0.85);
+      this.sprintBoost = 1.2;
+    } else if (dist > this.idealRange + 4) {
+      // 过远：斜插逼近（锯齿包抄）
+      this.moveDir
+        .copy(fwd)
+        .multiplyScalar(1.05)
+        .addScaledVector(_side, 0.75);
+      this.sprintBoost = 1.25;
+    } else {
+      // 理想距离：绕射 / 小幅前压
+      const press = (Math.random() - 0.35) * 0.45;
+      this.moveDir
+        .copy(_side)
+        .multiplyScalar(1.15)
+        .addScaledVector(fwd, press);
+      this.sprintBoost = 1.05;
+    }
+
+    if (this.moveDir.lengthSq() > 0.0001) this.moveDir.normalize();
+    if (Math.random() < 0.28) this.strafeSign *= -1;
+    this.tacticCd = 0.55 + Math.random() * 1.1;
+  }
+
+  update(dt, player, onFire) {
     if (!this.alive) {
       this.fade -= dt * 0.7;
       this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, Math.PI / 2, dt * 3);
@@ -226,45 +267,91 @@ export class Enemy {
     toPlayer.y = 0;
     const dist = toPlayer.length();
 
-    if (dist < this.reactRange) this.state = dist < this.fireRange * 0.55 ? "attack" : "chase";
-    else if (this.state !== "patrol") this.state = "patrol";
+    if (dist < this.reactRange) {
+      this.state = dist < this.fireRange * 0.4 ? "attack" : "chase";
+    } else if (this.state !== "patrol") {
+      this.state = "patrol";
+    }
 
     this.fireCd = Math.max(0, this.fireCd - dt);
+    this.tacticCd = Math.max(0, this.tacticCd - dt);
+    this.sprintBoost = THREE.MathUtils.lerp(this.sprintBoost, 1, dt * 1.8);
     let moving = false;
 
     if (this.state === "patrol") {
       const to = _tmp2.copy(this.patrolTarget).sub(this.position);
       to.y = 0;
-      if (to.length() < 1.2) this.pickPatrol();
+      if (to.length() < 1.4) this.pickPatrol();
       else {
         to.normalize();
-        this.position.addScaledVector(to, this.speed * 0.65 * dt);
+        // 巡逻也带轻微侧摆，避免直线滑行
+        _side.set(-to.z, 0, to.x).multiplyScalar(Math.sin(this.walkPhase * 0.35) * 0.35);
+        _move.copy(to).add(_side).normalize();
+        this.position.addScaledVector(_move, this.speed * 0.7 * dt);
         this.mesh.lookAt(this.position.x + to.x, this.position.y, this.position.z + to.z);
         moving = true;
       }
     } else {
-      toPlayer.normalize();
-      this.mesh.lookAt(
-        this.position.x + toPlayer.x,
-        this.position.y,
-        this.position.z + toPlayer.z
-      );
-      if (this.state === "chase" || dist > 8) {
-        this.position.addScaledVector(toPlayer, this.speed * dt);
-        moving = true;
+      if (dist > 0.01) {
+        this.mesh.lookAt(
+          this.position.x + toPlayer.x,
+          this.position.y,
+          this.position.z + toPlayer.z
+        );
       }
-      if (dist < this.fireRange && this.fireCd <= 0) {
-        this.fireCd = 0.55 + Math.random() * 0.45;
-        const hitChance = THREE.MathUtils.clamp(1.15 - dist / this.fireRange, 0.2, 0.85);
-        if (Math.random() < hitChance) {
-          shootAtPlayer(this.damage);
+
+      if (this.tacticCd <= 0 || this.moveDir.lengthSq() < 0.01) {
+        this.replanCombat(toPlayer, dist);
+      }
+
+      const step = this.speed * this.sprintBoost * dt;
+      this.position.addScaledVector(this.moveDir, step);
+      moving = true;
+
+      // 卡死检测：换侧向再突围
+      const moved = this.position.distanceTo(this.lastPos);
+      if (moved < step * 0.2) {
+        this.stuckTimer += dt;
+        if (this.stuckTimer > 0.35) {
+          this.strafeSign *= -1;
+          this.replanCombat(toPlayer, dist);
+          this.position.x += this.strafeSign * 0.6;
+          this.stuckTimer = 0;
         }
+      } else {
+        this.stuckTimer = 0;
+      }
+      this.lastPos.copy(this.position);
+
+      // 射击：始终出可见弹道，命中另算
+      if (dist < this.fireRange && this.fireCd <= 0) {
+        const burst = Math.random() < 0.42;
+        this.fireCd = burst ? 0.1 + Math.random() * 0.07 : 0.4 + Math.random() * 0.35;
+
+        const origin = new THREE.Vector3(this.position.x, 1.48, this.position.z);
+        const aimY = (player.eyeHeight ?? 1.7) + (Math.random() - 0.5) * 0.25;
+        _shotDir.set(player.position.x - origin.x, aimY - origin.y, player.position.z - origin.z);
+        const spread = 0.03 + dist * 0.0018;
+        _shotDir.x += (Math.random() - 0.5) * spread;
+        _shotDir.y += (Math.random() - 0.5) * spread * 0.7;
+        _shotDir.z += (Math.random() - 0.5) * spread;
+        _shotDir.normalize();
+
+        const hitChance = THREE.MathUtils.clamp(1.05 - dist / this.fireRange, 0.18, 0.78);
+        onFire?.({
+          damage: this.damage,
+          hit: Math.random() < hitChance,
+          origin,
+          dir: _shotDir.clone(),
+          dist,
+          traceDist: Math.min(dist + 2, this.fireRange + 4),
+        });
       }
     }
 
     if (moving) {
-      this.walkPhase += dt * 8;
-      this.mesh.position.y = Math.abs(Math.sin(this.walkPhase)) * 0.03;
+      this.walkPhase += dt * 9;
+      this.mesh.position.y = Math.abs(Math.sin(this.walkPhase)) * 0.04;
     } else {
       this.mesh.position.y = 0;
     }

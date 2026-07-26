@@ -15,7 +15,7 @@ export function createAssaultMode(ctx) {
 
   hud.setMode("据点清剿");
   hud.toast("占领中央战术区 · 清除敌方单位");
-  player.getObject().position.set(0, player.eyeHeight, 16);
+  player.getObject().position.set(0, player.eyeHeight, 24);
 
   function spawnWave() {
     // 必须原地删元素，不能替换数组，否则会与 Game.enemies 脱钩
@@ -28,7 +28,7 @@ export function createAssaultMode(ctx) {
       sp.x += (Math.random() - 0.5) * 6;
       sp.z += (Math.random() - 0.5) * 6;
       // 远离玩家出生
-      if (sp.distanceTo(player.position) < 12) {
+      if (sp.distanceTo(player.position) < 18) {
         sp.x = -sp.x;
         sp.z = -sp.z;
       }
@@ -36,8 +36,10 @@ export function createAssaultMode(ctx) {
       world.resolvePosition(sp, 0.45);
       const e = new Enemy(scene, world, sp, {
         hp: 55 + wave * 10,
-        speed: 2.8 + wave * 0.15,
+        speed: 3.4 + wave * 0.2,
         damage: 6 + wave,
+        reactRange: 48,
+        fireRange: 36,
       });
       ctx.enemies.push(e);
       enemiesAlive += 1;
@@ -97,12 +99,12 @@ export function createRoyaleMode(ctx) {
   const { scene, world, player, hud, sfx } = ctx;
   let kills = 0;
   const zone = createSafeZoneVisual(scene);
-  let radius = 38;
-  let targetRadius = 38;
+  let radius = 72;
+  let targetRadius = 72;
   const center = new THREE.Vector3(
-    (Math.random() - 0.5) * 10,
+    (Math.random() - 0.5) * 16,
     0,
-    (Math.random() - 0.5) * 10
+    (Math.random() - 0.5) * 16
   );
   zone.setCenter(center.x, center.z);
   zone.setRadius(radius);
@@ -110,10 +112,10 @@ export function createRoyaleMode(ctx) {
   let phase = 0;
   let phaseTimer = 0;
   const phases = [
-    { t: 45, r: 28 },
-    { t: 40, r: 18 },
-    { t: 35, r: 10 },
-    { t: 30, r: 4 },
+    { t: 50, r: 48 },
+    { t: 45, r: 30 },
+    { t: 40, r: 16 },
+    { t: 35, r: 6 },
   ];
 
   // 开局即装备 AK-47（备弹 200）
@@ -125,17 +127,19 @@ export function createRoyaleMode(ctx) {
   player.getObject().position.set(start.x, player.eyeHeight, start.z);
 
   // AI
-  const botCount = 10;
+  const botCount = 12;
   for (let i = 0; i < botCount; i++) {
     const sp = world.spawnPoints[i % world.spawnPoints.length].clone();
-    sp.x += (Math.random() - 0.5) * 10;
-    sp.z += (Math.random() - 0.5) * 10;
+    sp.x += (Math.random() - 0.5) * 14;
+    sp.z += (Math.random() - 0.5) * 14;
+    world.resolvePosition(sp, 0.45);
     ctx.enemies.push(
       new Enemy(scene, world, sp, {
         hp: 80,
-        speed: 3.1,
+        speed: 3.7,
         damage: 9,
-        reactRange: 32,
+        reactRange: 50,
+        fireRange: 38,
       })
     );
   }
