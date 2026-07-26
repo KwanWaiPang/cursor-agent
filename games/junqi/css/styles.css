@@ -1,0 +1,82 @@
+body.game-page {
+  overflow-x: hidden;
+}
+
+.app {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 1.25rem;
+  align-items: start;
+  animation: rise 900ms 80ms ease both;
+}
+
+.board-wrap {
+  background:
+    linear-gradient(145deg, rgba(255, 236, 200, 0.12), transparent 40%),
+    linear-gradient(180deg, #3a4a3a 0%, #2a3828 100%);
+  border-radius: var(--radius);
+  padding: clamp(0.6rem, 1.5vw, 1rem);
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(255, 230, 180, 0.2);
+}
+
+#board {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  cursor: pointer;
+  touch-action: none;
+  background: #c4b28a;
+}
+
+.legend {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  opacity: 0.85;
+  margin-top: 0.5rem;
+}
+
+.message {
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.45);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  min-height: 2.8em;
+}
+
+.message.warn {
+  background: rgba(139, 46, 46, 0.12);
+  color: var(--danger);
+}
+
+.result-banner {
+  margin-top: 0.65rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  min-height: 1.3em;
+}
+
+.combat-log {
+  max-height: 140px;
+  overflow: auto;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  opacity: 0.9;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

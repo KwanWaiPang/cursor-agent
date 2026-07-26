@@ -1,0 +1,102 @@
+body.game-page {
+  overflow-x: hidden;
+}
+
+.app {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 1.25rem;
+  align-items: start;
+  animation: rise 900ms 80ms ease both;
+}
+
+.board-wrap {
+  position: relative;
+  background:
+    linear-gradient(145deg, rgba(255, 236, 200, 0.14), transparent 40%),
+    linear-gradient(180deg, #d29a4a 0%, #b87932 45%, #9a5f24 100%);
+  border-radius: var(--radius);
+  padding: clamp(0.75rem, 2vw, 1.25rem);
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(255, 230, 180, 0.25);
+}
+
+#board {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  cursor: pointer;
+  touch-action: none;
+  background: #e2b56a;
+}
+
+.stone-dot {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.4rem;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+
+.stone-dot.black {
+  background: #1a1a1a;
+}
+
+.stone-dot.white {
+  background: #f7f1e6;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.turn {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+}
+
+.message {
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.45);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.message.warn {
+  background: rgba(139, 46, 46, 0.12);
+  color: var(--danger);
+}
+
+.result-banner {
+  margin-top: 0.65rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  min-height: 1.4em;
+}
+
+.ai-options[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
