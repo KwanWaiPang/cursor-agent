@@ -1,0 +1,93 @@
+import { computeMoveRange, computeAttackTargets, calcDamage, inRange } from "./battle.js";
+
+/** 极简敌军 AI：靠近最近我军并攻击；主将略保守 */
+export function enemyTurn(state, onStep) {
+  const enemies = state.units.filter((u) => u.alive && u.team === "enemy");
+  const players = () => state.units.filter((u) => u.alive && u.team === "player");
+
+  for (const unit of enemies) {
+    if (!unit.alive) continue;
+    const foes = players();
+    if (!foes.length) break;
+
+    // 已在攻击范围则直接打最脆的
+    let targets = computeAttackTargets(unit, state.units);
+    if (targets.length) {
+      targets.sort((a, b) => a.hp - b.hp);
+      resolveAttack(state, unit, targets[0], onStep);
+      unit.done = true;
+      continue;
+    }
+
+    const moves = computeMoveRange(
+      unit,
+      state.tiles,
+      state.units,
+      state.width,
+      state.height
+    );
+    let best = null;
+    let bestScore = -Infinity;
+
+    for (const m of moves) {
+      const ox = unit.x;
+      const oy = unit.y;
+      unit.x = m.x;
+      unit.y = m.y;
+      const atkHere = computeAttackTargets(unit, state.units);
+      let score = 0;
+      if (atkHere.length) {
+        atkHere.sort((a, b) => a.hp - b.hp);
+        const t = atkHere[0];
+        const pred = calcDamage(unit, t, state.tiles[unit.y][unit.x]);
+        score = 1000 + pred.damage * 10 - t.hp;
+      } else {
+        // 靠近最近敌人
+        let minD = Infinity;
+        for (const f of foes) {
+          const d = Math.abs(f.x - m.x) + Math.abs(f.y - m.y);
+          if (d < minD) minD = d;
+        }
+        score = 100 - minD;
+      }
+      // 主将不要冲太前
+      if (unit.boss) score -= 5;
+      if (score > bestScore) {
+        bestScore = score;
+        best = { x: m.x, y: m.y };
+      }
+      unit.x = ox;
+      unit.y = oy;
+    }
+
+    if (best) {
+      unit.x = best.x;
+      unit.y = best.y;
+      onStep?.({ type: "move", unit });
+    }
+    targets = computeAttackTargets(unit, state.units);
+    if (targets.length) {
+      targets.sort((a, b) => a.hp - b.hp);
+      resolveAttack(state, unit, targets[0], onStep);
+    }
+    unit.done = true;
+  }
+}
+
+function resolveAttack(state, attacker, defender, onStep) {
+  if (!inRange(attacker, defender.x, defender.y)) return;
+  const terrain = state.tiles[defender.y][defender.x];
+  const result = calcDamage(attacker, defender, terrain);
+  defender.hp = Math.max(0, defender.hp - result.damage);
+  onStep?.({
+    type: "attack",
+    attacker,
+    defender,
+    damage: result.damage,
+    crit: result.crit,
+  });
+  if (defender.hp <= 0) {
+    defender.alive = false;
+    onStep?.({ type: "defeat", unit: defender });
+  }
+}

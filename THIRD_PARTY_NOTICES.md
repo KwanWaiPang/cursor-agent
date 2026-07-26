@@ -24,3 +24,9 @@
 - 指针锁定控件：Three.js examples `PointerLockControls`（MIT）
 - 枪声素材：基于 Wikimedia Commons「9 mm gunshot-mike-koenig-123.wav」（CC BY-SA 4.0）处理为步枪/手枪射击音；换弹音效片段改编自 [Mixkit](https://mixkit.co/free-sound-effects/) 免费音效
 - 玩法、低模场景、AK-47 第一人称模型与 CS 风格角色：本仓库原创
+
+## 曹操传 · 战棋演义（`games/caocao/`）
+
+- 本仓库原创战棋引擎与关卡数据
+- 玩法与结构致敬《三国志 曹操传》，不包含光荣原作素材、音乐或程序代码
+- 详见 `games/caocao/ROADMAP.md`
