@@ -34,8 +34,9 @@
 
 ## 三国志 · 九州涂色（`games/sangokushi/`）
 
-- 战略地图、城池精灵与涂色引擎：本仓库原创
+- 战略地图、城池精灵与涂色引擎：本仓库原创重绘（州域色块 + 柔和涂色）
 - 玩法结构可参考开源项目 [中华三国志](https://github.com/kpxp/ZhongHuaSanGuoZhi-New-Code) 的系统设计（自行重写，不搬运其资源包）
+- 地图观感致敬三国志系列战略图公开印象；**未使用**光荣地图贴图，也未搬入标注参考了游戏地图的第三方 GeoJSON
 - 武将五维、特技、宝物数据：项目组 [R-C-Group/shuju](https://github.com/R-C-Group/shuju/tree/main/san11)
 - 武将头像：项目组 [R-C-Group/touxiang](https://github.com/R-C-Group/touxiang/tree/master/san/311_s)
 - 不包含光荣（KOEI）原作程序、官方素材包或未经授权的提取资源
