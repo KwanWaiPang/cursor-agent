@@ -174,8 +174,9 @@ export class Game {
     dir.z += (Math.random() - 0.5) * spread;
     dir.normalize();
 
+    const range = this.loadout.def.range;
     this.raycaster.set(origin, dir);
-    this.raycaster.far = this.loadout.def.range;
+    this.raycaster.far = range;
 
     // 只锁定蓝方敌对单位（无友军伤害）
     const targets = [];
@@ -187,18 +188,13 @@ export class Game {
       });
     }
 
-    // 仅实体墙/掩体遮挡；玻璃、屋顶、地面装饰不挡枪
-    const blockers = [];
-    for (const m of this.world.meshes) {
-      if (m.isMesh && m.userData.blocksShot) blockers.push(m);
-    }
-
     const hitsEnemy = this.raycaster.intersectObjects(targets, false);
-    const hitsBlock = this.raycaster.intersectObjects(blockers, false);
     const enemyHit = hitsEnemy[0];
-    const blockHit = hitsBlock[0];
+    // 实体墙挡弹（碰撞盒射线，无法穿墙）
+    const wallDist = this.world.raycastSolid(origin, dir, range);
     const blocked =
-      blockHit && (!enemyHit || blockHit.distance + 0.05 < enemyHit.distance);
+      Number.isFinite(wallDist) &&
+      (!enemyHit || wallDist + 0.05 < enemyHit.distance);
 
     if (enemyHit && !blocked) {
       let enemy = null;
@@ -220,15 +216,16 @@ export class Game {
     }
 
     const traceDist = blocked
-      ? blockHit.distance
-      : enemyHit?.distance ?? Math.min(55, this.loadout.def.range);
+      ? wallDist
+      : enemyHit?.distance ?? Math.min(55, range);
     this.spawnTracer(origin, dir, traceDist, { team: "player" });
   }
 
-  /** 多条弹道可并存：玩家黄、我方红、敌方蓝 */
+  /** 多条弹道可并存：玩家黄、我方红、敌方蓝；长度止于墙/目标 */
   spawnTracer(origin, dir, dist, opts = {}) {
     const team = opts.team || (opts.enemy ? "blue" : "player");
-    const len = Math.min(Math.max(dist, 2), team === "player" ? 55 : 70);
+    const cap = team === "player" ? 55 : 70;
+    const len = Math.min(Math.max(dist, 0.05), cap);
     const end = origin.clone().addScaledVector(dir, len);
     const geo = new THREE.BufferGeometry().setFromPoints([origin, end]);
     const color = team === "blue" ? 0x4fc3f7 : team === "red" ? 0xff6655 : 0xe8d48a;
@@ -287,12 +284,16 @@ export class Game {
         e.update(dt, this.player, this.enemies, (shot) => {
           if (!shot) return;
           this.sfx.enemyShoot(shot.dist);
-          this.spawnTracer(shot.origin, shot.dir, shot.traceDist ?? shot.dist, {
+          const wantDist = shot.traceDist ?? shot.dist ?? 40;
+          const wallDist = this.world.raycastSolid(shot.origin, shot.dir, wantDist + 1);
+          const blocked = Number.isFinite(wallDist) && wallDist + 0.08 < shot.dist;
+          const traceDist = blocked ? wallDist : wantDist;
+          this.spawnTracer(shot.origin, shot.dir, traceDist, {
             team: shot.team || e.team,
           });
-          if (!shot.hit) return;
+          // 穿墙无效：墙在目标前则不结算伤害
+          if (blocked || !shot.hit) return;
           if (shot.targetKind === "player") {
-            // 仅蓝方能伤玩家
             if (shot.team === "blue" && this.player.alive) {
               this.player.damage(shot.damage);
               this.sfx.hurt();
@@ -302,7 +303,6 @@ export class Game {
           }
           const victim = shot.targetUnit;
           if (!victim?.alive || victim.gone) return;
-          // 禁止同阵营互伤
           if (victim.team === shot.team) return;
           const killed = victim.damageBy(shot.damage);
           if (killed && victim.team === "blue") this.mode.onKill?.();

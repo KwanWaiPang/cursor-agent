@@ -18,6 +18,39 @@ export class BoxCollider {
     );
   }
 
+  /**
+   * 射线与 AABB 求交（含 Y），返回距离；不相交则 Infinity
+   * 用于子弹挡墙，避免只依赖网格射线
+   */
+  raycast(origin, dir, maxDist = 200) {
+    const invX = dir.x !== 0 ? 1 / dir.x : 1e12;
+    const invY = dir.y !== 0 ? 1 / dir.y : 1e12;
+    const invZ = dir.z !== 0 ? 1 / dir.z : 1e12;
+
+    const tx1 = (this.min.x - origin.x) * invX;
+    const tx2 = (this.max.x - origin.x) * invX;
+    const ty1 = (this.min.y - origin.y) * invY;
+    const ty2 = (this.max.y - origin.y) * invY;
+    const tz1 = (this.min.z - origin.z) * invZ;
+    const tz2 = (this.max.z - origin.z) * invZ;
+
+    const tmin = Math.max(
+      Math.min(tx1, tx2),
+      Math.min(ty1, ty2),
+      Math.min(tz1, tz2)
+    );
+    const tmax = Math.min(
+      Math.max(tx1, tx2),
+      Math.max(ty1, ty2),
+      Math.max(tz1, tz2)
+    );
+
+    if (tmax < 0 || tmin > tmax) return Infinity;
+    const t = tmin >= 0 ? tmin : tmax;
+    if (t < 0 || t > maxDist) return Infinity;
+    return t;
+  }
+
   /** 将点推出 XZ 平面碰撞（忽略顶面） */
   resolveXZ(pos, radius) {
     const expandedMinX = this.min.x - radius;
@@ -1081,6 +1114,15 @@ export function createWorld(scene, size = 170) {
     zoneCenter: new THREE.Vector3(0, 0, 0),
     zoneRadius,
     spawnPoints,
+    /** 子弹挡墙：返回最近实体碰撞距离，无遮挡则为 Infinity */
+    raycastSolid(origin, dir, maxDist = 200) {
+      let best = Infinity;
+      for (let i = 0; i < colliders.length; i++) {
+        const t = colliders[i].raycast(origin, dir, maxDist);
+        if (t < best) best = t;
+      }
+      return best;
+    },
     resolvePosition(pos, radius = 0.45) {
       const lim = half - 1.2;
       pos.x = THREE.MathUtils.clamp(pos.x, -lim, lim);
