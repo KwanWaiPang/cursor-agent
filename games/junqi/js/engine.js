@@ -1,6 +1,6 @@
 /**
  * 二人军棋 · 暗棋规则引擎
- * 棋盘 12×5；每方 5 行营 / 23 兵站 / 2 大本营；铁路直线 / 工兵可拐弯
+ * 12×5 标准点位；行营 / 大本营 / 铁路矩形；公路一步；铁路滑行
  */
 
 export const ROWS = 12;
@@ -23,7 +23,6 @@ export const TYPES = {
   commander: { id: "commander", name: "司令", rank: 90 },
 };
 
-/** 每方编制 25 子 */
 export const FORCE_LIST = [
   "commander",
   "army",
@@ -74,7 +73,7 @@ export function key(r, c) {
   return `${r},${c}`;
 }
 
-/** 行营：每方 5 个（左前/右前/中/左底/右底） */
+/** 行营：每方 5 个 */
 export const CAMPS = new Set([
   "2,1",
   "2,3",
@@ -88,7 +87,6 @@ export const CAMPS = new Set([
   "9,3",
 ]);
 
-/** 大本营 */
 export const HQ = {
   north: [
     [0, 1],
@@ -109,27 +107,99 @@ export function isHQ(r, c, side) {
   return isHQ(r, c, SIDE.NORTH) || isHQ(r, c, SIDE.SOUTH);
 }
 
-/** 铁路点：两侧纵线 + 各方前后横线 */
-export function isRail(r, c) {
-  if (c === 0 || c === 4) return true;
-  if (r === 1 || r === 5 || r === 6 || r === 10) return true;
-  return false;
-}
+/**
+ * 铁路点：各方形成矩形快行区 + 两侧跨前线
+ * （对齐常见陆军棋纸 / 可玩拓扑）
+ */
+export const RAILWAYS = new Set([
+  // 北矩形
+  "1,0",
+  "1,1",
+  "1,2",
+  "1,3",
+  "1,4",
+  "2,0",
+  "2,4",
+  "3,0",
+  "3,4",
+  "4,0",
+  "4,1",
+  "4,2",
+  "4,3",
+  "4,4",
+  // 跨前线两侧
+  "5,0",
+  "5,4",
+  "6,0",
+  "6,4",
+  // 南矩形
+  "7,0",
+  "7,1",
+  "7,2",
+  "7,3",
+  "7,4",
+  "8,0",
+  "8,4",
+  "9,0",
+  "9,4",
+  "10,0",
+  "10,1",
+  "10,2",
+  "10,3",
+  "10,4",
+]);
 
-/** 山界：仅两侧铁路贯通南北 */
-export function crossesMountain(r1, r2, c) {
-  return (r1 === 5 && r2 === 6) || (r1 === 6 && r2 === 5)
-    ? c === 0 || c === 4
-    : true;
+export function isRail(r, c) {
+  return RAILWAYS.has(key(r, c));
 }
 
 /**
- * 公路/行营邻接
- * - 兵站·大本营：正交相连（山界仅铁路侧）
- * - 行营：与四角对角兵站相连
+ * 邻接：正交公路（前线仅 0/2/4 列贯通）+ 行营对角 + 前线斜线
  */
-export function highwayNeighbors(r, c) {
-  const out = [];
+export function getNeighbors(r, c) {
+  const neighbors = [];
+  const seen = new Set();
+
+  function add(nr, nc, type) {
+    if (!inBounds(nr, nc)) return;
+    const k = key(nr, nc);
+    if (seen.has(k)) return;
+    seen.add(k);
+    neighbors.push({ r: nr, c: nc, type });
+  }
+
+  for (const [dr, dc] of [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+  ]) {
+    const nr = r + dr;
+    const nc = c + dc;
+    if (!inBounds(nr, nc)) continue;
+    // 前线：仅左中右三路正交贯通
+    if ((r === 5 && nr === 6) || (r === 6 && nr === 5)) {
+      if (c === 0 || c === 2 || c === 4) add(nr, nc, "orthogonal");
+      continue;
+    }
+    add(nr, nc, "orthogonal");
+  }
+
+  // 前线斜线（X 通道）
+  if (r === 5 && c === 0) add(6, 2, "diagonal");
+  if (r === 5 && c === 2) {
+    add(6, 0, "diagonal");
+    add(6, 4, "diagonal");
+  }
+  if (r === 5 && c === 4) add(6, 2, "diagonal");
+  if (r === 6 && c === 0) add(5, 2, "diagonal");
+  if (r === 6 && c === 2) {
+    add(5, 0, "diagonal");
+    add(5, 4, "diagonal");
+  }
+  if (r === 6 && c === 4) add(5, 2, "diagonal");
+
+  // 行营四角连通
   if (isCamp(r, c)) {
     for (const [dr, dc] of [
       [-1, -1],
@@ -137,28 +207,11 @@ export function highwayNeighbors(r, c) {
       [1, -1],
       [1, 1],
     ]) {
-      const nr = r + dr;
-      const nc = c + dc;
-      if (inBounds(nr, nc) && !isCamp(nr, nc)) out.push([nr, nc]);
+      add(r + dr, c + dc, "diagonal");
     }
-    return out;
   }
 
-  for (const [dr, dc] of [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ]) {
-    const nr = r + dr;
-    const nc = c + dc;
-    if (!inBounds(nr, nc)) continue;
-    if (!crossesMountain(r, nr, c)) continue;
-    if (isCamp(nr, nc)) continue;
-    out.push([nr, nc]);
-  }
-
-  // 对角连入行营
+  // 非行营对角进入行营
   for (const [dr, dc] of [
     [-1, -1],
     [-1, 1],
@@ -167,31 +220,22 @@ export function highwayNeighbors(r, c) {
   ]) {
     const nr = r + dr;
     const nc = c + dc;
-    if (inBounds(nr, nc) && isCamp(nr, nc)) out.push([nr, nc]);
+    if (inBounds(nr, nc) && isCamp(nr, nc)) add(nr, nc, "diagonal");
   }
-  return out;
+
+  return neighbors;
 }
 
-/** 铁路邻接（仅铁路点之间，且沿铁路走向） */
+/** @deprecated 兼容旧调用 */
+export function highwayNeighbors(r, c) {
+  return getNeighbors(r, c).map((n) => [n.r, n.c]);
+}
+
 export function railNeighbors(r, c) {
   if (!isRail(r, c)) return [];
-  const out = [];
-  for (const [dr, dc] of [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ]) {
-    const nr = r + dr;
-    const nc = c + dc;
-    if (!inBounds(nr, nc) || !isRail(nr, nc)) continue;
-    if (!crossesMountain(r, nr, c)) continue;
-    // 横铁路行上横向；纵铁路列上纵向；交点两者皆可
-    const alongRow = r === nr && (r === 1 || r === 5 || r === 6 || r === 10);
-    const alongCol = c === nc && (c === 0 || c === 4);
-    if (alongRow || alongCol) out.push([nr, nc]);
-  }
-  return out;
+  return getNeighbors(r, c)
+    .filter((n) => isRail(n.r, n.c))
+    .map((n) => [n.r, n.c]);
 }
 
 export function createEmptyBoard() {
@@ -210,15 +254,11 @@ export function deploySlots(side) {
   return slots;
 }
 
-/**
- * 自动布阵
- * 军旗必在大本营；地雷在后两排；炸弹不在最前排；行营不放子
- */
 export function autoDeploy(side) {
   const board = createEmptyBoard();
   const pieces = FORCE_LIST.map((t) => makePiece(t, side));
   const slots = deploySlots(side);
-  const hq = HQ[side].map(([r, c]) => [r, c]);
+  const hq = HQ[side];
 
   const flag = pieces.find((p) => p.type === "flag");
   const hqPick = hq[Math.floor(Math.random() * hq.length)];
@@ -257,6 +297,12 @@ export function autoDeploy(side) {
   for (const p of others) {
     const s = restSlots.shift();
     if (s) board[s[0]][s[1]] = p;
+  }
+
+  // 大本营内棋子开局即锁定
+  for (const [hr, hc] of hq) {
+    const p = board[hr][hc];
+    if (p) p.immovable = true;
   }
   return board;
 }
@@ -318,11 +364,10 @@ function canStopOrAttack(board, side, tr, tc) {
   const t = board[tr][tc];
   if (!t) return { ok: true, attack: false };
   if (t.side === side) return { ok: false };
-  if (isCamp(tr, tc)) return { ok: false }; // 行营内不可被攻
+  if (isCamp(tr, tc)) return { ok: false };
   return { ok: true, attack: true };
 }
 
-/** 铁路直线滑行（非工兵）：同列或同行，不拐弯 */
 function railStraightMoves(board, side, r, c) {
   const moves = [];
   const dirs = [
@@ -356,7 +401,6 @@ function railStraightMoves(board, side, r, c) {
   return moves;
 }
 
-/** 工兵铁路 BFS（可拐弯） */
 function railEngineerMoves(board, side, r, c) {
   const moves = [];
   const queue = [[r, c]];
@@ -388,18 +432,16 @@ export function listMoves(board, side) {
       const p = board[r][c];
       if (!p || p.side !== side || p.immovable) continue;
 
-      // 公路 / 行营一步
-      for (const [nr, nc] of highwayNeighbors(r, c)) {
-        const check = canStopOrAttack(board, side, nr, nc);
+      for (const n of getNeighbors(r, c)) {
+        const check = canStopOrAttack(board, side, n.r, n.c);
         if (!check.ok) continue;
         moves.push({
           from: [r, c],
-          to: [nr, nc],
+          to: [n.r, n.c],
           attack: !!check.attack,
         });
       }
 
-      // 铁路机动
       if (!isRail(r, c)) continue;
       const railMoves =
         p.type === "engineer"
@@ -414,7 +456,6 @@ export function listMoves(board, side) {
   return [...uniq.values()];
 }
 
-/** 司令阵亡后亮出该方军旗 */
 export function revealFlagIfCommanderLost(board, side, removed) {
   if (!removed.some((p) => p.side === side && p.type === "commander")) return;
   for (let r = 0; r < ROWS; r++) {
@@ -440,18 +481,13 @@ export function applyMove(board, move) {
   if (!defender) {
     next[tr][tc] = attacker;
     next[fr][fc] = null;
-    // 进入大本营后锁定
-    if (isHQ(tr, tc) && attacker.type !== "flag") {
-      attacker.immovable = true;
-    }
+    if (isHQ(tr, tc)) attacker.immovable = true;
   } else {
     combat = resolveCombat(attacker, defender);
     next[fr][fc] = null;
     next[tr][tc] = combat.survivor;
     winSide = combat.winSide;
-    if (combat.survivor && isHQ(tr, tc) && combat.survivor.type !== "flag") {
-      combat.survivor.immovable = true;
-    }
+    if (combat.survivor && isHQ(tr, tc)) combat.survivor.immovable = true;
     revealFlagIfCommanderLost(next, SIDE.NORTH, combat.removed);
     revealFlagIfCommanderLost(next, SIDE.SOUTH, combat.removed);
   }
