@@ -17,7 +17,8 @@ import {
   PEARL_RIVER,
   project,
 } from "./china_outline.js";
-import { ZHOU_META, MOUNTAIN_RANGES, mountainInfluence } from "./geography.js";
+import { MOUNTAIN_RANGES, mountainInfluence } from "./geography.js";
+import { zhouOfLonLat, projectedZhouRegions, ZHOU_STYLE } from "./zhou_regions.js";
 
 const COLS = 144;
 const ROWS = 100;
@@ -81,6 +82,7 @@ export function buildMap() {
         Math.max(0, 0.28 - Math.sqrt(dist2) * 1.8) +
         mtn.elev;
       if (mtn.near && elev > 0.42) biome = "mountain";
+      const zhou = zhouOfLonLat(lon, lat) || city.zhou;
       cells.push({
         i,
         x,
@@ -89,7 +91,7 @@ export function buildMap() {
         owner: null,
         cityId: city.id,
         regionId: null,
-        zhou: city.zhou,
+        zhou,
         biome,
         elev: Math.min(1, elev),
         lon,
@@ -134,6 +136,7 @@ export function buildMap() {
       width: r.width,
       path: projectPath(r.path),
     })),
+    zhouRegions: projectedZhouRegions(),
   };
 
   return {
@@ -229,8 +232,8 @@ function buildZhouLabels(cells) {
   }
   return Object.entries(acc).map(([zhou, v]) => ({
     zhou,
-    name: ZHOU_META[zhou]?.label || zhou,
-    ink: ZHOU_META[zhou]?.ink || "#6a5a48",
+    name: ZHOU_STYLE[zhou]?.label || zhou,
+    ink: ZHOU_STYLE[zhou]?.ink || "#6a5a48",
     x: v.sx / v.n,
     y: v.sy / v.n,
   }));
@@ -330,7 +333,18 @@ export function biomeStyle(biome) {
 }
 
 export function zhouTint(zhou) {
-  return ZHOU_META[zhou]?.tint || null;
+  const s = ZHOU_STYLE[zhou];
+  if (!s) return null;
+  return hexAlpha(s.fill, 0.22);
+}
+
+function hexAlpha(hex, a) {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 export { COLS, ROWS };
