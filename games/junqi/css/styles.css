@@ -38,25 +38,25 @@ body.game-page {
 /* 军棋纸：米黄纸面，不用围棋木纹框 */
 .board-wrap {
   position: relative;
-  background:
-    linear-gradient(180deg, #f7edd6 0%, #efe0c0 100%);
+  background: #efe2c2;
   border-radius: 12px;
-  padding: clamp(0.45rem, 1.4vw, 0.75rem);
+  padding: clamp(0.4rem, 1.2vw, 0.65rem);
   box-shadow: var(--shadow);
   border: 1px solid rgba(140, 60, 40, 0.35);
-  max-width: min(100%, 520px);
+  max-width: min(100%, 480px);
   margin: 0 auto;
   width: 100%;
 }
 
 #board {
   display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 4px;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1 / 1.9;
+  border-radius: 2px;
   cursor: pointer;
   touch-action: none;
-  background: #f4e6c4;
+  background: #f6e7c4;
   box-shadow: none;
 }
 
