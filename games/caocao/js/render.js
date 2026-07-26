@@ -71,7 +71,10 @@ export function formatUnit(u) {
   if (!u) return "";
   const camp =
     u.team === "player" ? "我军" : u.team === "ally" ? "友军" : "敌军";
-  return `${u.name}（${camp}） Lv${u.level} ${classNameOf(u)}  HP ${u.hp}/${u.hpMax}  攻${u.atk} 防${u.def}`;
+  const cond = u.conditions?.length
+    ? ` · ${u.conditions.map((c) => c.id).join("/")}`
+    : "";
+  return `${u.name}（${camp}） Lv${u.level} ${classNameOf(u)}\nHP ${u.hp}/${u.hpMax}  MP ${u.mp ?? 0}/${u.mpMax ?? 0}\n攻${u.atk} 防${u.def} 技${u.skl} 智${u.itl ?? "-"}${cond}`;
 }
 
 export { drawPortrait };

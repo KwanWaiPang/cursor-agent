@@ -7,15 +7,19 @@ import {
   cancelMove,
   waitUnit,
   beginAttack,
+  beginMagicPick,
+  selectMagic,
   confirmAttack,
+  confirmMagic,
   unitAt,
   getUnit,
   clearSelection,
   endPlayerTurnManual,
 } from "./engine.js";
 import { createRenderer, describeTile, formatUnit, drawPortrait } from "./render.js";
-import { TERRAIN } from "../data/classes.js";
+import { TERRAIN, terrainMoveCost } from "../data/classes.js";
 import { isHostile } from "../data/generals.js";
+import { inventoryToGear } from "../data/equipment.js";
 
 const SAVE_KEY = "caocao_campaign_v2";
 
@@ -33,10 +37,13 @@ const els = {
   log: document.getElementById("battleLog"),
   actionBar: document.getElementById("actionBar"),
   btnAttack: document.getElementById("btnAttack"),
+  btnMagic: document.getElementById("btnMagic"),
   btnWait: document.getElementById("btnWait"),
   btnCancel: document.getElementById("btnCancel"),
   btnEndTurn: document.getElementById("btnEndTurn"),
   btnMenu: document.getElementById("btnMenu"),
+  magicBar: document.getElementById("magicBar"),
+  magicList: document.getElementById("magicList"),
   dialog: document.getElementById("dialog"),
   dialogSpeaker: document.getElementById("dialogSpeaker"),
   dialogText: document.getElementById("dialogText"),
@@ -65,7 +72,7 @@ function defaultSave() {
     red: 0,
     blue: 0,
     route: null, // null | 'red' | 'blue'
-    inventory: [{ id: "yitian", name: "倚天剑", slot: "weapon", atk: 4 }],
+    inventory: [{ id: "yitian", name: "倚天剑" }],
     choicesDone: [],
   };
 }
@@ -282,7 +289,7 @@ function startStage(id) {
   pendingStageId = id;
   const stage = getStage(id);
   const save = loadSave();
-  state = createBattleState(stage, { gear: save.inventory });
+  state = createBattleState(stage, { gear: inventoryToGear(save.inventory) });
   renderer.resize(state);
   hide(els.menu);
   hide(els.result);
@@ -331,6 +338,9 @@ function showTalk() {
     } else if (talkMode === "intro") {
       talkMode = null;
       maybeBattleChoice();
+    } else if (talkMode === "event") {
+      talkMode = null;
+      refresh();
     } else {
       talkMode = null;
       refresh();
@@ -415,28 +425,70 @@ function refresh() {
   if (hover) {
     const tid = state.tiles[hover.y][hover.x];
     const t = TERRAIN[tid];
-    els.tileInfo.textContent = `${describeTile(state, hover.x, hover.y)} · 移动消耗 ${t.moveCost}${
-      t.defBonus ? ` · 防御+${Math.round(t.defBonus * 100)}%` : ""
+    const cls = getUnit(state, state.selectedId)?.classId || "infantry";
+    const cost = terrainMoveCost(tid, cls);
+    els.tileInfo.textContent = `${describeTile(state, hover.x, hover.y)} · 移动消耗 ${
+      cost >= 9 ? "不可进入" : cost
     }`;
   } else {
     els.tileInfo.textContent = "移动鼠标查看地形";
   }
 
-  const inAction = state.mode === "action" || state.mode === "attack";
+  const inAction =
+    state.mode === "action" ||
+    state.mode === "attack" ||
+    state.mode === "magic" ||
+    state.mode === "magicPick";
   els.actionBar.classList.toggle("hidden", !inAction && state.mode !== "move");
   els.btnAttack.disabled = !(state.mode === "action" && state.attackTargets.length);
-  els.btnWait.disabled = !(state.mode === "action" || state.mode === "attack");
+  els.btnMagic.disabled = !(state.mode === "action" && state.magicList?.length);
+  els.btnWait.disabled = !(
+    state.mode === "action" ||
+    state.mode === "attack" ||
+    state.mode === "magic" ||
+    state.mode === "magicPick"
+  );
   els.btnCancel.disabled = !(
     state.mode === "move" ||
     state.mode === "action" ||
-    state.mode === "attack"
+    state.mode === "attack" ||
+    state.mode === "magic" ||
+    state.mode === "magicPick"
   );
+
+  if (state.mode === "magicPick") {
+    show(els.magicBar);
+    els.magicList.innerHTML = "";
+    for (const m of state.magicList) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn";
+      b.textContent = `${m.name}（MP ${m.mp}）`;
+      b.addEventListener("click", () => {
+        selectMagic(state, m.id);
+        refresh();
+      });
+      els.magicList.appendChild(b);
+    }
+  } else {
+    hide(els.magicBar);
+  }
+
+  flushSpeakQueue();
 
   if (state.result) {
     els.resultTitle.textContent = state.result.win ? "胜利" : "败北";
     els.resultBody.textContent = state.result.text;
     show(els.result);
   }
+}
+
+function flushSpeakQueue() {
+  if (!state?.speakQueue?.length || talkMode) return;
+  const lines = state.speakQueue.splice(0, state.speakQueue.length);
+  talkMode = "event";
+  talkQueue = lines;
+  showTalk();
 }
 
 function canvasPos(evt) {
@@ -479,12 +531,35 @@ els.canvas.addEventListener("click", (e) => {
     if (t && atk && isHostile(atk, t)) {
       const evt = confirmAttack(state, t);
       if (evt) {
-        pushLog(
-          `${evt.attacker.name} 攻击 ${evt.defender.name}，伤害 ${evt.damage}${
-            evt.crit ? "（暴击）" : ""
-          }`
-        );
-        if (!evt.defender.alive) pushLog(`${evt.defender.name} 被击破！`);
+        if (evt.miss) {
+          pushLog(`${evt.attacker.name} 攻击 ${evt.defender.name}，未命中！`);
+        } else {
+          pushLog(
+            `${evt.attacker.name} 攻击 ${evt.defender.name}，伤害 ${evt.damage}${
+              evt.crit ? "（暴击）" : ""
+            }${evt.dual ? "（连击）" : ""}`
+          );
+          if (!evt.defender.alive) pushLog(`${evt.defender.name} 被击破！`);
+        }
+      }
+    }
+  } else if (state.mode === "magic") {
+    const t = unitAt(state, x, y);
+    if (t) {
+      const evt = confirmMagic(state, t);
+      if (evt) {
+        if (evt.miss) {
+          pushLog(`${evt.caster.name} 施展「${evt.magic.name}」失败`);
+        } else if (evt.heal) {
+          pushLog(
+            `${evt.caster.name}「${evt.magic.name}」回复 ${evt.target.name} ${evt.heal}`
+          );
+        } else {
+          pushLog(
+            `${evt.caster.name}「${evt.magic.name}」对 ${evt.target.name} 造成 ${evt.damage}`
+          );
+          if (!evt.target.alive) pushLog(`${evt.target.name} 被击破！`);
+        }
       }
     }
   }
@@ -495,14 +570,21 @@ els.btnAttack.addEventListener("click", () => {
   beginAttack(state);
   refresh();
 });
+els.btnMagic.addEventListener("click", () => {
+  beginMagicPick(state);
+  refresh();
+});
 els.btnWait.addEventListener("click", () => {
   waitUnit(state);
   pushLog("待机");
   refresh();
 });
 els.btnCancel.addEventListener("click", () => {
-  if (state.mode === "attack") {
+  if (state.mode === "attack" || state.mode === "magic" || state.mode === "magicPick") {
     state.mode = "action";
+    state.pendingMagic = null;
+    const unit = getUnit(state, state.selectedId);
+    if (unit) state.attackTargets = [];
   } else if (state.mode === "action" || state.mode === "move") {
     cancelMove(state);
   } else clearSelection(state);

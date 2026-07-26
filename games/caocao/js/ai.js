@@ -88,15 +88,19 @@ function actFaction(state, team, onStep) {
 
 function resolveAttack(state, attacker, defender, onStep) {
   if (!inRange(attacker, defender.x, defender.y)) return;
+  if (attacker.conditions?.some((c) => c.id === "stunned")) return;
   const terrain = state.tiles[defender.y][defender.x];
   const result = calcDamage(attacker, defender, terrain);
-  defender.hp = Math.max(0, defender.hp - result.damage);
+  if (!result.miss) {
+    defender.hp = Math.max(0, defender.hp - result.damage);
+  }
   onStep?.({
     type: "attack",
     attacker,
     defender,
     damage: result.damage,
     crit: result.crit,
+    miss: result.miss,
   });
   if (defender.hp <= 0) {
     defender.alive = false;

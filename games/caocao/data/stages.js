@@ -121,6 +121,60 @@ function normalizeWin(meta) {
   return win;
 }
 
+/** mengde 风格关卡事件（条件触发一次） */
+function scriptEventsFor(id) {
+  if (id === "yingchuan") {
+    return [
+      {
+        condition: (g) => g.turn >= 3,
+        handler: (g) => {
+          g.speakQueue.push({
+            speaker: "张角",
+            text: "黄天佑我！中军再进！",
+          });
+        },
+      },
+    ];
+  }
+  if (id === "sishui") {
+    return [
+      {
+        condition: (g) => {
+          const sj = g.units.find((u) => u.generalId === "sunjian" && u.alive);
+          return sj && sj.hp < sj.hpMax * 0.5;
+        },
+        handler: (g) => {
+          const sj = g.units.find((u) => u.generalId === "sunjian");
+          if (sj && sj.alive) {
+            sj.hp = Math.min(sj.hpMax, sj.hp + 20);
+            g.speakQueue.push({
+              speaker: "孙坚",
+              text: "哼……江东子弟岂会轻易倒下！",
+            });
+          }
+        },
+      },
+    ];
+  }
+  if (id === "hulao") {
+    return [
+      {
+        condition: (g) => {
+          const lb = g.units.find((u) => u.generalId === "lvbu" && u.alive);
+          return lb && g.turn >= 2 && lb.y > 4;
+        },
+        handler: (g) => {
+          g.speakQueue.push({
+            speaker: "吕布",
+            text: "来得好！看戟！",
+          });
+        },
+      },
+    ];
+  }
+  return [];
+}
+
 function buildFromHandMap(id, meta, prevId, hand) {
   const talks = buildDialogs(id, meta);
   return {
@@ -150,6 +204,8 @@ function buildFromHandMap(id, meta, prevId, hand) {
     optional: !!meta.optional,
     unlockAfter: prevId,
     handcrafted: true,
+    turnLimit: meta.win?.turns || null,
+    scriptEvents: scriptEventsFor(id),
   };
 }
 

@@ -29,4 +29,5 @@
 
 - 本仓库原创战棋引擎与关卡数据
 - 玩法与结构致敬《三国志 曹操传》，不包含光荣原作素材、音乐或程序代码
+- 战斗公式、兵种射程、地形消耗、计策与关卡脚本思路参考开源引擎 [wateret/mengde](https://github.com/wateret/mengde)（MIT License）；未使用其附带的原作衍生 BMP 素材
 - 详见 `games/caocao/ROADMAP.md`

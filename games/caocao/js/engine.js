@@ -1,13 +1,24 @@
 import { GENERALS, statsAtLevel, isFriendlyTeam } from "../data/generals.js";
 import { CLASSES } from "../data/classes.js";
 import { parseStageMap } from "../data/stages.js";
+import { magicsForUnit } from "../data/magics.js";
 import {
   computeMoveRange,
   computeAttackTargets,
+  computeMagicTargets,
   calcDamage,
+  calcMagicDamage,
   inRange,
+  computeExp,
 } from "./battle.js";
 import { enemyTurn, allyTurn } from "./ai.js";
+import {
+  buildDefaultScript,
+  evalEndCondition,
+  tickEvents,
+  tickConditions,
+  Status,
+} from "./script.js";
 
 let uid = 1;
 
@@ -19,6 +30,7 @@ function applyGear(stats, gearList) {
     if (g.def) s.def += g.def;
     if (g.skl) s.skl += g.skl;
     if (g.spd) s.spd += g.spd;
+    if (g.itl) s.itl += g.itl;
     if (g.hp) {
       s.hp += g.hp;
       s.hpMax += g.hp;
@@ -39,6 +51,8 @@ function spawnUnit(def, team, gearBonus) {
     .filter((g) => g.move)
     .reduce((a, g) => a + g.move, 0);
   const classId = def.classOverride || tpl.classId;
+  const cls = CLASSES[classId];
+  const mpMax = (cls?.mpBase || 10) + (cls?.mpGrowth || 1) * (level - 1);
   return {
     id: uid++,
     generalId: tpl.id,
@@ -50,10 +64,14 @@ function spawnUnit(def, team, gearBonus) {
     level,
     hp: st.hpMax,
     hpMax: st.hpMax,
+    mp: mpMax,
+    mpMax,
     atk: st.atk,
     def: st.def,
     skl: st.skl,
     spd: st.spd,
+    itl: st.itl,
+    mor: st.mor,
     moveBonus,
     portrait: tpl.portrait,
     lord: !!tpl.lord && team === "player",
@@ -61,6 +79,7 @@ function spawnUnit(def, team, gearBonus) {
     alive: true,
     done: false,
     exp: 0,
+    conditions: [],
   };
 }
 
@@ -73,8 +92,15 @@ export function createBattleState(stage, options = {}) {
     ...(stage.ally || []).map((u) => spawnUnit(u, u.team || "ally", null)),
     ...stage.enemy.map((u) => spawnUnit(u, "enemy", null)),
   ];
+  const script = stage.script || buildDefaultScript(stage);
+  // 克隆事件以免污染模板
+  const runtimeScript = {
+    ...script,
+    events: (script.events || []).map((e) => ({ ...e, done: false })),
+  };
   return {
     stage,
+    script: runtimeScript,
     tiles,
     width: stage.width,
     height: stage.height,
@@ -82,13 +108,16 @@ export function createBattleState(stage, options = {}) {
     turn: 1,
     phase: "player",
     selectedId: null,
-    mode: "select",
+    mode: "select", // select | move | action | attack | magic | magicPick
     moveCells: [],
     attackTargets: [],
+    magicList: [],
+    pendingMagic: null,
     origin: null,
     log: [],
     result: null,
     lootGained: [],
+    speakQueue: [],
   };
 }
 
@@ -106,6 +135,13 @@ export function selectUnit(state, unit) {
     clearSelection(state);
     return;
   }
+  if (unit.conditions?.some((c) => c.id === "stunned")) {
+    unit.done = true;
+    state.log.push({ turn: state.turn, text: `${unit.name} 混乱中，无法行动` });
+    clearSelection(state);
+    maybeEndPlayerTurn(state);
+    return;
+  }
   state.selectedId = unit.id;
   state.mode = "move";
   state.origin = { x: unit.x, y: unit.y };
@@ -117,6 +153,8 @@ export function selectUnit(state, unit) {
     state.height
   );
   state.attackTargets = [];
+  state.magicList = [];
+  state.pendingMagic = null;
 }
 
 export function clearSelection(state) {
@@ -124,6 +162,8 @@ export function clearSelection(state) {
   state.mode = "select";
   state.moveCells = [];
   state.attackTargets = [];
+  state.magicList = [];
+  state.pendingMagic = null;
   state.origin = null;
 }
 
@@ -136,7 +176,8 @@ export function tryMove(state, x, y) {
   state.mode = "action";
   state.moveCells = [];
   state.attackTargets = computeAttackTargets(unit, state.units);
-  checkEscapeWin(state);
+  state.magicList = magicsForUnit(unit).filter((m) => unit.mp >= m.mp);
+  runScriptChecks(state);
   return true;
 }
 
@@ -153,7 +194,7 @@ export function waitUnit(state) {
   if (!unit) return;
   unit.done = true;
   clearSelection(state);
-  checkEscapeWin(state);
+  runScriptChecks(state);
   if (!state.result) maybeEndPlayerTurn(state);
 }
 
@@ -163,6 +204,30 @@ export function beginAttack(state) {
   state.attackTargets = computeAttackTargets(unit, state.units);
   if (!state.attackTargets.length) return;
   state.mode = "attack";
+  state.pendingMagic = null;
+}
+
+export function beginMagicPick(state) {
+  const unit = getUnit(state, state.selectedId);
+  if (!unit) return;
+  state.magicList = magicsForUnit(unit).filter((m) => unit.mp >= m.mp);
+  if (!state.magicList.length) return;
+  state.mode = "magicPick";
+}
+
+export function selectMagic(state, magicId) {
+  const unit = getUnit(state, state.selectedId);
+  if (!unit || state.mode !== "magicPick") return;
+  const magic = state.magicList.find((m) => m.id === magicId);
+  if (!magic) return;
+  state.pendingMagic = magic;
+  state.attackTargets = computeMagicTargets(unit, state.units, magic);
+  if (!state.attackTargets.length) {
+    state.pendingMagic = null;
+    state.mode = "action";
+    return;
+  }
+  state.mode = "magic";
 }
 
 export function confirmAttack(state, target) {
@@ -172,23 +237,74 @@ export function confirmAttack(state, target) {
   if (isFriendlyTeam(target.team)) return null;
   const terrain = state.tiles[target.y][target.x];
   const result = calcDamage(unit, target, terrain);
-  target.hp = Math.max(0, target.hp - result.damage);
   const evt = {
     type: "attack",
     attacker: unit,
     defender: target,
     damage: result.damage,
     crit: result.crit,
+    dual: result.dual,
+    miss: result.miss,
   };
-  if (target.hp <= 0) {
-    target.alive = false;
-    gainExp(unit, 40 + target.level * 5);
-  } else {
-    gainExp(unit, 12 + target.level);
+  if (!result.miss) {
+    target.hp = Math.max(0, target.hp - result.damage);
+    if (target.hp <= 0) {
+      target.alive = false;
+      gainExp(unit, computeExp(unit, target) * 2);
+    } else {
+      gainExp(unit, computeExp(unit, target));
+    }
   }
   unit.done = true;
   clearSelection(state);
-  checkResult(state);
+  runScriptChecks(state);
+  if (!state.result) maybeEndPlayerTurn(state);
+  return evt;
+}
+
+export function confirmMagic(state, target) {
+  const unit = getUnit(state, state.selectedId);
+  const magic = state.pendingMagic;
+  if (!unit || state.mode !== "magic" || !magic) return null;
+  if (!target || !target.alive) return null;
+  if (unit.mp < magic.mp) return null;
+
+  unit.mp -= magic.mp;
+  const result = calcMagicDamage(unit, target, magic);
+  const evt = {
+    type: "magic",
+    caster: unit,
+    target,
+    magic,
+    damage: result.damage,
+    heal: result.heal,
+    miss: result.miss,
+  };
+
+  if (!result.miss) {
+    if (result.heal) {
+      target.hp = Math.min(target.hpMax, target.hp + result.heal);
+    }
+    if (result.damage) {
+      target.hp = Math.max(0, target.hp - result.damage);
+      if (target.hp <= 0) {
+        target.alive = false;
+        gainExp(unit, computeExp(unit, target) * 2);
+      } else {
+        gainExp(unit, Math.max(1, Math.floor(computeExp(unit, target) / 2)));
+      }
+    }
+    for (const ef of magic.effects || []) {
+      if (ef.type === "condition") {
+        target.conditions = target.conditions || [];
+        target.conditions.push({ id: ef.condition, turns: ef.turns || 2 });
+      }
+    }
+  }
+
+  unit.done = true;
+  clearSelection(state);
+  runScriptChecks(state);
   if (!state.result) maybeEndPlayerTurn(state);
   return evt;
 }
@@ -207,6 +323,11 @@ function gainExp(unit, amount) {
     unit.def = st.def;
     unit.skl = st.skl;
     unit.spd = st.spd;
+    unit.itl = st.itl;
+    unit.mor = st.mor;
+    const cls = CLASSES[unit.classId];
+    unit.mpMax = (cls?.mpBase || 10) + (cls?.mpGrowth || 1) * (unit.level - 1);
+    unit.mp = Math.min(unit.mpMax, unit.mp + 5);
   }
 }
 
@@ -231,51 +352,26 @@ function runEnemyPhase(state) {
   if (state.units.some((u) => u.alive && u.team === "ally")) {
     state.log.push({ turn: state.turn, text: "友军行动" });
     allyTurn(state, () => {});
-    checkResult(state);
+    runScriptChecks(state);
     if (state.result) return;
   }
   state.phase = "enemy";
   state.log.push({ turn: state.turn, text: "敌军行动" });
   enemyTurn(state, () => {});
-  checkResult(state);
+  runScriptChecks(state);
   if (!state.result) {
+    tickConditions(state);
     for (const u of state.units) u.done = false;
     state.turn += 1;
+    // 回合开始小回复 MP（策士）
+    for (const u of state.units) {
+      if (u.alive && u.classId === "strategist") {
+        u.mp = Math.min(u.mpMax, u.mp + 2);
+      }
+    }
     state.phase = "player";
     state.log.push({ turn: state.turn, text: `第 ${state.turn} 回合` });
-    checkTurnWins(state);
-  }
-}
-
-function checkEscapeWin(state) {
-  const winRule = state.stage.win || {};
-  if (winRule.type !== "escape") return;
-  const name = winRule.unit || "曹操";
-  const unit = state.units.find((u) => u.alive && u.name === name);
-  if (!unit) return;
-  const row =
-    winRule.row != null
-      ? winRule.row
-      : state.height - 1 - (winRule.rowFromBottom || 0);
-  if (unit.y >= row) {
-    state.result = { win: true, text: `${name}已突围成功！` };
-    state.phase = "result";
-    grantLoot(state);
-  }
-}
-
-function checkTurnWins(state) {
-  const winRule = state.stage.win || { type: "rout" };
-  if (winRule.type === "rout_or_turns" && state.turn > (winRule.turns || 20)) {
-    state.result = { win: true, text: "敌军气势已衰，我军胜利！" };
-    state.phase = "result";
-    grantLoot(state);
-    return;
-  }
-  if (winRule.type === "survive" && state.turn > (winRule.turns || 14)) {
-    state.result = { win: true, text: "苦战坚持到底，成功突围！" };
-    state.phase = "result";
-    grantLoot(state);
+    runScriptChecks(state);
   }
 }
 
@@ -283,72 +379,34 @@ function grantLoot(state) {
   if (state.lootGained?.length) return;
   const loot = state.stage.loot || [];
   state.lootGained = [...loot];
-  if (loot.length) {
+  if (loot.length && state.result) {
     const names = loot.map((l) => l.name).join("、");
     state.result.text += ` 获得：${names}`;
   }
 }
 
+function applyScriptStatus(state, status) {
+  if (status === Status.victory) {
+    state.result = { win: true, text: "敌军败退，我军大胜！" };
+    state.phase = "result";
+    grantLoot(state);
+  } else if (status === Status.defeat) {
+    state.result = { win: false, text: "曹操阵亡或全军覆没……" };
+    state.phase = "result";
+  }
+}
+
+export function runScriptChecks(state) {
+  tickEvents(state, state.script, (speaker, text) => {
+    state.speakQueue.push({ speaker, text });
+  });
+  const status = evalEndCondition(state, state.script);
+  applyScriptStatus(state, status);
+}
+
+/** 兼容旧调用 */
 export function checkResult(state) {
-  const cao = state.units.find((u) => u.lord);
-  if (!cao || !cao.alive) {
-    state.result = { win: false, text: "曹操阵亡，大业中断……" };
-    state.phase = "result";
-    return;
-  }
-
-  const enemies = state.units.filter((u) => u.alive && u.team === "enemy");
-  const winRule = state.stage.win || { type: "rout" };
-
-  if (winRule.type === "escape") {
-    checkEscapeWin(state);
-    return;
-  }
-
-  if (winRule.type === "survive") {
-    // 回合胜利在敌方阶段后判定；此处仅检查全灭加成
-    if (!enemies.length) {
-      state.result = { win: true, text: "敌军全灭，大获全胜！" };
-      state.phase = "result";
-      grantLoot(state);
-    }
-    return;
-  }
-
-  const bossDead = (() => {
-    const byFlag = state.units.find((u) => u.boss);
-    if (byFlag && !byFlag.alive) return true;
-    if (winRule.bossName) {
-      const b = state.units.find((u) => u.name === winRule.bossName);
-      if (b && !b.alive) return true;
-    }
-    if (winRule.bossId) {
-      const b = state.units.find((u) => u.generalId === winRule.bossId);
-      if (b && !b.alive) return true;
-    }
-    return false;
-  })();
-
-  if (
-    (winRule.type === "boss" || winRule.type === "boss_or_rout") &&
-    bossDead
-  ) {
-    state.result = { win: true, text: "敌方主将已破，我军大胜！" };
-    state.phase = "result";
-    grantLoot(state);
-    return;
-  }
-
-  if (
-    (winRule.type === "rout" ||
-      winRule.type === "boss_or_rout" ||
-      winRule.type === "rout_or_turns") &&
-    !enemies.length
-  ) {
-    state.result = { win: true, text: "敌军全灭，胜利！" };
-    state.phase = "result";
-    grantLoot(state);
-  }
+  runScriptChecks(state);
 }
 
 export function classNameOf(unit) {

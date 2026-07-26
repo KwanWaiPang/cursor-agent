@@ -174,6 +174,17 @@ body.caocao-body {
   image-rendering: pixelated;
 }
 
+.magic-list {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.magic-list .btn {
+  justify-content: center;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
 .stage-card {
   appearance: none;
   width: 100%;

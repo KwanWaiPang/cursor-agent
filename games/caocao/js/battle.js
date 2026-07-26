@@ -1,29 +1,95 @@
-import { CLASSES, TERRAIN, classAdvantage } from "../data/classes.js";
-import { isHostile } from "../data/generals.js";
+import {
+  CLASSES,
+  TERRAIN,
+  classAdvantage,
+  terrainMoveCost,
+  terrainEffectPct,
+  attackOffsets,
+  magicOffsets,
+} from "../data/classes.js";
+import { isHostile, isFriendlyTeam } from "../data/generals.js";
+import {
+  computeBasicAttackDamage,
+  computeMagicDamage,
+  computeBasicAttackAccuracy,
+  computeMagicAccuracy,
+  computeDoubleChance,
+  computeCriticalChance,
+  applyTerrainEffect,
+  computeExp,
+} from "../data/formulae.js";
+
+export { computeExp };
 
 export function calcDamage(attacker, defender, terrainId) {
-  const terrain = TERRAIN[terrainId] || TERRAIN.plain;
-  const adv = classAdvantage(attacker.classId, defender.classId);
-  const defEff = defender.def * (1 + (terrain.defBonus || 0));
-  const raw = (attacker.atk - defEff) / 2 + attacker.level + 18;
-  const dmg = Math.floor(Math.max(1, raw) * adv);
-  const crit = Math.random() < Math.min(0.25, (attacker.skl - defender.spd) * 0.01 + 0.05);
+  const atkPct = terrainEffectPct(terrainId, attacker.classId);
+  // 防御侧用地形；防方用其所站地形在调用处传入
+  const atkEff = applyTerrainEffect(attacker.atk, atkPct);
+  const defPct = terrainEffectPct(
+    // defender terrain passed as terrainId (defender's tile)
+    terrainId,
+    defender.classId
+  );
+  // 攻方地形加成用攻击者所在格更合理；此处简化：攻防都用目标格防效 + 攻方平地
+  const defEff = applyTerrainEffect(defender.def, defPct);
+  const force = Math.round(100 * classAdvantage(attacker.classId, defender.classId));
+  let damage = computeBasicAttackDamage(attacker, defender, atkEff, defEff, force);
+
+  const hitChance = computeBasicAttackAccuracy(attacker, defender);
+  const hit = Math.random() * 100 < hitChance;
+  if (!hit) {
+    return { damage: 0, miss: true, crit: false, dual: false, adv: force / 100, exp: 0 };
+  }
+
+  const critChance = computeCriticalChance(attacker, defender);
+  const dualChance = computeDoubleChance(attacker, defender);
+  const crit = Math.random() * 100 < critChance;
+  const dual = Math.random() * 100 < dualChance;
+  if (crit) damage = Math.floor(damage * 1.5);
+  if (dual) damage *= 2;
+
   return {
-    damage: crit ? Math.floor(dmg * 1.4) : dmg,
+    damage,
+    miss: false,
     crit,
-    adv,
+    dual,
+    adv: force / 100,
+    exp: computeExp(attacker, defender),
   };
 }
 
-export function inRange(attacker, tx, ty) {
-  const cls = CLASSES[attacker.classId];
-  const [minR, maxR] = cls.range;
-  const dist = Math.abs(attacker.x - tx) + Math.abs(attacker.y - ty);
-  return dist >= minR && dist <= maxR;
+export function calcMagicDamage(attacker, defender, magic) {
+  const power = magic.effects?.find((e) => e.type === "hp")?.power ?? -50;
+  const force = Math.abs(power);
+  const hitChance = computeMagicAccuracy(attacker, defender);
+  const hit = Math.random() * 100 < hitChance;
+  if (!hit) return { damage: 0, heal: 0, miss: true };
+
+  if (power >= 0) {
+    const heal = computeMagicDamage(attacker, defender, power);
+    return { damage: 0, heal, miss: false };
+  }
+  const damage = computeMagicDamage(attacker, defender, force);
+  return { damage, heal: 0, miss: false };
 }
 
-/** BFS 可移动格 */
+export function inRange(attacker, tx, ty) {
+  const ox = attacker.x;
+  const oy = attacker.y;
+  return attackOffsets(attacker.classId).some(([dx, dy]) => ox + dx === tx && oy + dy === ty);
+}
+
+export function inMagicRange(caster, tx, ty, rangeKey) {
+  return magicOffsets(rangeKey).some(
+    ([dx, dy]) => caster.x + dx === tx && caster.y + dy === ty
+  );
+}
+
+/** BFS 可移动格（mengde 式按兵种地形消耗） */
 export function computeMoveRange(unit, tiles, units, width, height) {
+  if (unit.conditions?.some((c) => c.id === "rooted" || c.id === "stunned")) {
+    return [{ x: unit.x, y: unit.y }];
+  }
   const cls = CLASSES[unit.classId];
   const maxMove = cls.move + (unit.moveBonus || 0);
   const occupied = new Set(
@@ -44,21 +110,16 @@ export function computeMoveRange(unit, tiles, units, width, height) {
       const nx = cur.x + dx;
       const ny = cur.y + dy;
       if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-      const t = TERRAIN[tiles[ny][nx]];
+      const tid = tiles[ny][nx];
+      const t = TERRAIN[tid];
       if (!t || t.block) continue;
-      // 敌方占据不可穿越，友方可穿越但不可停留在终点检查时处理
+      const cost = terrainMoveCost(tid, unit.classId);
+      if (cost >= 9) continue;
       const key = `${nx},${ny}`;
       const occ = occupied.has(key);
-      const cost = t.moveCost;
-      // 骑兵走树林/山地更贵
-      let c = cost;
-      if (unit.classId === "cavalry" && (tiles[ny][nx] === "forest" || tiles[ny][nx] === "hill")) {
-        c += 1;
-      }
-      const left = cur.left - c;
+      const left = cur.left - cost;
       if (left < 0) continue;
       if (occ) {
-        // 只能穿过友方
         const blocker = units.find((u) => u.alive && u.x === nx && u.y === ny);
         if (!blocker || isHostile(unit, blocker)) continue;
       }
@@ -91,4 +152,17 @@ export function computeMoveRange(unit, tiles, units, width, height) {
 
 export function computeAttackTargets(unit, units) {
   return units.filter((u) => u.alive && isHostile(unit, u) && inRange(unit, u.x, u.y));
+}
+
+export function computeMagicTargets(unit, units, magic) {
+  const wantEnemy = magic.target === "enemy";
+  return units.filter((u) => {
+    if (!u.alive) return false;
+    if (wantEnemy) {
+      if (!isHostile(unit, u)) return false;
+    } else if (!isFriendlyTeam(u.team)) {
+      return false;
+    }
+    return inMagicRange(unit, u.x, u.y, magic.range);
+  });
 }
