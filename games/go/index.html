@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>围棋 · 弈馆</title>
+    <meta
+      name="description"
+      content="网页版围棋：支持双人对弈与本地 AI，含提子、劫争、停着与中国规则点目。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=ZCOOL+XiaoWei&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../css/shared.css" />
+    <link rel="stylesheet" href="./css/styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23c48a3a'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%231a1a1a'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <h1>围棋</h1>
+          <p>弈馆 · 人人对战 / 人机对战 · 中国规则</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn secondary" href="../../">返回大厅</a>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="board-wrap" aria-label="棋盘">
+          <canvas id="board" width="720" height="720" role="img" aria-label="围棋棋盘"></canvas>
+        </section>
+
+        <aside class="panel">
+          <section class="card">
+            <h2>局势</h2>
+            <div class="status-row">
+              <div class="turn">
+                <span id="turnDot" class="stone-dot black" aria-hidden="true"></span>
+                <span id="turnLabel">黑方行棋</span>
+              </div>
+              <span id="phaseBadge" class="badge">对局中</span>
+            </div>
+            <div class="meta">
+              <div id="captures">黑提 0 · 白提 0</div>
+              <div id="moveCount">手数 0 · 停着 0</div>
+            </div>
+            <div id="message" class="message info"></div>
+            <div id="result" class="result-banner"></div>
+          </section>
+
+          <section class="card">
+            <h2>操作</h2>
+            <div class="controls">
+              <button id="btnPass" type="button">停着</button>
+              <button id="btnResign" class="danger" type="button">认输</button>
+              <button id="btnUndo" class="secondary" type="button">悔棋</button>
+              <button id="btnAutoDead" class="secondary" type="button" disabled>自动标死子</button>
+              <button id="btnScore" class="secondary" type="button" disabled>确认点目</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>新对局</h2>
+            <div class="field">
+              <label for="modeSelect">对战模式</label>
+              <select id="modeSelect">
+                <option value="human">人人对战</option>
+                <option value="ai" selected>人机对战（AI）</option>
+              </select>
+            </div>
+            <div id="aiOptions" class="ai-options">
+              <div class="field">
+                <label for="humanColorSelect">你的执色</label>
+                <select id="humanColorSelect">
+                  <option value="black" selected>黑（先手）</option>
+                  <option value="white">白（后手）</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="difficultySelect">AI 难度（可选）</label>
+                <select id="difficultySelect">
+                  <option value="easy">入门 · 轻松</option>
+                  <option value="medium">普通 · 启发式</option>
+                  <option value="hard" selected>进阶 · MCTS</option>
+                  <option value="expert">专家 · 更深搜索</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="sizeSelect">棋盘规格</label>
+              <select id="sizeSelect">
+                <option value="9">9路</option>
+                <option value="13">13路</option>
+                <option value="19" selected>19路（标准）</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="komiSelect">贴目（中国规则）</label>
+              <select id="komiSelect">
+                <option value="6.5">6.5</option>
+                <option value="7.5" selected>7.5</option>
+                <option value="0">0（让子练习）</option>
+              </select>
+            </div>
+            <div class="controls" style="grid-template-columns: 1fr">
+              <button id="btnNew" type="button">开始新对局</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>规则说明</h2>
+            <ul class="help">
+              <li>黑先白后，轮流在交叉点落子。</li>
+              <li>无气的棋子被提掉；禁止自杀。</li>
+              <li>禁止同形再现（含劫争）。</li>
+              <li>双方连续停着后进入点目，自动标记死子；也可点击棋子手动改。</li>
+              <li>计分采用中国规则：子空皆地，白贴目。</li>
+              <li>AI 支持 9 / 13 / 19 路；进阶/专家用限时 MCTS，大棋盘会多想一会儿。</li>
+            </ul>
+          </section>
+        </aside>
+      </main>
+
+      <p class="footer-note">弈馆 · 围棋</p>
+    </div>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
