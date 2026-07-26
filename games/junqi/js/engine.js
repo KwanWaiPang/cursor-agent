@@ -322,8 +322,7 @@ export function resolveCombat(attacker, defender) {
   let survivor = null;
   let winSide = null;
 
-  attacker.revealed = true;
-  defender.revealed = true;
+  // 暗棋：交锋只结算胜负，不亮明敌子身份（司令阵亡亮旗另论）
 
   if (defender.type === "flag") {
     removed.push(defender);

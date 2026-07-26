@@ -446,25 +446,43 @@ function doMove(move, byAi = false) {
   state.legal = [];
 
   if (combat) {
-    const who = byAi ? "蓝方" : "红方";
-    if (combat.winSide) pushLog(`${who}${atk.name} 夺旗成功！`);
-    else if (!combat.survivor) pushLog(`${who}${atk.name} vs ${def.name} → 同归于尽`);
-    else if (
+    // 暗棋战报：只报结果，不公布敌子兵种
+    const myName = byAi ? def.name : atk.name;
+    const atkLabel = byAi ? "敌子" : atk.name;
+    const defLabel = byAi ? myName : "敌子";
+    if (combat.winSide) {
+      pushLog(byAi ? "敌子夺旗，你失败了" : `${atk.name} 夺旗成功！`);
+    } else if (!combat.survivor) {
+      pushLog(`${atkLabel} vs ${defLabel} → 同归于尽`);
+    } else if (
       combat.removed.some((x) => x.id === def.id) &&
       !combat.removed.some((x) => x.id === atk.id)
     ) {
-      pushLog(`${who}${atk.name} 攻击 ${def.name} → 获胜`);
+      pushLog(
+        byAi
+          ? `敌子吃掉你的${def.name}`
+          : `${atk.name} 吃掉敌子`
+      );
     } else if (
       combat.removed.some((x) => x.id === atk.id) &&
       !combat.removed.some((x) => x.id === def.id)
     ) {
-      pushLog(`${who}${atk.name} 攻击 ${def.name} → 败退`);
-    } else pushLog(`${who}${atk.name} 与 ${def.name} 交锋`);
-    if (combat.removed.some((x) => x.type === "commander")) {
-      pushLog("司令阵亡 · 军旗位置亮明");
+      pushLog(
+        byAi
+          ? `敌子撞上你的${def.name}后败退`
+          : `${atk.name} 攻击敌子后败退`
+      );
+    } else {
+      pushLog(`${atkLabel} 与 ${defLabel} 交锋`);
+    }
+    // 仅当己方司令阵亡时提示亮旗；敌方司令阵亡也只提示，不亮明吃子的是谁
+    if (combat.removed.some((x) => x.type === "commander" && x.side === SIDE.SOUTH)) {
+      pushLog("你的司令阵亡 · 军旗位置已暴露给对方");
+    } else if (combat.removed.some((x) => x.type === "commander" && x.side === SIDE.NORTH)) {
+      pushLog("敌方司令阵亡 · 敌方军旗位置亮明");
     }
   } else {
-    pushLog(`${byAi ? "蓝方" : "红方"}移动 ${byAi ? "立起棋子" : atk.name}`);
+    pushLog(byAi ? "敌子移动" : `红方移动 ${atk.name}`);
   }
 
   play(clickAudio);
