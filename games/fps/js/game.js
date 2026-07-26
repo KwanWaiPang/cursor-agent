@@ -91,9 +91,18 @@ export class Game {
     this._onResize = () => this.onResize();
     this._onMouseDown = (e) => {
       if (e.button === 0) this.shooting = true;
+      // 右键换弹
+      if (e.button === 2) {
+        e.preventDefault();
+        tryReload(this.loadout, performance.now(), this.sfx);
+      }
     };
     this._onMouseUp = (e) => {
       if (e.button === 0) this.shooting = false;
+    };
+    this._onContextMenu = (e) => {
+      // 锁定指针时屏蔽浏览器右键菜单
+      if (this.player?.controls?.isLocked) e.preventDefault();
     };
     this._onKey = (e) => this.onKey(e);
     this._onLock = () => this.onLock();
@@ -102,6 +111,7 @@ export class Game {
     window.addEventListener("resize", this._onResize);
     document.addEventListener("mousedown", this._onMouseDown);
     document.addEventListener("mouseup", this._onMouseUp);
+    document.addEventListener("contextmenu", this._onContextMenu);
     document.addEventListener("keydown", this._onKey);
     this.player.controls.addEventListener("lock", this._onLock);
     this.player.controls.addEventListener("unlock", this._onUnlock);
@@ -126,11 +136,8 @@ export class Game {
     document.getElementById("pause")?.classList.remove("hidden");
   }
 
-  onKey(e) {
-    if (!this.running) return;
-    if (e.code === "KeyR") {
-      tryReload(this.loadout, performance.now(), this.sfx);
-    }
+  onKey(_e) {
+    // 换弹已改为鼠标右键；保留钩子便于后续快捷键
   }
 
   onResize() {
@@ -299,6 +306,7 @@ export class Game {
     window.removeEventListener("resize", this._onResize);
     document.removeEventListener("mousedown", this._onMouseDown);
     document.removeEventListener("mouseup", this._onMouseUp);
+    document.removeEventListener("contextmenu", this._onContextMenu);
     document.removeEventListener("keydown", this._onKey);
     this.hud.hide();
     this.renderer.dispose();
