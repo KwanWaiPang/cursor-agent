@@ -228,6 +228,16 @@ export function statsAtLevel(template, level) {
   for (const k of Object.keys(template.growth)) {
     s[k] = template.base[k] + template.growth[k] * (lv - 1);
   }
+  // 智力/士气：策士偏 itl，武力将偏 mor（mengde attr: atk/def/dex/itl/mor）
+  if (s.itl == null) {
+    s.itl =
+      template.classId === "strategist"
+        ? 18 + Math.floor(s.skl * 0.8)
+        : 8 + Math.floor(s.skl * 0.3);
+  }
+  if (s.mor == null) {
+    s.mor = 10 + Math.floor((s.spd + s.atk) / 4);
+  }
   s.hpMax = s.hp;
   return s;
 }

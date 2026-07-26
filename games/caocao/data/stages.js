@@ -4,6 +4,7 @@
 import { CAMPAIGN, orderedStageIds } from "./campaign.js";
 import { MAP_BUILDERS, parseMapRows } from "./mapgen.js";
 import { MAPS_CH1 } from "./maps_ch1.js";
+import { scriptEventsFor } from "./scripts_ch1.js";
 import { minionIdsForTheme, bossTemplateForClass } from "./generals.js";
 
 const CHAPTER_NAMES = Object.fromEntries(
@@ -150,6 +151,8 @@ function buildFromHandMap(id, meta, prevId, hand) {
     optional: !!meta.optional,
     unlockAfter: prevId,
     handcrafted: true,
+    turnLimit: meta.win?.turns || null,
+    scriptEvents: scriptEventsFor(id),
   };
 }
 
@@ -222,6 +225,8 @@ function buildStageFromMeta(id, meta, prevId, index) {
     optional: !!meta.optional,
     unlockAfter: prevId,
     handcrafted: false,
+    turnLimit: meta.win?.turns || null,
+    scriptEvents: scriptEventsFor(id),
   };
 }
 
