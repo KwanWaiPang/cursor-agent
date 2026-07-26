@@ -13,6 +13,7 @@ import {
   incomeOf,
   cityById,
   pushLog,
+  siegeControlOf,
 } from "./engine.js";
 import { createMapRenderer } from "./render.js";
 import { officerById, relationNames } from "../data/officers.js";
@@ -25,6 +26,7 @@ const els = {
   dateChip: document.getElementById("dateChip"),
   landChip: document.getElementById("landChip"),
   cityChip: document.getElementById("cityChip"),
+  modeChip: document.getElementById("modeChip"),
   factionChip: document.getElementById("factionChip"),
   goldChip: document.getElementById("goldChip"),
   foodChip: document.getElementById("foodChip"),
@@ -67,10 +69,12 @@ function hide(el) {
 
 function renderMenu() {
   els.factionPick.innerHTML = "";
+  const panel = els.factionPick.parentElement;
+  panel?.querySelector(".menu-map-note")?.remove();
   const note = document.createElement("p");
-  note.className = "hint";
-  note.textContent = `中原战区 · ${CITY_COUNT} 城池 · ${totalRegions()} 地区（府）· 大色块占田`;
-  // place note above via prepend on panel — append into grid as full width not needed
+  note.className = "hint menu-map-note";
+  note.textContent = `中原战区 · ${CITY_COUNT} 城池 · ${totalRegions()} 地区（府）· 大色块占田 · 可攻占无主城`;
+  panel?.insertBefore(note, els.factionPick);
   for (const id of SCENARIO_190.playable) {
     const f = SCENARIO_190.factions[id];
     const btn = document.createElement("button");
@@ -94,9 +98,9 @@ function startGame(factionId) {
   selectedOfficers = new Set();
   focusOfficer = null;
   hover = null;
-  renderer.resetView();
   hide(els.menu);
   show(els.game);
+  renderer.focusFaction(state, factionId);
   refresh();
   loop();
 }
@@ -108,6 +112,13 @@ function refresh() {
   els.dateChip.textContent = `${state.year}年${state.month}月`;
   els.landChip.textContent = `领地 ${landCount(state, f.id)}`;
   els.cityChip.textContent = `都市 ${f.cities.length}/${CITY_COUNT}`;
+  if (els.modeChip) {
+    els.modeChip.textContent = state.selectedArmyId
+      ? "模式 进军"
+      : state.selectedCityId
+        ? "模式 选城"
+        : "模式 眺望";
+  }
   els.factionChip.textContent = f.name;
   els.goldChip.textContent = `金 ${f.gold}`;
   els.foodChip.textContent = `粮 ${f.food}`;
@@ -118,9 +129,15 @@ function refresh() {
     const mine = owner === f.id;
     const inc = incomeOf(state, f.id);
     const bio = city.biome;
-    els.cityInfo.textContent = mine
-      ? `${city.name}（${city.zhou} · ${bio}）可出征。本旬预估收入 金${inc.gold} / 粮${inc.food}。`
-      : `${city.name}（${city.zhou}）属 ${state.factions[owner]?.name || "无主"}。点己城出征，再点敌城攻略。`;
+    const ctrl = Math.floor(siegeControlOf(state, city.id, f.id) * 100);
+    if (mine) {
+      els.cityInfo.textContent = `${city.name}（${city.zhou} · ${bio}）可出征。本旬预估 金${inc.gold} / 粮${inc.food}。`;
+    } else {
+      const who = owner ? state.factions[owner]?.name : "无主";
+      els.cityInfo.textContent = `${city.name}（${city.zhou}）属 ${who} · 我方周边控制 ${ctrl}%。出征后点此城攻略。`;
+    }
+  } else if (state.selectedArmyId) {
+    els.cityInfo.textContent = "已选部队：点击敌城/无主城攻略，或点击空地涂色进军。";
   } else {
     els.cityInfo.textContent = "点选己方都市以编成部队";
   }
@@ -141,22 +158,30 @@ function refresh() {
 function renderOfficers() {
   const f = playerFaction(state);
   els.officerList.innerHTML = "";
+  const cityId = state.selectedCityId;
+  const here = [];
+  const elsewhere = [];
   for (const o of f.officers) {
     if (!o) continue;
+    if (!cityId || !o.cityId || o.cityId === cityId || o.status === "army") here.push(o);
+    else elsewhere.push(o);
+  }
+  const list = cityId ? [...here, ...elsewhere.slice(0, 8)] : f.officers.filter(Boolean).slice(0, 24);
+  for (const o of list) {
     const tpl = officerById(o.id);
     const row = document.createElement("button");
     row.type = "button";
     row.className = "officer-row" + (selectedOfficers.has(o.id) ? " active" : "");
-    row.disabled = o.status === "army";
+    const canPick = o.status === "idle" && (!o.cityId || o.cityId === cityId);
+    row.disabled = o.status === "army" || (cityId && o.cityId && o.cityId !== cityId);
     const thumb = tpl.portrait
       ? `<img src="${tpl.portrait}" alt="${tpl.name}" loading="lazy" />`
       : `<span class="thumb-fallback">${tpl.name.slice(0, 1)}</span>`;
-    row.innerHTML = `${thumb}<span><strong>${tpl.name}</strong> · 统${tpl.lead} 武${tpl.force} · ${
-      o.status === "army" ? "出征中" : "待命"
-    }</span>`;
+    const post = o.status === "army" ? "出征中" : o.cityId && o.cityId !== cityId ? `驻${cityById(o.cityId)?.name || "外"}` : "待命";
+    row.innerHTML = `${thumb}<span><strong>${tpl.name}</strong> · 统${tpl.lead} 武${tpl.force} · ${post}</span>`;
     row.addEventListener("click", () => {
       focusOfficer = o.id;
-      if (o.status === "idle") {
+      if (canPick) {
         if (selectedOfficers.has(o.id)) selectedOfficers.delete(o.id);
         else selectedOfficers.add(o.id);
       }
@@ -307,7 +332,13 @@ els.map.addEventListener("click", (e) => {
       setMarchTarget(state, cell.x, cell.y);
       state.mode = "march";
     } else {
+      // 允许点选无主/敌城查看控制进度
       state.selectedCityId = mapCell.cityId;
+      const who = owner ? state.factions[owner]?.name : "无主";
+      pushLog(
+        state,
+        `察看 ${cityById(mapCell.cityId).name}（${who}）控制 ${Math.floor(siegeControlOf(state, mapCell.cityId, state.playerId) * 100)}%`
+      );
     }
   } else if (state.selectedArmyId) {
     setMarchTarget(state, cell.x, cell.y);

@@ -119,6 +119,11 @@ body.sk-body {
   color: #3d2f26;
 }
 
+.menu-map-note {
+  margin: 0 0 0.75rem;
+  max-width: 40rem;
+}
+
 .faction-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

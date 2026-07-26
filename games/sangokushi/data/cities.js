@@ -88,7 +88,7 @@ export const CITIES = [
   city({ id: "shanyang", name: "山阳", province: "中原", zhou: "兖州", lon: 116.1, lat: 35.4, biome: "plain", regionCount: 3, gold: 2571, food: 3880, scale: "中" }),
   city({ id: "rencheng", name: "任城", province: "中原", zhou: "兖州", lon: 116.95, lat: 35.4, biome: "plain", regionCount: 2, gold: 1348, food: 2103, scale: "小" }),
   city({ id: "jiyin", name: "济阴", province: "中原", zhou: "兖州", lon: 115.55, lat: 35.25, biome: "plain", regionCount: 3, gold: 2766, food: 3589, scale: "中" }),
-  city({ id: "changyi", name: "昌邑", province: "中原", zhou: "兖州", lon: 116.0, lat: 35.2, biome: "plain", regionCount: 2, gold: 1612, food: 2562, scale: "小" }),
+  city({ id: "changyi", name: "昌邑", province: "中原", zhou: "兖州", lon: 116.35, lat: 35.05, biome: "plain", regionCount: 2, gold: 1612, food: 2562, scale: "小" }),
   city({ id: "anyang", name: "安邑", province: "中原", zhou: "司隶", lon: 111.2, lat: 35.15, biome: "plain", regionCount: 2, gold: 1524, food: 2026, scale: "小" }),
   city({ id: "henei", name: "河内", province: "中原", zhou: "司隶", lon: 112.9, lat: 35.1, biome: "plain", regionCount: 5, gold: 3885, food: 5354, scale: "大" }),
   city({ id: "suanzao", name: "酸枣", province: "中原", zhou: "兖州", lon: 114.2, lat: 35.1, biome: "plain", regionCount: 2, gold: 1366, food: 1907, scale: "小" }),
@@ -219,8 +219,10 @@ export const CITIES = [
   city({ id: "jiaozhi", name: "交趾", province: "吴越", zhou: "交州", lon: 105.85, lat: 21.03, biome: "jungle", regionCount: 3, gold: 2685, food: 3551, scale: "中" }),
 ];
 
+const CITY_BY_ID = new Map(CITIES.map((c) => [c.id, c]));
+
 export function cityById(id) {
-  return CITIES.find((c) => c.id === id) || null;
+  return CITY_BY_ID.get(id) || null;
 }
 
 export function totalRegions() {

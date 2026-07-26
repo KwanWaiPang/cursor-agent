@@ -14,6 +14,8 @@ export function createMapRenderer(canvas) {
   let cellH = 10;
   let cssW = 960;
   let cssH = 560;
+  let sizeDirty = true;
+  let lastPaintVersion = -1;
 
   /** 静态底图缓存（州域/山脉/江河/海岸） */
   let baseCache = null;
@@ -22,10 +24,22 @@ export function createMapRenderer(canvas) {
   let paintCache = null;
   let paintKey = "";
 
+  if (typeof ResizeObserver !== "undefined") {
+    const ro = new ResizeObserver(() => {
+      sizeDirty = true;
+      baseCache = null;
+      paintCache = null;
+    });
+    if (canvas.parentElement) ro.observe(canvas.parentElement);
+  }
+
   function resize() {
+    if (!sizeDirty) return;
+    sizeDirty = false;
     const parent = canvas.parentElement;
     const w = parent?.clientWidth || 960;
     const h = Math.max(500, Math.min(720, parent?.clientHeight || 600));
+    if (w === cssW && h === cssH && canvas.width) return;
     cssW = w;
     cssH = h;
     canvas.width = Math.floor(w * devicePixelRatio);
@@ -33,6 +47,8 @@ export function createMapRenderer(canvas) {
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
     ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    baseCache = null;
+    paintCache = null;
   }
 
   function layout(state) {
@@ -150,14 +166,10 @@ export function createMapRenderer(canvas) {
   }
 
   function ensurePaintCache(state, mapW, mapH) {
-    // 所有权签名
-    let sig = 0;
-    for (const cell of state.map.cells) {
-      if (!cell.land || !cell.owner) continue;
-      sig = (sig * 33 + cell.i + cell.owner.charCodeAt(0)) | 0;
-    }
-    const key = `${Math.round(mapW)}x${Math.round(mapH)}:${sig}`;
-    if (paintCache && paintKey === key) return;
+    const ver = state.paintVersion || 0;
+    const key = `${Math.round(mapW)}x${Math.round(mapH)}:${ver}:${Math.round(cellW * 10)}`;
+    if (paintCache && paintKey === key && lastPaintVersion === ver) return;
+    lastPaintVersion = ver;
     paintKey = key;
     const c = document.createElement("canvas");
     c.width = Math.max(1, Math.round(mapW * devicePixelRatio));
@@ -304,11 +316,14 @@ export function createMapRenderer(canvas) {
   }
 
   function drawForts(g, state, cw, ch) {
+    if (view.zoom < 1.05) return;
     const factions = state.factions;
     for (const r of state.map.regions) {
       if (r.isCapital) continue;
       const cell = state.map.cells[r.cell];
       if (!cell) continue;
+      // 远景只画己方或有主的府
+      if (view.zoom < 1.35 && cell.owner !== state.playerId) continue;
       const px = cell.x * cw + cw / 2;
       const py = cell.y * ch + ch / 2;
       const col =
@@ -348,11 +363,12 @@ export function createMapRenderer(canvas) {
       const dh = spr.height * scale;
       g.drawImage(spr, px - dw / 2, py - dh * 0.72, dw, dh);
 
+      const owned = !!owner;
       const showName =
-        view.zoom >= 0.85 ||
         state.selectedCityId === city.id ||
         city.scale === "巨大" ||
-        city.scale === "大";
+        (view.zoom >= 0.95 && (city.scale === "大" || owned)) ||
+        view.zoom >= 1.45;
       if (showName) {
         const label = city.name;
         g.font = `600 ${Math.max(11, Math.min(14, cw * 1.15))}px "Noto Serif SC", serif`;
@@ -535,9 +551,44 @@ export function createMapRenderer(canvas) {
     view = { zoom: 1.25, ox: 0, oy: 0 };
     baseCache = null;
     paintCache = null;
+    sizeDirty = true;
   }
 
-  return { draw, screenToCell, pan, zoomAt, resetView, getView: () => view };
+  /** 将镜头框到势力城池中心（中原开局） */
+  function focusFaction(state, factionId) {
+    const f = state.factions[factionId];
+    if (!f?.cities?.length) {
+      resetView();
+      return;
+    }
+    sizeDirty = true;
+    resize();
+    layout(state);
+    let sx = 0;
+    let sy = 0;
+    let n = 0;
+    for (const cid of f.cities) {
+      const cell = state.map.cells[state.map.cityCells[cid]];
+      if (!cell) continue;
+      sx += cell.x;
+      sy += cell.y;
+      n++;
+    }
+    if (!n) {
+      resetView();
+      return;
+    }
+    view.zoom = f.cities.length <= 2 ? 1.75 : 1.55;
+    layout(state);
+    const cx = (sx / n) * cellW;
+    const cy = (sy / n) * cellH;
+    view.ox = cssW / 2 - cx;
+    view.oy = cssH / 2 - cy;
+    baseCache = null;
+    paintCache = null;
+  }
+
+  return { draw, screenToCell, pan, zoomAt, resetView, focusFaction, getView: () => view };
 }
 
 function hexAlpha(hex, a) {

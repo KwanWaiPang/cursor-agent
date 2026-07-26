@@ -107,6 +107,10 @@ export function buildMap() {
     if (!cells[i].land) {
       i = nearestLandIndex(cells, cx, cy) ?? i;
     }
+    // 避免两座城落在同一格：螺旋寻找空闲陆地
+    if (cells[i].isCity) {
+      i = nearestFreeCitySlot(cells, cells[i].x, cells[i].y) ?? i;
+    }
     cells[i].isCity = true;
     cells[i].cityId = c.id;
     cells[i].zhou = c.zhou;
@@ -244,6 +248,21 @@ function nearestLandIndex(cells, cx, cy) {
   let bestD = Infinity;
   for (const c of cells) {
     if (!c.land) continue;
+    const d = Math.abs(c.x - cx) + Math.abs(c.y - cy);
+    if (d < bestD) {
+      bestD = d;
+      best = c.i;
+    }
+  }
+  return best;
+}
+
+/** 螺旋寻找尚未被标为城心的陆地格 */
+function nearestFreeCitySlot(cells, cx, cy) {
+  let best = null;
+  let bestD = Infinity;
+  for (const c of cells) {
+    if (!c.land || c.isCity) continue;
     const d = Math.abs(c.x - cx) + Math.abs(c.y - cy);
     if (d < bestD) {
       bestD = d;
