@@ -1,4 +1,5 @@
 import { BLACK, WHITE, GoEngine, colorName, opponent } from "./engine.js";
+import { GoAI } from "./ai.js";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
@@ -13,6 +14,10 @@ const els = {
   result: document.getElementById("result"),
   sizeSelect: document.getElementById("sizeSelect"),
   komiSelect: document.getElementById("komiSelect"),
+  modeSelect: document.getElementById("modeSelect"),
+  humanColorSelect: document.getElementById("humanColorSelect"),
+  difficultySelect: document.getElementById("difficultySelect"),
+  aiOptions: document.getElementById("aiOptions"),
   btnPass: document.getElementById("btnPass"),
   btnResign: document.getElementById("btnResign"),
   btnUndo: document.getElementById("btnUndo"),
@@ -21,8 +26,28 @@ const els = {
 };
 
 let engine = new GoEngine(19, 7.5);
+let ai = new GoAI("medium");
 let hover = null;
 let dpr = Math.max(1, window.devicePixelRatio || 1);
+let aiThinking = false;
+let aiToken = 0;
+
+function isAiMode() {
+  return els.modeSelect.value === "ai";
+}
+
+function humanColor() {
+  return els.humanColorSelect.value === "white" ? WHITE : BLACK;
+}
+
+function aiColor() {
+  return opponent(humanColor());
+}
+
+function isHumanTurn() {
+  if (!isAiMode()) return true;
+  return engine.phase === "playing" && engine.toPlay === humanColor();
+}
 
 function showMessage(text, info = false) {
   els.message.textContent = text || "";
@@ -30,16 +55,30 @@ function showMessage(text, info = false) {
 }
 
 function phaseText() {
+  if (aiThinking) return "AI思考中";
   if (engine.phase === "playing") return "对局中";
   if (engine.phase === "scoring") return "点目中";
   return "已结束";
 }
 
+function syncAiOptionVisibility() {
+  const aiOn = isAiMode();
+  els.aiOptions.hidden = !aiOn;
+  els.aiOptions.setAttribute("aria-hidden", aiOn ? "false" : "true");
+}
+
 function updatePanel() {
   const turn = engine.toPlay;
   els.turnDot.className = `stone-dot ${turn === BLACK ? "black" : "white"}`;
-  if (engine.phase === "playing") {
-    els.turnLabel.textContent = `${colorName(turn)}方行棋`;
+  if (aiThinking) {
+    els.turnLabel.textContent = `AI（${colorName(aiColor())}）思考中…`;
+  } else if (engine.phase === "playing") {
+    if (isAiMode()) {
+      const who = turn === humanColor() ? "你" : "AI";
+      els.turnLabel.textContent = `${colorName(turn)}方行棋 · ${who}`;
+    } else {
+      els.turnLabel.textContent = `${colorName(turn)}方行棋`;
+    }
   } else if (engine.phase === "scoring") {
     els.turnLabel.textContent = "点击棋子标记死子";
   } else {
@@ -51,12 +90,15 @@ function updatePanel() {
   const passes = engine.moveHistory.filter((m) => m.type === "pass").length;
   els.moveCount.textContent = `手数 ${plays} · 停着 ${passes}`;
 
-  els.btnPass.disabled = engine.phase !== "playing";
-  els.btnResign.disabled = engine.phase !== "playing";
-  els.btnScore.disabled = engine.phase !== "scoring";
+  const humanCanAct = engine.phase === "playing" && isHumanTurn() && !aiThinking;
+  els.btnPass.disabled = !humanCanAct;
+  els.btnResign.disabled = engine.phase !== "playing" || aiThinking;
+  els.btnScore.disabled = engine.phase !== "scoring" || aiThinking;
   els.btnUndo.disabled =
-    engine.moveHistory.length === 0 &&
-    !(engine.phase === "finished" && engine.result?.type === "resign");
+    aiThinking ||
+    (engine.moveHistory.length === 0 &&
+      !(engine.phase === "finished" && engine.result?.type === "resign"));
+  canvas.style.cursor = aiThinking ? "wait" : "crosshair";
 
   if (engine.result) {
     els.result.textContent = engine.result.text;
@@ -100,7 +142,6 @@ function drawBoardWood(cssSize) {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, cssSize, cssSize);
 
-  // subtle grain
   ctx.save();
   ctx.globalAlpha = 0.05;
   for (let i = 0; i < cssSize; i += 3) {
@@ -115,7 +156,6 @@ function draw() {
   ctx.clearRect(0, 0, cssSize, cssSize);
   drawBoardWood(cssSize);
 
-  // grid
   ctx.strokeStyle = "rgba(40, 24, 12, 0.78)";
   ctx.lineWidth = Math.max(1, grid * 0.04);
   ctx.beginPath();
@@ -128,7 +168,6 @@ function draw() {
   }
   ctx.stroke();
 
-  // star points
   ctx.fillStyle = "rgba(40, 24, 12, 0.85)";
   for (const [x, y] of engine.starPoints()) {
     ctx.beginPath();
@@ -136,20 +175,16 @@ function draw() {
     ctx.fill();
   }
 
-  // stones
   const r = stoneRadius(grid);
   for (let y = 0; y < engine.size; y++) {
     for (let x = 0; x < engine.size; x++) {
       const c = engine.board[y][x];
       if (!c) continue;
-      const cx = pad + x * grid;
-      const cy = pad + y * grid;
       const dead = engine.deadMarks.has(`${x},${y}`);
-      drawStone(cx, cy, r, c, dead);
+      drawStone(pad + x * grid, pad + y * grid, r, c, dead);
     }
   }
 
-  // last move marker
   if (engine.lastMove && !engine.lastMove.pass && engine.phase !== "scoring") {
     const { x, y } = engine.lastMove;
     ctx.beginPath();
@@ -158,9 +193,10 @@ function draw() {
     ctx.fill();
   }
 
-  // hover ghost
   if (
     hover &&
+    !aiThinking &&
+    isHumanTurn() &&
     engine.phase === "playing" &&
     engine.board[hover.y][hover.x] === 0 &&
     engine.isLegal(hover.x, hover.y)
@@ -203,7 +239,6 @@ function drawStone(cx, cy, r, color, dead) {
     ctx.stroke();
   }
 
-  // soft highlight
   ctx.beginPath();
   ctx.fillStyle =
     color === BLACK ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.45)";
@@ -230,7 +265,6 @@ function eventToCoord(evt) {
   const x = Math.round((xPos - pad) / grid);
   const y = Math.round((yPos - pad) / grid);
   if (!engine.inBounds(x, y)) return null;
-  // snap tolerance
   const sx = pad + x * grid;
   const sy = pad + y * grid;
   const dist = Math.hypot(xPos - sx, yPos - sy);
@@ -244,8 +278,59 @@ function refresh(msg, info = false) {
   if (msg !== undefined) showMessage(msg, info);
 }
 
+async function maybeAiMove() {
+  if (!isAiMode() || engine.phase !== "playing") return;
+  if (engine.toPlay !== aiColor()) return;
+  if (aiThinking) return;
+
+  const token = ++aiToken;
+  aiThinking = true;
+  refresh("AI 思考中…", true);
+
+  try {
+    ai.setDifficulty(els.difficultySelect.value);
+    const move = await ai.chooseMove(engine);
+    if (token !== aiToken) return;
+    if (engine.phase !== "playing" || engine.toPlay !== aiColor()) return;
+
+    if (move.type === "pass") {
+      const res = engine.pass();
+      if (!res.ok) {
+        refresh(res.reason || "AI 停着失败");
+        return;
+      }
+      if (res.scoring) {
+        refresh("AI 停着。双方停着，请标记死子后确认点目。", true);
+      } else {
+        refresh("AI 停着", true);
+      }
+      return;
+    }
+
+    const res = engine.play(move.x, move.y);
+    if (!res.ok) {
+      // 极端情况下回退为停着
+      engine.pass();
+      refresh("AI 改判停着", true);
+      return;
+    }
+    const cap = res.captured?.length || 0;
+    refresh(cap ? `AI 落子，提子 ${cap}` : "AI 已落子", true);
+  } catch (err) {
+    console.error(err);
+    refresh("AI 出错，请悔棋或新开一局");
+  } finally {
+    if (token === aiToken) {
+      aiThinking = false;
+      updatePanel();
+      draw();
+    }
+  }
+}
+
 function onBoardClick(evt) {
   evt.preventDefault();
+  if (aiThinking) return;
   const coord = eventToCoord(evt);
   if (!coord) return;
 
@@ -258,6 +343,10 @@ function onBoardClick(evt) {
   }
 
   if (engine.phase !== "playing") return;
+  if (!isHumanTurn()) {
+    showMessage("当前是 AI 行棋，请稍候", true);
+    return;
+  }
 
   const res = engine.play(coord.x, coord.y);
   if (!res.ok) {
@@ -267,6 +356,7 @@ function onBoardClick(evt) {
   }
   const cap = res.captured?.length || 0;
   refresh(cap ? `提子 ${cap}` : "", true);
+  maybeAiMove();
 }
 
 function onMove(evt) {
@@ -280,14 +370,26 @@ function onMove(evt) {
 }
 
 function newGame() {
+  aiToken += 1;
+  aiThinking = false;
   const size = Number(els.sizeSelect.value);
   const komi = Number(els.komiSelect.value);
   engine = new GoEngine(size, komi);
+  ai.setDifficulty(els.difficultySelect.value);
   hover = null;
-  refresh("新对局开始，黑先。", true);
+  syncAiOptionVisibility();
+
+  let tip = "新对局开始，黑先。";
+  if (isAiMode()) {
+    const you = colorName(humanColor());
+    tip = `人机对战开始：你执${you}，AI 执${colorName(aiColor())}（${els.difficultySelect.selectedOptions[0].text}）。小路盘 AI 更强。`;
+  }
+  refresh(tip, true);
+  maybeAiMove();
 }
 
 els.btnPass.addEventListener("click", () => {
+  if (aiThinking || !isHumanTurn()) return;
   const res = engine.pass();
   if (!res.ok) {
     showMessage(res.reason);
@@ -297,16 +399,47 @@ els.btnPass.addEventListener("click", () => {
     refresh("双方停着，进入点目：点击棋子标记死子，再确认点目。", true);
   } else {
     refresh(`${colorName(opponent(engine.toPlay))}方停着`, true);
+    maybeAiMove();
   }
 });
 
 els.btnResign.addEventListener("click", () => {
-  if (!confirm(`${colorName(engine.toPlay)}方确认认输？`)) return;
-  engine.resign();
+  if (aiThinking) return;
+  const loser = isAiMode() ? humanColor() : engine.toPlay;
+  if (!confirm(`${colorName(loser)}方确认认输？`)) return;
+  engine.resign(loser);
   refresh(engine.result.text, true);
 });
 
 els.btnUndo.addEventListener("click", () => {
+  if (aiThinking) return;
+  if (isAiMode()) {
+    // 回到到轮到你下棋的状态：通常撤销 AI 一手 + 你一手
+    if (engine.phase === "scoring" || engine.phase === "finished") {
+      const res = engine.undo();
+      if (!res.ok) showMessage(res.reason);
+      else refresh("已回到对局", true);
+      // 若回到 AI 行棋，再撤一步
+      if (engine.phase === "playing" && engine.toPlay === aiColor()) {
+        engine.undo();
+      }
+      refresh("已悔棋", true);
+      return;
+    }
+    let undos = 0;
+    if (engine.toPlay === humanColor()) {
+      // 刚轮到你：撤销 AI 应手 + 你的上一手
+      if (engine.undo().ok) undos += 1;
+      if (engine.undo().ok) undos += 1;
+    } else {
+      // 理论上 AI 思考中不会进这里；若轮到 AI，撤你上一手
+      if (engine.undo().ok) undos += 1;
+    }
+    if (!undos) showMessage("没有可悔的棋");
+    else refresh("已悔棋", true);
+    return;
+  }
+
   const res = engine.undo();
   if (!res.ok) showMessage(res.reason);
   else refresh("已悔棋", true);
@@ -323,6 +456,10 @@ els.btnNew.addEventListener("click", () => {
     return;
   }
   newGame();
+});
+
+els.modeSelect.addEventListener("change", () => {
+  syncAiOptionVisibility();
 });
 
 canvas.addEventListener("click", onBoardClick);
@@ -344,5 +481,6 @@ window.addEventListener("resize", () => {
   resizeCanvas();
 });
 
+syncAiOptionVisibility();
 resizeCanvas();
-refresh("中国规则 · 黑先 · 禁止自杀与同形再现", true);
+refresh("可选「人机对战」与 AI 下棋 · 中国规则", true);

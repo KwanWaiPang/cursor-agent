@@ -185,11 +185,11 @@ export class GoEngine {
     return { ok: true, scoring: this.phase === "scoring" };
   }
 
-  resign() {
+  resign(color = this.toPlay) {
     if (this.phase !== "playing") {
       return { ok: false, reason: "当前不能认输" };
     }
-    const loser = this.toPlay;
+    const loser = color;
     const winner = opponent(loser);
     this.phase = "finished";
     this.result = {
@@ -198,6 +198,25 @@ export class GoEngine {
       text: `${colorName(winner)}胜（${colorName(loser)}认输）`,
     };
     return { ok: true, result: this.result };
+  }
+
+  /** 深拷贝当前局面，供 AI 搜索使用 */
+  clone() {
+    const g = new GoEngine(this.size, this.komi);
+    g.board = this.cloneBoard();
+    g.toPlay = this.toPlay;
+    g.captures = { [BLACK]: this.captures[BLACK], [WHITE]: this.captures[WHITE] };
+    g.moveHistory = this.moveHistory.map((m) => ({
+      ...m,
+      captured: m.captured ? m.captured.map(([x, y]) => [x, y]) : undefined,
+    }));
+    g.positionHistory = this.positionHistory.slice();
+    g.consecutivePasses = this.consecutivePasses;
+    g.phase = this.phase;
+    g.deadMarks = new Set(this.deadMarks);
+    g.result = this.result ? { ...this.result } : null;
+    g.lastMove = this.lastMove ? { ...this.lastMove } : null;
+    return g;
   }
 
   undo() {

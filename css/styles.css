@@ -306,6 +306,21 @@ button.danger {
   font-size: 0.95rem;
 }
 
+.ai-options {
+  display: grid;
+  gap: 0;
+  margin-bottom: 0.15rem;
+  padding: 0.55rem 0.65rem 0.15rem;
+  border-radius: 12px;
+  background: rgba(15, 92, 76, 0.07);
+  border: 1px solid rgba(15, 92, 76, 0.12);
+  animation: pulseIn 360ms ease both;
+}
+
+.ai-options[hidden] {
+  display: none !important;
+}
+
 .help {
   margin: 0;
   font-size: 0.88rem;

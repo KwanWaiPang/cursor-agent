@@ -6,7 +6,7 @@
     <title>围棋 · 网页对局</title>
     <meta
       name="description"
-      content="网页版围棋：双方对局，支持提子、劫争、停着与中国规则点目。"
+      content="网页版围棋：支持双人对弈与本地 AI 人机对战，含提子、劫争、停着与中国规则点目。"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -22,7 +22,7 @@
       <header class="topbar">
         <div class="brand">
           <h1>围棋</h1>
-          <p>网页对局 · 中国规则 · 黑白轮流落子</p>
+          <p>网页对局 · 人人对战 / 人机对战 · 中国规则</p>
         </div>
       </header>
 
@@ -62,11 +62,35 @@
           <section class="card">
             <h2>新对局</h2>
             <div class="field">
+              <label for="modeSelect">对战模式</label>
+              <select id="modeSelect">
+                <option value="human">人人对战</option>
+                <option value="ai" selected>人机对战（AI）</option>
+              </select>
+            </div>
+            <div id="aiOptions" class="ai-options">
+              <div class="field">
+                <label for="humanColorSelect">你的执色</label>
+                <select id="humanColorSelect">
+                  <option value="black" selected>黑（先手）</option>
+                  <option value="white">白（后手）</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="difficultySelect">AI 难度</label>
+                <select id="difficultySelect">
+                  <option value="easy">入门</option>
+                  <option value="medium" selected>普通</option>
+                  <option value="hard">进阶</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
               <label for="sizeSelect">棋盘规格</label>
               <select id="sizeSelect">
-                <option value="9">9路</option>
+                <option value="9" selected>9路（推荐人机）</option>
                 <option value="13">13路</option>
-                <option value="19" selected>19路（标准）</option>
+                <option value="19">19路（标准）</option>
               </select>
             </div>
             <div class="field">
@@ -90,12 +114,13 @@
               <li>禁止同形再现（含劫争）。</li>
               <li>双方连续停着后进入点目，点击棋子标记死子。</li>
               <li>计分采用中国规则：子空皆地，白贴目。</li>
+              <li>AI 为浏览器本地启发式引擎，非职业级；9 路更合适。</li>
             </ul>
           </section>
         </aside>
       </main>
 
-      <p class="footer-note">本地双人对弈 · 可部署于 GitHub Pages</p>
+      <p class="footer-note">本地对弈 / AI 对战 · 可部署于 GitHub Pages</p>
     </div>
 
     <script type="module" src="./js/app.js"></script>
