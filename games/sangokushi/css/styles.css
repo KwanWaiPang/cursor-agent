@@ -459,8 +459,23 @@ body.sk-body {
   border: 1px solid rgba(20, 12, 8, 0.35);
 }
 
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.actions .btn {
+  flex: 1 1 auto;
+  min-width: 6.5rem;
+}
+
 @media (max-width: 960px) {
   .game-layout {
     grid-template-columns: 1fr;
+  }
+
+  .map-wrap {
+    min-height: 52vh;
   }
 }

@@ -14,6 +14,7 @@ import {
   cityById,
   pushLog,
   siegeControlOf,
+  suggestTargetCity,
 } from "./engine.js";
 import { createMapRenderer } from "./render.js";
 import { officerById, relationNames } from "../data/officers.js";
@@ -31,6 +32,7 @@ const els = {
   factionChip: document.getElementById("factionChip"),
   btnFocus: document.getElementById("btnFocus"),
   btnElite: document.getElementById("btnElite"),
+  btnSuggest: document.getElementById("btnSuggest"),
   factionLegend: document.getElementById("factionLegend"),
   goldChip: document.getElementById("goldChip"),
   foodChip: document.getElementById("foodChip"),
@@ -424,6 +426,23 @@ els.btnRecall.addEventListener("click", () => {
 els.btnFocus?.addEventListener("click", () => {
   if (!state) return;
   renderer.focusFaction(state, state.playerId);
+  refresh();
+});
+
+els.btnSuggest?.addEventListener("click", () => {
+  if (!state) return;
+  const tid = suggestTargetCity(state, state.playerId);
+  if (!tid) {
+    pushLog(state, "附近暂无推荐目标。");
+    refresh();
+    return;
+  }
+  state.selectedCityId = tid;
+  const owner = cityOwner(state, tid);
+  const who = owner ? state.factions[owner]?.name : "无主";
+  const ctrl = Math.floor(siegeControlOf(state, tid, state.playerId) * 100);
+  pushLog(state, `推荐目标：${cityById(tid).name}（${who} · 控制${ctrl}%）`);
+  renderer.focusCity(state, tid, 1.7);
   refresh();
 });
 

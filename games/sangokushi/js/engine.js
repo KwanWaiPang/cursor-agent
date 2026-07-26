@@ -755,6 +755,15 @@ export function siegeControlOf(state, cityId, factionId) {
   return regionControl(state, cityId, factionId);
 }
 
+/** 推荐最近的可攻略目标（无主优先） */
+export function suggestTargetCity(state, factionId) {
+  const f = state.factions[factionId];
+  if (!f?.cities?.length) return null;
+  const home = state.map.cells[state.map.cityCells[f.cities[0]]];
+  if (!home) return null;
+  return pickAiTarget(state, factionId, home.x, home.y);
+}
+
 export function getOfficerView(oid) {
   const tpl = officerById(oid);
   if (!tpl) return null;

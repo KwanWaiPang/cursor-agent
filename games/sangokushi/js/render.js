@@ -587,34 +587,52 @@ export function createMapRenderer(canvas) {
       resetView();
       return;
     }
-    sizeDirty = true;
-    resize();
-    layout(state);
-    let sx = 0;
-    let sy = 0;
-    let n = 0;
-    for (const cid of f.cities) {
-      const cell = state.map.cells[state.map.cityCells[cid]];
-      if (!cell) continue;
-      sx += cell.x;
-      sy += cell.y;
-      n++;
-    }
-    if (!n) {
+    focusCells(
+      state,
+      f.cities.map((cid) => state.map.cells[state.map.cityCells[cid]]).filter(Boolean),
+      f.cities.length <= 2 ? 1.75 : 1.55
+    );
+  }
+
+  function focusCity(state, cityId, zoom = 1.7) {
+    const cell = state.map.cells[state.map.cityCells[cityId]];
+    if (!cell) return;
+    focusCells(state, [cell], zoom);
+  }
+
+  function focusCells(state, cells, zoom) {
+    if (!cells?.length) {
       resetView();
       return;
     }
-    view.zoom = f.cities.length <= 2 ? 1.75 : 1.55;
+    sizeDirty = true;
+    resize();
+    view.zoom = zoom;
     layout(state);
-    const cx = (sx / n) * cellW;
-    const cy = (sy / n) * cellH;
+    let sx = 0;
+    let sy = 0;
+    for (const cell of cells) {
+      sx += cell.x;
+      sy += cell.y;
+    }
+    const cx = (sx / cells.length) * cellW;
+    const cy = (sy / cells.length) * cellH;
     view.ox = cssW / 2 - cx;
     view.oy = cssH / 2 - cy;
     baseCache = null;
     paintCache = null;
   }
 
-  return { draw, screenToCell, pan, zoomAt, resetView, focusFaction, getView: () => view };
+  return {
+    draw,
+    screenToCell,
+    pan,
+    zoomAt,
+    resetView,
+    focusFaction,
+    focusCity,
+    getView: () => view,
+  };
 }
 
 function hexAlpha(hex, a) {
