@@ -1,6 +1,6 @@
 /**
- * 战略大地重绘：致敬三国志系列「州域色块 + 柔和涂色」观感
- * 自研绘制，不使用光荣/第三方游戏贴图。
+ * 战略大地：致敬《三国志14》「大地涂色」观感
+ * 橄榄底图 + 鲜明势力色块 + 城标州名；自研绘制，非光荣贴图。
  */
 
 import { CITIES } from "../data/cities.js";
@@ -9,7 +9,7 @@ import { getCitySprite } from "./city_sprites.js";
 
 export function createMapRenderer(canvas) {
   const ctx = canvas.getContext("2d");
-  let view = { zoom: 1.25, ox: 0, oy: 0 };
+  let view = { zoom: 1.35, ox: 0, oy: 0 };
   let cellW = 10;
   let cellH = 10;
   let cssW = 960;
@@ -64,21 +64,21 @@ export function createMapRenderer(canvas) {
     const h = cssH;
     ctx.clearRect(0, 0, w, h);
 
-    // 海图底色（战略图常见深蓝灰）
-    const sea = ctx.createLinearGradient(0, 0, w, h);
-    sea.addColorStop(0, "#1a3348");
-    sea.addColorStop(0.45, "#152a3c");
-    sea.addColorStop(1, "#0e1e2c");
+    // 海图：三志战略图常见青绿海
+    const sea = ctx.createLinearGradient(0, 0, w, h * 0.8);
+    sea.addColorStop(0, "#1e3a42");
+    sea.addColorStop(0.5, "#17343c");
+    sea.addColorStop(1, "#102830");
     ctx.fillStyle = sea;
     ctx.fillRect(0, 0, w, h);
-    // 微波
-    ctx.strokeStyle = "rgba(140,180,200,0.05)";
+    // 极淡水纹（不抢陆地）
+    ctx.strokeStyle = "rgba(120,170,180,0.04)";
     ctx.lineWidth = 1;
-    for (let i = 0; i < 10; i++) {
-      const yy = ((performance.now() / 50 + i * 52) % (h + 30)) - 15;
+    for (let i = 0; i < 7; i++) {
+      const yy = ((performance.now() / 70 + i * 68) % (h + 40)) - 20;
       ctx.beginPath();
       ctx.moveTo(0, yy);
-      ctx.quadraticCurveTo(w * 0.5, yy + 5, w, yy - 3);
+      ctx.quadraticCurveTo(w * 0.45, yy + 4, w, yy - 2);
       ctx.stroke();
     }
 
@@ -93,12 +93,11 @@ export function createMapRenderer(canvas) {
 
     ensurePaintCache(state, mapW, mapH);
     if (paintCache) {
-      ctx.globalAlpha = 0.92;
-      ctx.drawImage(paintCache, 0, 0, mapW, mapH);
       ctx.globalAlpha = 1;
+      ctx.drawImage(paintCache, 0, 0, mapW, mapH);
     }
 
-    // 州名（半透明）
+    // 州名：远景更醒目，近景让城名优先
     drawZhouLabels(ctx, state.map.geo.zhouRegions, mapW, mapH, view.zoom);
 
     // 府点
@@ -163,10 +162,10 @@ export function createMapRenderer(canvas) {
 
     ctx.restore();
 
-    // 暗角
-    const vig = ctx.createRadialGradient(w / 2, h / 2, h * 0.2, w / 2, h / 2, h * 0.85);
+    // 轻暗角（不过暗，保留战略图通透感）
+    const vig = ctx.createRadialGradient(w / 2, h / 2, h * 0.25, w / 2, h / 2, h * 0.9);
     vig.addColorStop(0, "rgba(0,0,0,0)");
-    vig.addColorStop(1, "rgba(6,4,2,0.45)");
+    vig.addColorStop(1, "rgba(8,6,4,0.32)");
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, w, h);
   }
@@ -201,46 +200,62 @@ export function createMapRenderer(canvas) {
 
   function paintBaseLayer(g, state, mapW, mapH) {
     const { geo } = state.map;
+    const cw = mapW / state.map.cols;
+    const ch = mapH / state.map.rows;
 
-    // 陆地底：羊皮纸暖色
+    // 陆地底：三志式橄榄 / 黄褐战略大地
     pathRing(g, geo.mainland, mapW, mapH);
-    const landGrad = g.createLinearGradient(0, 0, mapW * 0.2, mapH);
-    landGrad.addColorStop(0, "#c9b889");
-    landGrad.addColorStop(0.35, "#b8a86e");
-    landGrad.addColorStop(0.7, "#9aaa6a");
-    landGrad.addColorStop(1, "#7a9a68");
+    const landGrad = g.createLinearGradient(0, 0, mapW * 0.15, mapH);
+    landGrad.addColorStop(0, "#c2b27a");
+    landGrad.addColorStop(0.3, "#a8a060");
+    landGrad.addColorStop(0.65, "#7f9a58");
+    landGrad.addColorStop(1, "#5f8a50");
     g.fillStyle = landGrad;
     g.fill();
 
-    // 海南 / 台湾
     for (const ring of [geo.hainan, geo.taiwan]) {
       pathRing(g, ring, mapW, mapH);
-      g.fillStyle = "#7a9a68";
+      g.fillStyle = "#6a8f55";
       g.fill();
     }
 
-    // 州域色块（裁切在陆地上）
+    // 地貌微染色（平原亮、山地暗、水乡青）——在州域之下
     g.save();
     pathRing(g, geo.mainland, mapW, mapH);
     g.clip();
+    for (const cell of state.map.cells) {
+      if (!cell.land) continue;
+      let fill = null;
+      if (cell.biome === "desert") fill = "rgba(190,150,80,0.18)";
+      else if (cell.biome === "jungle") fill = "rgba(40,90,50,0.16)";
+      else if (cell.biome === "mountain") fill = "rgba(70,55,35,0.14)";
+      else if (cell.biome === "river") fill = "rgba(70,130,120,0.12)";
+      else if (cell.biome === "capital") fill = "rgba(200,170,100,0.1)";
+      if (!fill) continue;
+      g.fillStyle = fill;
+      g.fillRect(cell.x * cw, cell.y * ch, cw + 0.5, ch + 0.5);
+    }
+
+    // 州域淡彩（不抢势力色）
     for (const z of geo.zhouRegions || []) {
       pathRing(g, z.ring, mapW, mapH);
-      g.fillStyle = hexAlpha(z.fill, 0.42);
+      g.fillStyle = hexAlpha(z.fill, 0.22);
       g.fill();
-      g.strokeStyle = "rgba(40,28,14,0.28)";
-      g.lineWidth = Math.max(1.2, mapW * 0.0016);
+      g.strokeStyle = "rgba(50,36,18,0.22)";
+      g.lineWidth = Math.max(1, mapW * 0.0014);
       g.stroke();
     }
-    // 山地阴影采样
+
+    // 山地起伏
     for (const cell of state.map.cells) {
-      if (!cell.land || cell.elev < 0.48) continue;
-      const a = (cell.elev - 0.48) * 0.35;
-      g.fillStyle = `rgba(55,40,22,${a})`;
+      if (!cell.land || cell.elev < 0.45) continue;
+      const a = (cell.elev - 0.45) * 0.4;
+      g.fillStyle = `rgba(48,36,20,${a})`;
       g.beginPath();
       g.arc(
-        cell.x * (mapW / state.map.cols) + mapW / state.map.cols / 2,
-        cell.y * (mapH / state.map.rows) + mapH / state.map.rows / 2,
-        (mapW / state.map.cols) * 0.85,
+        cell.x * cw + cw / 2,
+        cell.y * ch + ch / 2,
+        cw * 0.9,
         0,
         Math.PI * 2
       );
@@ -248,27 +263,26 @@ export function createMapRenderer(canvas) {
     }
     g.restore();
 
-    // 山脉脊线
-    drawMountains(g, geo.mountains, mapW, mapH, mapW / state.map.cols);
+    drawMountains(g, geo.mountains, mapW, mapH, cw);
 
-    // 江河
-    drawPolyline(g, geo.yellow, mapW, mapH, "rgba(196,150,70,0.7)", Math.max(2, mapW * 0.0028));
-    drawPolyline(g, geo.huai, mapW, mapH, "rgba(100,150,160,0.45)", Math.max(1.2, mapW * 0.0018));
-    drawPolyline(g, geo.pearl, mapW, mapH, "rgba(70,150,140,0.5)", Math.max(1.2, mapW * 0.0018));
-    drawPolyline(g, geo.yangtze, mapW, mapH, "rgba(50,120,160,0.75)", Math.max(2.4, mapW * 0.0034));
-    drawPolyline(g, geo.yangtze, mapW, mapH, "rgba(170,210,230,0.28)", Math.max(1, mapW * 0.0015));
+    // 江河：黄河浊、长江清，贴近系列战略图习惯
+    drawPolyline(g, geo.yellow, mapW, mapH, "rgba(180,130,50,0.85)", Math.max(2.2, mapW * 0.003));
+    drawPolyline(g, geo.yellow, mapW, mapH, "rgba(220,180,90,0.25)", Math.max(1, mapW * 0.0014));
+    drawPolyline(g, geo.huai, mapW, mapH, "rgba(90,140,150,0.55)", Math.max(1.3, mapW * 0.0019));
+    drawPolyline(g, geo.pearl, mapW, mapH, "rgba(60,140,130,0.55)", Math.max(1.3, mapW * 0.0019));
+    drawPolyline(g, geo.yangtze, mapW, mapH, "rgba(40,100,145,0.85)", Math.max(2.6, mapW * 0.0036));
+    drawPolyline(g, geo.yangtze, mapW, mapH, "rgba(160,205,230,0.3)", Math.max(1.1, mapW * 0.0016));
 
-    // 海岸描边
     drawCoast(g, geo.mainland, mapW, mapH);
     drawCoast(g, geo.hainan, mapW, mapH, true);
     drawCoast(g, geo.taiwan, mapW, mapH, true);
 
-    // 纸感噪点
-    g.fillStyle = "rgba(40,30,20,0.03)";
-    for (let i = 0; i < 400; i++) {
-      const x = Math.random() * mapW;
-      const y = Math.random() * mapH;
-      g.fillRect(x, y, 1.2, 1.2);
+    // 纸纹（固定种子感：用格子伪随机，避免每帧闪）
+    g.fillStyle = "rgba(40,28,16,0.028)";
+    for (let i = 0; i < 320; i++) {
+      const x = ((i * 97) % 1000) / 1000 * mapW;
+      const y = ((i * 53) % 1000) / 1000 * mapH;
+      g.fillRect(x, y, 1.1, 1.1);
     }
   }
 
@@ -277,43 +291,54 @@ export function createMapRenderer(canvas) {
     const cols = state.map.cols;
     const rows = state.map.rows;
     /**
-     * 三国志14 式「大色块占田」：
-     * 整格铺色抹平接缝；同势力连片更厚重，势力交界略描边。
+     * 三国志14 式大色块：
+     * 高饱和半透明铺满 → 边缘深描形成「战线」；城心略加深。
      */
+    // 底层：圆斑叠加以抹平格子感
     for (const cell of state.map.cells) {
       if (!cell.land || !cell.owner || !factions[cell.owner]) continue;
       const col = factions[cell.owner].color;
-      const px = cell.x * cw;
-      const py = cell.y * ch;
-      // 内填充略透，城心更沉，接近三志14色块层次
-      g.fillStyle = hexAlpha(col, cell.isCity ? 0.72 : 0.58);
-      g.fillRect(px - 0.6, py - 0.6, cw + 1.3, ch + 1.3);
+      const px = cell.x * cw + cw / 2;
+      const py = cell.y * ch + ch / 2;
+      g.fillStyle = hexAlpha(col, cell.isCity ? 0.78 : 0.62);
+      g.beginPath();
+      g.arc(px, py, Math.max(cw, ch) * 0.78, 0, Math.PI * 2);
+      g.fill();
     }
-    // 势力交界：深色描边 + 本色细线
+    // 再铺矩形封缝，保证连片实心
+    for (const cell of state.map.cells) {
+      if (!cell.land || !cell.owner || !factions[cell.owner]) continue;
+      const col = factions[cell.owner].color;
+      g.fillStyle = hexAlpha(col, 0.38);
+      g.fillRect(cell.x * cw - 0.4, cell.y * ch - 0.4, cw + 1.0, ch + 1.0);
+    }
+
+    // 战线描边（异色邻接）
+    g.lineCap = "round";
     for (const cell of state.map.cells) {
       if (!cell.land || !cell.owner) continue;
-      const px = cell.x * cw;
-      const py = cell.y * ch;
       const col = factions[cell.owner]?.color;
       if (!col) continue;
-      const neigh = [
+      const px = cell.x * cw;
+      const py = cell.y * ch;
+      const edges = [
         [1, 0, px + cw, py, px + cw, py + ch],
         [0, 1, px, py + ch, px + cw, py + ch],
       ];
-      for (const [dx, dy, x1, y1, x2, y2] of neigh) {
+      for (const [dx, dy, x1, y1, x2, y2] of edges) {
         const nx = cell.x + dx;
         const ny = cell.y + dy;
         if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
         const n = state.map.cells[ny * cols + nx];
         if (!n?.land || n.owner === cell.owner) continue;
-        g.strokeStyle = "rgba(20,12,8,0.45)";
-        g.lineWidth = Math.max(1.2, Math.min(cw, ch) * 0.22);
+        g.strokeStyle = "rgba(12,8,4,0.55)";
+        g.lineWidth = Math.max(1.6, Math.min(cw, ch) * 0.28);
         g.beginPath();
         g.moveTo(x1, y1);
         g.lineTo(x2, y2);
         g.stroke();
-        g.strokeStyle = hexAlpha(col, 0.55);
-        g.lineWidth = Math.max(0.8, Math.min(cw, ch) * 0.12);
+        g.strokeStyle = hexAlpha(col, 0.7);
+        g.lineWidth = Math.max(0.9, Math.min(cw, ch) * 0.14);
         g.beginPath();
         g.moveTo(x1, y1);
         g.lineTo(x2, y2);
@@ -323,19 +348,22 @@ export function createMapRenderer(canvas) {
   }
 
   function drawZhouLabels(g, regions, mapW, mapH, zoom) {
-    if (!regions?.length || zoom < 0.8) return;
+    if (!regions?.length) return;
+    // 放大后名称减淡，避免压城名
+    const alpha = zoom < 1.1 ? 0.62 : zoom < 1.5 ? 0.38 : 0.18;
+    if (alpha < 0.15) return;
     g.save();
     g.textAlign = "center";
     g.textBaseline = "middle";
     for (const z of regions) {
       const x = z.labelPos.x * mapW;
       const y = z.labelPos.y * mapH;
-      const size = Math.max(13, Math.min(20, mapW * 0.018));
+      const size = Math.max(14, Math.min(22, mapW * 0.02));
       g.font = `600 ${size}px "ZCOOL XiaoWei", "Noto Serif SC", serif`;
-      g.lineWidth = 3;
-      g.strokeStyle = "rgba(248,236,214,0.35)";
+      g.lineWidth = 3.5;
+      g.strokeStyle = `rgba(248,236,214,${alpha * 0.55})`;
       g.strokeText(z.label, x, y);
-      g.fillStyle = hexAlpha(z.ink, 0.55);
+      g.fillStyle = hexAlpha(z.ink, alpha);
       g.fillText(z.label, x, y);
     }
     g.restore();
@@ -390,25 +418,30 @@ export function createMapRenderer(canvas) {
       g.drawImage(spr, px - dw / 2, py - dh * 0.72, dw, dh);
 
       const owned = !!owner;
+      // 三志习惯：大城常显名，小城随缩放
       const showName =
         state.selectedCityId === city.id ||
         city.scale === "巨大" ||
-        (view.zoom >= 0.95 && (city.scale === "大" || owned)) ||
-        view.zoom >= 1.45;
+        city.scale === "大" ||
+        (view.zoom >= 1.05 && owned) ||
+        view.zoom >= 1.4;
       if (showName) {
         const label = city.name;
-        g.font = `600 ${Math.max(11, Math.min(14, cw * 1.15))}px "Noto Serif SC", serif`;
+        const fs = Math.max(10, Math.min(13, cw * 1.05));
+        g.font = `600 ${fs}px "Noto Serif SC", serif`;
         g.textAlign = "center";
         g.textBaseline = "top";
-        const tw = g.measureText(label).width + 10;
-        const ly = py + dh * 0.22;
-        g.fillStyle = "rgba(16,10,6,0.75)";
-        roundRect(g, px - tw / 2, ly, tw, 16, 3);
-        g.strokeStyle = hexAlpha(col, 0.8);
-        g.lineWidth = 1;
-        g.strokeRect(px - tw / 2 + 0.5, ly + 0.5, tw - 1, 15);
-        g.fillStyle = "#f8ecd6";
-        g.fillText(label, px, ly + 2);
+        const tw = g.measureText(label).width + 12;
+        const th = fs + 6;
+        const ly = py + dh * 0.18;
+        // 深底金边名牌
+        g.fillStyle = owned ? "rgba(18,12,8,0.82)" : "rgba(18,12,8,0.62)";
+        roundRect(g, px - tw / 2, ly, tw, th, 2);
+        g.strokeStyle = hexAlpha(col, owned ? 0.95 : 0.55);
+        g.lineWidth = 1.2;
+        g.strokeRect(px - tw / 2 + 0.5, ly + 0.5, tw - 1, th - 1);
+        g.fillStyle = owned ? "#f6e6c0" : "rgba(240,225,190,0.85)";
+        g.fillText(label, px, ly + 3);
       }
     }
   }
@@ -470,14 +503,15 @@ export function createMapRenderer(canvas) {
   function drawCoast(g, ring, mapW, mapH, thin = false) {
     if (!ring?.length) return;
     pathRing(g, ring, mapW, mapH);
-    g.strokeStyle = "rgba(230,210,160,0.2)";
-    g.lineWidth = thin ? 4 : 8;
+    // 外晕 + 深岸线，贴近系列地图轮廓
+    g.strokeStyle = "rgba(30,55,60,0.35)";
+    g.lineWidth = thin ? 5 : 10;
     g.stroke();
-    g.strokeStyle = "rgba(30,22,12,0.9)";
-    g.lineWidth = thin ? 1.5 : 2.4;
+    g.strokeStyle = "rgba(28,20,12,0.85)";
+    g.lineWidth = thin ? 1.4 : 2.2;
     g.stroke();
-    g.strokeStyle = "rgba(248,236,214,0.4)";
-    g.lineWidth = thin ? 0.8 : 1.1;
+    g.strokeStyle = "rgba(220,200,150,0.35)";
+    g.lineWidth = thin ? 0.7 : 1;
     g.stroke();
   }
 
@@ -574,7 +608,7 @@ export function createMapRenderer(canvas) {
   }
 
   function resetView() {
-    view = { zoom: 1.25, ox: 0, oy: 0 };
+    view = { zoom: 1.35, ox: 0, oy: 0 };
     baseCache = null;
     paintCache = null;
     sizeDirty = true;
@@ -590,7 +624,7 @@ export function createMapRenderer(canvas) {
     focusCells(
       state,
       f.cities.map((cid) => state.map.cells[state.map.cityCells[cid]]).filter(Boolean),
-      f.cities.length <= 2 ? 1.75 : 1.55
+      f.cities.length <= 2 ? 1.85 : 1.6
     );
   }
 

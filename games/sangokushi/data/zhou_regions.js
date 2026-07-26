@@ -5,25 +5,25 @@
 
 import { project, projectRing, pointInRing } from "./china_outline.js";
 
-/** 州填色：羊皮纸战略地图色板 */
+/** 州填色：仿三志战略图的淡底分区（低对比，让势力色块压过） */
 export const ZHOU_STYLE = {
-  幽州: { fill: "#6d8f7a", ink: "#2f4a3a", label: "幽州" },
-  并州: { fill: "#8a7d62", ink: "#4a3e2a", label: "并州" },
-  冀州: { fill: "#9a8a55", ink: "#4a4020", label: "冀州" },
-  青州: { fill: "#6f9a7a", ink: "#2a4a38", label: "青州" },
-  徐州: { fill: "#8a8f5a", ink: "#3a4020", label: "徐州" },
-  淮南: { fill: "#5f8f7a", ink: "#244438", label: "淮南" },
-  兖州: { fill: "#a09058", ink: "#4a3c18", label: "兖州" },
-  豫州: { fill: "#b09a60", ink: "#4a3a18", label: "豫州" },
-  司隶: { fill: "#c4a86a", ink: "#5a4018", label: "司隶" },
-  京兆: { fill: "#b08a58", ink: "#4a3018", label: "京兆" },
-  凉州: { fill: "#c0a070", ink: "#5a4020", label: "凉州" },
-  扬州: { fill: "#5a9a7a", ink: "#1e4a38", label: "扬州" },
-  交州: { fill: "#3f8a62", ink: "#1a4030", label: "交州" },
-  荆北: { fill: "#7a9a58", ink: "#304818", label: "荆州" },
-  荆南: { fill: "#5f8a48", ink: "#284018", label: "荆南" },
-  益州: { fill: "#8a7a50", ink: "#3a3020", label: "益州" },
-  南中: { fill: "#4a7a50", ink: "#203828", label: "南中" },
+  幽州: { fill: "#7a9478", ink: "#3a5040", label: "幽州" },
+  并州: { fill: "#8f8468", ink: "#4a4030", label: "并州" },
+  冀州: { fill: "#9a9058", ink: "#4a4428", label: "冀州" },
+  青州: { fill: "#6f9470", ink: "#304838", label: "青州" },
+  徐州: { fill: "#8a8c58", ink: "#404428", label: "徐州" },
+  淮南: { fill: "#689078", ink: "#2a4838", label: "淮南" },
+  兖州: { fill: "#a09060", ink: "#4a4020", label: "兖州" },
+  豫州: { fill: "#a89860", ink: "#4a3c20", label: "豫州" },
+  司隶: { fill: "#b8a468", ink: "#5a4420", label: "司隶" },
+  京兆: { fill: "#a88858", ink: "#4a3420", label: "京兆" },
+  凉州: { fill: "#b89868", ink: "#5a4428", label: "凉州" },
+  扬州: { fill: "#5a9070", ink: "#244838", label: "扬州" },
+  交州: { fill: "#3f8060", ink: "#1e4030", label: "交州" },
+  荆北: { fill: "#7a9458", ink: "#384820", label: "荆州" },
+  荆南: { fill: "#5f8448", ink: "#2c4020", label: "荆南" },
+  益州: { fill: "#8a7c55", ink: "#3e3424", label: "益州" },
+  南中: { fill: "#4a7450", ink: "#243828", label: "南中" },
 };
 
 /**
