@@ -16,6 +16,21 @@ body.chess3d-body {
 
 body.chess3d-body canvas {
   display: block;
+  position: fixed;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 0;
+}
+
+body.chess3d-body #gui,
+body.chess3d-body #info,
+body.chess3d-body .chess3d-bar,
+body.chess3d-body .ui-dialog,
+body.chess3d-body .ui-widget-overlay,
+body.chess3d-body #progressbar,
+body.chess3d-body #tips {
+  z-index: 20;
 }
 
 .chess3d-bar {
