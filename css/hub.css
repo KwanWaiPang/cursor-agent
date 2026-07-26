@@ -46,6 +46,14 @@
   background: radial-gradient(circle, rgba(139, 46, 46, 0.2), transparent 65%);
 }
 
+.game-card-sk .mark {
+  color: #2a5a7a;
+}
+
+.game-card-sk::before {
+  background: radial-gradient(circle, rgba(42, 90, 122, 0.22), transparent 65%);
+}
+
 .game-card {
   position: relative;
   display: grid;
