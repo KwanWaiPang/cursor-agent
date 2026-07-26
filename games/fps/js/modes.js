@@ -18,8 +18,10 @@ export function createAssaultMode(ctx) {
   player.getObject().position.set(0, player.eyeHeight, 16);
 
   function spawnWave() {
-    // 清掉已淡出的尸体，避免数组堆积影响查找
-    ctx.enemies = ctx.enemies.filter((e) => !e.gone);
+    // 必须原地删元素，不能替换数组，否则会与 Game.enemies 脱钩
+    for (let i = ctx.enemies.length - 1; i >= 0; i--) {
+      if (ctx.enemies[i].gone) ctx.enemies.splice(i, 1);
+    }
     const count = 3 + wave * 2;
     for (let i = 0; i < count; i++) {
       const sp = world.spawnPoints[(i * 3) % world.spawnPoints.length].clone();
