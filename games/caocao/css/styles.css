@@ -241,10 +241,12 @@ body.caocao-body::before {
   width: 96px;
   height: 112px;
   border-radius: 8px;
-  border: 2px solid rgba(139, 46, 46, 0.35);
+  border: 2px solid rgba(196, 165, 116, 0.55);
   background: #1a1410;
   image-rendering: pixelated;
-  box-shadow: inset 0 0 0 1px rgba(196, 165, 116, 0.25);
+  box-shadow:
+    inset 0 0 0 1px rgba(196, 165, 116, 0.25),
+    0 4px 10px rgba(0, 0, 0, 0.25);
 }
 
 .magic-list {

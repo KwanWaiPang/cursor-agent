@@ -161,7 +161,8 @@ export const GENERALS = {
     "infantry",
     { hp: 28, atk: 18, def: 12, skl: 8, spd: 10 },
     { hp: 4, atk: 2, def: 1, skl: 1, spd: 1 },
-    "#c9a227"
+    "#c9a227",
+    { minion: true, troop: "yellow" }
   ),
   yellow_archer: g(
     "yellow_archer",
@@ -169,7 +170,8 @@ export const GENERALS = {
     "archer",
     { hp: 24, atk: 20, def: 10, skl: 12, spd: 12 },
     { hp: 3, atk: 2, def: 1, skl: 2, spd: 1 },
-    "#d4b84a"
+    "#d4b84a",
+    { minion: true, troop: "yellow" }
   ),
   yellow_rider: g(
     "yellow_rider",
@@ -177,7 +179,8 @@ export const GENERALS = {
     "cavalry",
     { hp: 26, atk: 22, def: 11, skl: 10, spd: 14 },
     { hp: 4, atk: 2, def: 1, skl: 1, spd: 2 },
-    "#b8952a"
+    "#b8952a",
+    { minion: true, troop: "yellow" }
   ),
 
   enemy_infantry: g(
@@ -186,7 +189,8 @@ export const GENERALS = {
     "infantry",
     { hp: 28, atk: 18, def: 12, skl: 8, spd: 10 },
     { hp: 4, atk: 2, def: 1, skl: 1, spd: 1 },
-    "#7a6a4a"
+    "#7a6a4a",
+    { minion: true, troop: "iron" }
   ),
   enemy_archer: g(
     "enemy_archer",
@@ -194,7 +198,8 @@ export const GENERALS = {
     "archer",
     { hp: 24, atk: 20, def: 10, skl: 12, spd: 12 },
     { hp: 3, atk: 2, def: 1, skl: 2, spd: 1 },
-    "#8a7a50"
+    "#8a7a50",
+    { minion: true, troop: "iron" }
   ),
   enemy_cavalry: g(
     "enemy_cavalry",
@@ -202,7 +207,8 @@ export const GENERALS = {
     "cavalry",
     { hp: 26, atk: 22, def: 11, skl: 10, spd: 14 },
     { hp: 4, atk: 2, def: 1, skl: 1, spd: 2 },
-    "#6a5a40"
+    "#6a5a40",
+    { minion: true, troop: "iron" }
   ),
   enemy_strategist: g(
     "enemy_strategist",
@@ -210,7 +216,8 @@ export const GENERALS = {
     "strategist",
     { hp: 22, atk: 16, def: 10, skl: 24, spd: 12 },
     { hp: 3, atk: 2, def: 1, skl: 3, spd: 1 },
-    "#4a3a5a"
+    "#4a3a5a",
+    { minion: true, troop: "iron" }
   ),
   boss_generic: g(
     "boss_generic",
@@ -221,6 +228,20 @@ export const GENERALS = {
     "#5a2a6b"
   ),
 };
+
+/** 具名武将（非小兵模板） */
+export function isHeroTemplate(tpl) {
+  return !!(tpl && !tpl.minion);
+}
+
+export function isHeroUnit(u) {
+  if (!u) return false;
+  if (u.lord || u.boss) return true;
+  if (u.minion === true) return false;
+  if (u.minion === false) return true;
+  const tpl = GENERALS[u.generalId];
+  return isHeroTemplate(tpl);
+}
 
 export function statsAtLevel(template, level) {
   const lv = Math.max(1, level);

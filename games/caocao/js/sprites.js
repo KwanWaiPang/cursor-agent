@@ -1,7 +1,9 @@
 /**
  * 自研像素风武将棋子与立绘（地形见 tiles.js）
- * 兵种可辨、名将略有差异；非原作素材。
+ * 名将 / 小兵明确区分；非原作素材。
  */
+import { isHeroUnit } from "../data/generals.js";
+
 export { getTerrainTile, drawTileEdges } from "./tiles.js";
 
 /** 名将外观微调 */
@@ -24,13 +26,29 @@ const UNIT_STYLE = {
   zhangbao: { robe: "#6a3a7b", hat: true },
   zhangliang: { cape: "#7a4a2b", horse: "#4a3020" },
   dongzhuo: { cape: "#4a3a2a", bulk: 1.2 },
-  yellow_spear: { cape: "#c9a227", sash: "#e8d060" },
-  yellow_archer: { cape: "#d4b84a", sash: "#e8d060", quiver: true },
-  yellow_rider: { cape: "#b8952a", sash: "#e8d060", horse: "#6a5030" },
+  boss_generic: { cape: "#5a2a6b", helm: "#c4a574", bulk: 1.08 },
+  yellow_spear: { sash: "#e8d060", minionHelm: "yellow" },
+  yellow_archer: { sash: "#e8d060", quiver: true, minionHelm: "yellow" },
+  yellow_rider: { sash: "#e8d060", horse: "#6a5030", minionHelm: "yellow" },
+  enemy_infantry: { minionHelm: "iron" },
+  enemy_archer: { quiver: true, minionHelm: "iron" },
+  enemy_cavalry: { horse: "#4a3a28", minionHelm: "iron" },
+  enemy_strategist: { robe: "#4a3a5a", minionHelm: "hood" },
+};
+
+const CLASS_SHORT = {
+  infantry: "步",
+  cavalry: "骑",
+  archer: "弓",
+  strategist: "策",
 };
 
 function styleOf(u) {
   return UNIT_STYLE[u.generalId] || {};
+}
+
+function heroOf(u) {
+  return isHeroUnit(u);
 }
 
 function teamColors(team) {
@@ -48,11 +66,12 @@ function teamColors(team) {
  * @param {{ flash?: number }} [opts]
  */
 export function drawUnitSprite(ctx, u, cx, cy, tile, selected, opts = {}) {
-  const scale = tile / 56;
+  const hero = heroOf(u);
+  const scale = (tile / 56) * (hero ? 1 : 0.88);
   const body = u.portrait || (u.team === "player" ? "#4a7a58" : "#8a5050");
   const tc = teamColors(u.team);
-  const st = styleOf(u);
-  const bulk = st.bulk || 1;
+  const st = { ...styleOf(u), minion: !hero };
+  const bulk = (st.bulk || 1) * (hero ? 1 : 0.92);
   const flash = opts.flash || 0;
 
   // 阴影
@@ -61,7 +80,7 @@ export function drawUnitSprite(ctx, u, cx, cy, tile, selected, opts = {}) {
   ctx.ellipse(cx + 1, cy + 17 * scale, 15 * scale * bulk, 5 * scale, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // 阵营底盘
+  // 阵营底盘（武将金边，小兵素环）
   ctx.fillStyle = tc.ring;
   ctx.beginPath();
   ctx.ellipse(cx, cy + 13 * scale, 15 * scale * bulk, 6.5 * scale, 0, 0, Math.PI * 2);
@@ -70,12 +89,19 @@ export function drawUnitSprite(ctx, u, cx, cy, tile, selected, opts = {}) {
   ctx.beginPath();
   ctx.ellipse(cx, cy + 13 * scale, 11 * scale * bulk, 4.2 * scale, 0, 0, Math.PI * 2);
   ctx.fill();
-  // 底盘内圈
-  ctx.strokeStyle = "rgba(20,12,8,0.25)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy + 13 * scale, 11 * scale * bulk, 4.2 * scale, 0, 0, Math.PI * 2);
-  ctx.stroke();
+  if (hero) {
+    ctx.strokeStyle = "rgba(232,208,144,0.85)";
+    ctx.lineWidth = 1.6 * scale;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 13 * scale, 15.5 * scale * bulk, 7 * scale, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = "rgba(20,12,8,0.25)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 13 * scale, 11 * scale * bulk, 4.2 * scale, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   const cls = u.classId || "infantry";
   if (cls === "cavalry") drawCavalry(ctx, cx, cy, scale, body, tc.ring, st, bulk);
@@ -115,19 +141,37 @@ export function drawUnitSprite(ctx, u, cx, cy, tile, selected, opts = {}) {
     ctx.fill();
   }
 
-  // 姓名牌
-  const label = u.name.length <= 2 ? u.name : u.name.slice(-2);
-  ctx.font = `bold ${Math.round(10 * scale)}px "Noto Serif SC", serif`;
+  // 姓名牌：武将全名/二字 + 金边；小兵仅兵种简称
+  const label = hero
+    ? u.name.length <= 2
+      ? u.name
+      : u.name.slice(-2)
+    : CLASS_SHORT[cls] || "兵";
+  ctx.font = `bold ${Math.round((hero ? 10 : 9) * scale)}px "Noto Serif SC", serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  const tw = ctx.measureText(label).width + 8;
-  roundRect(ctx, cx - tw / 2, cy + 19 * scale, tw, 13 * scale, 3 * scale, "rgba(20,12,8,0.78)");
-  ctx.fillStyle = "#f8ecd6";
-  ctx.fillText(label, cx, cy + 20.5 * scale);
+  const tw = ctx.measureText(label).width + (hero ? 10 : 7);
+  const ly = cy + 19 * scale;
+  roundRect(
+    ctx,
+    cx - tw / 2,
+    ly,
+    tw,
+    13 * scale,
+    3 * scale,
+    hero ? "rgba(40,24,12,0.88)" : "rgba(20,12,8,0.65)"
+  );
+  if (hero) {
+    ctx.strokeStyle = "rgba(232,208,144,0.75)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx - tw / 2 + 0.5, ly + 0.5, tw - 1, 12 * scale);
+  }
+  ctx.fillStyle = hero ? "#f8ecd6" : "#d8d0c0";
+  ctx.fillText(label, cx, ly + 1.5 * scale);
 
   // HP 条
-  const bw = 30 * scale;
-  const bh = 5 * scale;
+  const bw = (hero ? 32 : 26) * scale;
+  const bh = (hero ? 5 : 4) * scale;
   const bx = cx - bw / 2;
   const by = cy - 28 * scale;
   roundRect(ctx, bx - 1, by - 1, bw + 2, bh + 2, 2, "rgba(0,0,0,0.6)");
@@ -135,19 +179,19 @@ export function drawUnitSprite(ctx, u, cx, cy, tile, selected, opts = {}) {
   const hpColor = pct > 0.5 ? "#5dcf5a" : pct > 0.25 ? "#d4b84a" : "#d05040";
   ctx.fillStyle = hpColor;
   ctx.fillRect(bx, by, bw * pct, bh);
-  // MP 细线（策士）
-  if (u.mpMax > 0 && u.classId === "strategist") {
+  if (u.mpMax > 0 && u.classId === "strategist" && hero) {
     const mp = Math.max(0, u.mp / u.mpMax);
     ctx.fillStyle = "rgba(80,140,220,0.9)";
     ctx.fillRect(bx, by + bh + 1, bw * mp, 2 * scale);
   }
 
-  if (u.lord || u.boss) {
-    const tag = u.lord ? "主" : "将";
-    ctx.fillStyle = u.lord ? "#f3c27a" : "#ff7070";
+  // 武将角标
+  if (hero) {
+    const tag = u.lord ? "主" : u.boss ? "帅" : "将";
+    ctx.fillStyle = u.lord ? "#f3c27a" : u.boss ? "#ff7070" : "#e8d090";
     ctx.font = `bold ${Math.round(10 * scale)}px serif`;
     ctx.textBaseline = "middle";
-    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+    ctx.strokeStyle = "rgba(0,0,0,0.55)";
     ctx.lineWidth = 2;
     ctx.strokeText(tag, cx + 16 * scale, cy - 20 * scale);
     ctx.fillText(tag, cx + 16 * scale, cy - 20 * scale);
@@ -167,6 +211,11 @@ function roundRect(ctx, x, y, w, h, r, fill) {
 }
 
 function drawHead(ctx, cx, cy, scale, st = {}) {
+  // 小兵：头盔遮脸，辨识度低于名将
+  if (st.minion) {
+    drawMinionHead(ctx, cx, cy, scale, st);
+    return;
+  }
   const skin = "#f0d0b0";
   ctx.fillStyle = skin;
   ctx.beginPath();
@@ -183,6 +232,8 @@ function drawHead(ctx, cx, cy, scale, st = {}) {
     ctx.arc(cx, cy - 3 * scale, 6.8 * scale, Math.PI, 0);
     ctx.fill();
     ctx.fillRect(cx - 7 * scale, cy - 4 * scale, 14 * scale, 3 * scale);
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.fillRect(cx - 3 * scale, cy - 6 * scale, 3 * scale, 2 * scale);
   }
   if (st.hat) {
     ctx.fillStyle = st.robe || "#5a2a6b";
@@ -193,6 +244,10 @@ function drawHead(ctx, cx, cy, scale, st = {}) {
     ctx.closePath();
     ctx.fill();
   }
+  // 名将五官
+  ctx.fillStyle = "#2a1c10";
+  ctx.fillRect(cx - 3.2 * scale, cy - 0.5 * scale, 2 * scale, 1.4 * scale);
+  ctx.fillRect(cx + 1.2 * scale, cy - 0.5 * scale, 2 * scale, 1.4 * scale);
   if (st.eyePatch) {
     ctx.fillStyle = "#1a1010";
     ctx.fillRect(cx - 6 * scale, cy - 1 * scale, 5 * scale, 3 * scale);
@@ -204,6 +259,59 @@ function drawHead(ctx, cx, cy, scale, st = {}) {
     ctx.quadraticCurveTo(cx, cy + 9 * scale, cx + 3 * scale, cy + 3 * scale);
     ctx.fill();
   }
+}
+
+function drawMinionHead(ctx, cx, cy, scale, st = {}) {
+  const kind = st.minionHelm || "iron";
+  // 露出一点下颌
+  ctx.fillStyle = "#d8b090";
+  ctx.beginPath();
+  ctx.arc(cx, cy + 1 * scale, 4.5 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (kind === "yellow") {
+    ctx.fillStyle = "#e8d060";
+    ctx.beginPath();
+    ctx.arc(cx, cy - 1 * scale, 6.5 * scale, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(cx - 7 * scale, cy - 2 * scale, 14 * scale, 5 * scale);
+    ctx.fillStyle = "#c9a227";
+    ctx.fillRect(cx - 7 * scale, cy + 2 * scale, 14 * scale, 2 * scale);
+    // 黄巾结
+    ctx.fillStyle = "#f0e080";
+    ctx.beginPath();
+    ctx.moveTo(cx + 5 * scale, cy);
+    ctx.lineTo(cx + 11 * scale, cy - 2 * scale);
+    ctx.lineTo(cx + 9 * scale, cy + 4 * scale);
+    ctx.closePath();
+    ctx.fill();
+  } else if (kind === "hood") {
+    ctx.fillStyle = "#3a2a4a";
+    ctx.beginPath();
+    ctx.arc(cx, cy - 1 * scale, 7 * scale, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(cx - 7 * scale, cy - 1 * scale, 14 * scale, 6 * scale);
+    ctx.fillStyle = "#2a1a30";
+    ctx.fillRect(cx - 5 * scale, cy + 1 * scale, 10 * scale, 2 * scale);
+  } else {
+    // 铁盔
+    ctx.fillStyle = "#6a6a70";
+    ctx.beginPath();
+    ctx.arc(cx, cy - 2 * scale, 7 * scale, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(cx - 7 * scale, cy - 3 * scale, 14 * scale, 5 * scale);
+    ctx.fillStyle = "#4a4a50";
+    ctx.fillRect(cx - 7.5 * scale, cy + 1 * scale, 15 * scale, 2.5 * scale);
+    // 护鼻
+    ctx.fillStyle = "#8a8a90";
+    ctx.fillRect(cx - 1 * scale, cy - 1 * scale, 2 * scale, 5 * scale);
+    ctx.fillStyle = "rgba(255,255,255,0.2)";
+    ctx.fillRect(cx - 4 * scale, cy - 5 * scale, 3 * scale, 2 * scale);
+  }
+  // 眼缝
+  ctx.fillStyle = "rgba(20,12,8,0.55)";
+  ctx.fillRect(cx - 4 * scale, cy + 0.5 * scale, 3 * scale, 1.2 * scale);
+  ctx.fillRect(cx + 1 * scale, cy + 0.5 * scale, 3 * scale, 1.2 * scale);
 }
 
 function drawCape(ctx, cx, cy, scale, color, bulk) {
@@ -422,24 +530,32 @@ function drawStrategist(ctx, cx, cy, scale, body, accent, st, bulk) {
 /* —— 侧栏立绘 —— */
 
 const FACE = {
-  caocao: { beard: true, crown: "#c4a574", brow: 0.02, cape: "#8b2e2e" },
-  xiahou_dun: { eyePatch: true, crown: "#8b2e2e", cape: "#6b2020" },
-  xiahou_yuan: { crown: "#a05030", cape: "#a05030" },
-  dianwei: { thick: true, crown: "#5a3a20", cape: "#5a3a20" },
-  xuchu: { thick: true, crown: "#6a4028", cape: "#6a4028" },
-  xunyu: { scholar: true, crown: "#3a4a6b", robe: true },
-  guojia: { scholar: true, crown: "#2a3a5b", robe: true },
+  caocao: { beard: true, crown: "#c4a574", brow: 0.02, cape: "#8b2e2e", mark: "魏" },
+  xiahou_dun: { eyePatch: true, crown: "#8b2e2e", cape: "#6b2020", scar: true },
+  xiahou_yuan: { crown: "#a05030", cape: "#a05030", sharp: true },
+  dianwei: { thick: true, crown: "#5a3a20", cape: "#5a3a20", browHeavy: true },
+  xuchu: { thick: true, crown: "#6a4028", cape: "#6a4028", browHeavy: true },
+  xunyu: { scholar: true, crown: "#3a4a6b", robe: true, calm: true },
+  guojia: { scholar: true, crown: "#2a3a5b", robe: true, calm: true },
   zhangliao: { crown: "#4a5a8b", cape: "#4a5a8b", beard: true },
-  sunjian: { crown: "#d4b84a", cape: "#2a5a8a", beard: true },
-  liubei: { scholar: true, crown: "#3a6a4a", robe: true, beard: true },
-  guanyu: { beard: true, longBeard: true, crown: "#6b1a1a", cape: "#1a4a2a" },
-  zhangfei: { thick: true, crown: "#2a2a4a", cape: "#2a2a4a", beard: true },
-  lvbu: { crown: "#c0c0c0", cape: "#5a1a2a", brow: -0.01 },
-  huaxiong: { crown: "#a0a0a0", cape: "#7a3030" },
-  zhangjiao: { scholar: true, crown: "#5a2a6b", hat: true, robe: true },
-  zhangbao: { scholar: true, crown: "#6a3a7b", hat: true, robe: true },
-  zhangliang: { crown: "#7a4a2b", cape: "#7a4a2b" },
+  sunjian: { crown: "#d4b84a", cape: "#2a5a8a", beard: true, mark: "吴" },
+  liubei: { scholar: true, crown: "#3a6a4a", robe: true, beard: true, mark: "蜀" },
+  guanyu: { beard: true, longBeard: true, crown: "#6b1a1a", cape: "#1a4a2a", redFace: true },
+  zhangfei: { thick: true, crown: "#2a2a4a", cape: "#2a2a4a", beard: true, browHeavy: true },
+  lvbu: { crown: "#c0c0c0", cape: "#5a1a2a", brow: -0.01, sharp: true },
+  huaxiong: { crown: "#a0a0a0", cape: "#7a3030", browHeavy: true },
+  zhangjiao: { scholar: true, crown: "#5a2a6b", hat: true, robe: true, mystic: true },
+  zhangbao: { scholar: true, crown: "#6a3a7b", hat: true, robe: true, mystic: true },
+  zhangliang: { crown: "#7a4a2b", cape: "#7a4a2b", beard: true },
   dongzhuo: { thick: true, crown: "#4a3a2a", cape: "#4a3a2a", beard: true },
+  boss_generic: { crown: "#c4a574", cape: "#5a2a6b", beard: true },
+};
+
+const CLS_NAME = {
+  infantry: "步兵",
+  cavalry: "骑兵",
+  archer: "弓兵",
+  strategist: "策士",
 };
 
 export function drawPortrait(canvas, u) {
@@ -449,116 +565,293 @@ export function drawPortrait(canvas, u) {
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
   ctx.imageSmoothingEnabled = false;
-  const face = FACE[u.generalId] || {};
 
-  // 背景纹
+  if (!heroOf(u)) {
+    drawMinionPortrait(ctx, u, w, h);
+    return;
+  }
+  drawHeroPortrait(ctx, u, w, h);
+}
+
+function drawHeroPortrait(ctx, u, w, h) {
+  const face = FACE[u.generalId] || {
+    crown: u.team === "enemy" ? "#8b2e2e" : "#c4a574",
+    cape: u.portrait || "#6a5040",
+  };
+
+  // 锦地背景
   const grd = ctx.createLinearGradient(0, 0, 0, h);
   grd.addColorStop(
     0,
-    u.team === "enemy" ? "#4a2828" : u.team === "ally" ? "#243048" : "#243828"
+    u.team === "enemy" ? "#5a3030" : u.team === "ally" ? "#2a3a58" : "#2a4834"
   );
-  grd.addColorStop(1, "#120e0a");
+  grd.addColorStop(1, "#100c08");
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "rgba(196,165,116,0.06)";
-  for (let i = 0; i < 6; i++) {
-    ctx.fillRect(0, i * 18, w, 1);
+  // 祥云暗纹
+  ctx.strokeStyle = "rgba(232,208,144,0.1)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(w * (0.2 + i * 0.3), h * 0.2, 10 + i * 2, 0.2, Math.PI - 0.2);
+    ctx.stroke();
   }
+
+  // 金框
+  ctx.strokeStyle = "rgba(232,208,144,0.65)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(2, 2, w - 4, h - 4);
+  ctx.strokeStyle = "rgba(139,46,46,0.35)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(5, 5, w - 10, h - 10);
 
   // 肩甲 / 袍
   const armor = face.cape || u.portrait || "#6a5040";
   ctx.fillStyle = armor;
   ctx.beginPath();
-  ctx.moveTo(w * 0.06, h);
-  ctx.lineTo(w * 0.16, h * 0.5);
-  ctx.lineTo(w * 0.84, h * 0.5);
-  ctx.lineTo(w * 0.94, h);
+  ctx.moveTo(w * 0.04, h);
+  ctx.lineTo(w * 0.14, h * 0.48);
+  ctx.lineTo(w * 0.86, h * 0.48);
+  ctx.lineTo(w * 0.96, h);
   ctx.closePath();
   ctx.fill();
-  // 甲片线
+  ctx.fillStyle = "rgba(255,255,255,0.08)";
+  ctx.fillRect(w * 0.2, h * 0.55, w * 0.08, h * 0.3);
+
   if (!face.robe && !face.scholar) {
-    ctx.strokeStyle = "rgba(0,0,0,0.25)";
+    ctx.strokeStyle = "rgba(0,0,0,0.28)";
     for (let i = 0; i < 4; i++) {
       ctx.beginPath();
-      ctx.moveTo(w * 0.2, h * 0.58 + i * 10);
-      ctx.lineTo(w * 0.8, h * 0.58 + i * 10);
+      ctx.moveTo(w * 0.18, h * 0.56 + i * 9);
+      ctx.lineTo(w * 0.82, h * 0.56 + i * 9);
       ctx.stroke();
     }
+    // 护心镜
+    ctx.fillStyle = "rgba(232,208,144,0.45)";
+    ctx.beginPath();
+    ctx.arc(w / 2, h * 0.68, w * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(20,12,8,0.35)";
+    ctx.stroke();
   }
   if (face.scholar || face.robe) {
-    ctx.fillStyle = "rgba(240,232,200,0.2)";
-    ctx.fillRect(w * 0.32, h * 0.55, w * 0.36, h * 0.4);
-    ctx.strokeStyle = "rgba(240,232,200,0.35)";
-    ctx.strokeRect(w * 0.38, h * 0.62, w * 0.24, h * 0.28);
+    ctx.fillStyle = "rgba(240,232,200,0.22)";
+    ctx.fillRect(w * 0.3, h * 0.52, w * 0.4, h * 0.38);
+    ctx.strokeStyle = "rgba(240,232,200,0.4)";
+    ctx.strokeRect(w * 0.36, h * 0.6, w * 0.28, h * 0.26);
   }
 
-  // 头
-  ctx.fillStyle = "#f0d0b0";
+  // 头（关羽略红面）
+  const skin = face.redFace ? "#c87860" : "#f0d0b0";
+  const r = w * (face.thick ? 0.26 : 0.23);
+  ctx.fillStyle = skin;
   ctx.beginPath();
-  ctx.arc(w / 2, h * 0.36, w * (face.thick ? 0.25 : 0.22), 0, Math.PI * 2);
+  ctx.arc(w / 2, h * 0.34, r, 0, Math.PI * 2);
+  ctx.fill();
+  // 腮红/阴影
+  ctx.fillStyle = "rgba(180,80,60,0.12)";
+  ctx.beginPath();
+  ctx.ellipse(w * 0.38, h * 0.38, w * 0.05, w * 0.03, 0, 0, Math.PI * 2);
+  ctx.ellipse(w * 0.62, h * 0.38, w * 0.05, w * 0.03, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // 发 / 冠
+  // 发
   ctx.fillStyle = "#1c1410";
   ctx.beginPath();
-  ctx.arc(w / 2, h * 0.3, w * 0.23, Math.PI, 0);
+  ctx.arc(w / 2, h * 0.28, w * 0.24, Math.PI, 0);
   ctx.fill();
-  ctx.fillStyle = face.crown || (u.team === "enemy" ? "#8b2e2e" : "#c4a574");
+
+  // 冠 / 巾
+  ctx.fillStyle = face.crown || "#c4a574";
   if (face.hat) {
     ctx.beginPath();
-    ctx.moveTo(w * 0.26, h * 0.22);
-    ctx.lineTo(w * 0.5, h * 0.04);
-    ctx.lineTo(w * 0.74, h * 0.22);
+    ctx.moveTo(w * 0.24, h * 0.22);
+    ctx.lineTo(w * 0.5, h * 0.03);
+    ctx.lineTo(w * 0.76, h * 0.22);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.15)";
-    ctx.fillRect(w * 0.46, h * 0.08, w * 0.08, h * 0.1);
+    if (face.mystic) {
+      ctx.fillStyle = "#e8d090";
+      ctx.beginPath();
+      ctx.arc(w / 2, h * 0.12, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
   } else {
-    ctx.fillRect(w * 0.34, h * 0.1, w * 0.32, h * 0.11);
-    ctx.fillStyle = "rgba(255,255,255,0.2)";
-    ctx.fillRect(w * 0.4, h * 0.12, w * 0.08, h * 0.04);
+    ctx.fillRect(w * 0.32, h * 0.08, w * 0.36, h * 0.12);
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    ctx.fillRect(w * 0.38, h * 0.1, w * 0.1, h * 0.04);
+    // 冠饰
+    ctx.fillStyle = face.crown || "#c4a574";
+    ctx.fillRect(w * 0.46, h * 0.04, w * 0.08, h * 0.06);
   }
 
-  // 眼
+  // 眉眼
+  const ey = h * (0.34 + (face.brow || 0));
   ctx.fillStyle = "#2a1c10";
-  const ey = h * (0.36 + (face.brow || 0));
+  if (face.browHeavy || face.sharp) {
+    ctx.fillRect(w * 0.34, ey - 4, w * 0.12, 2);
+    ctx.fillRect(w * 0.54, ey - 4, w * 0.12, 2);
+  }
   if (face.eyePatch) {
     ctx.fillStyle = "#1a1010";
-    ctx.fillRect(w * 0.33, ey - 3, w * 0.16, w * 0.1);
+    ctx.fillRect(w * 0.32, ey - 3, w * 0.16, w * 0.1);
     ctx.fillStyle = "#2a1c10";
-    ctx.fillRect(w * 0.56, ey, w * 0.07, w * 0.045);
-  } else {
-    ctx.fillRect(w * 0.37, ey, w * 0.07, w * 0.045);
-    ctx.fillRect(w * 0.56, ey, w * 0.07, w * 0.045);
+    ctx.fillRect(w * 0.56, ey, w * 0.08, w * 0.05);
     ctx.fillStyle = "rgba(255,255,255,0.35)";
-    ctx.fillRect(w * 0.38, ey, w * 0.02, w * 0.02);
-    ctx.fillRect(w * 0.57, ey, w * 0.02, w * 0.02);
+    ctx.fillRect(w * 0.58, ey, w * 0.02, w * 0.02);
+  } else {
+    ctx.fillRect(w * 0.36, ey, w * 0.08, w * 0.05);
+    ctx.fillRect(w * 0.56, ey, w * 0.08, w * 0.05);
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillRect(w * 0.38, ey, w * 0.025, w * 0.02);
+    ctx.fillRect(w * 0.58, ey, w * 0.025, w * 0.02);
   }
+  if (face.scar) {
+    ctx.strokeStyle = "rgba(120,40,40,0.7)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.34, ey - 2);
+    ctx.lineTo(w * 0.46, ey + 8);
+    ctx.stroke();
+  }
+
+  // 鼻 / 嘴
+  ctx.fillStyle = "rgba(120,70,50,0.35)";
+  ctx.fillRect(w * 0.48, ey + 6, w * 0.04, h * 0.04);
+  ctx.fillStyle = "#a06050";
+  ctx.fillRect(w * 0.44, h * 0.42, w * 0.12, 2);
 
   // 须
   if (face.beard) {
     ctx.fillStyle = "#2a1c10";
     ctx.beginPath();
     if (face.longBeard) {
-      ctx.moveTo(w * 0.4, h * 0.46);
-      ctx.quadraticCurveTo(w * 0.5, h * 0.78, w * 0.6, h * 0.46);
+      ctx.moveTo(w * 0.38, h * 0.44);
+      ctx.quadraticCurveTo(w * 0.5, h * 0.82, w * 0.62, h * 0.44);
       ctx.fill();
       ctx.fillStyle = "#3a2a18";
-      ctx.fillRect(w * 0.48, h * 0.5, w * 0.04, h * 0.22);
+      ctx.fillRect(w * 0.48, h * 0.48, w * 0.04, h * 0.24);
     } else {
-      ctx.ellipse(w / 2, h * 0.48, w * 0.11, h * 0.07, 0, 0, Math.PI);
+      ctx.ellipse(w / 2, h * 0.46, w * 0.12, h * 0.08, 0, 0, Math.PI);
       ctx.fill();
     }
   }
 
+  // 角标「名将」
+  ctx.fillStyle = "rgba(232,208,144,0.9)";
+  ctx.fillRect(4, 4, 28, 14);
+  ctx.fillStyle = "#3a2410";
+  ctx.font = "bold 9px 'Noto Serif SC', serif";
+  ctx.textAlign = "center";
+  ctx.fillText(u.lord ? "主公" : u.boss ? "主将" : "名将", 18, 14);
+
+  if (face.mark) {
+    ctx.fillStyle = "rgba(139,46,46,0.85)";
+    ctx.beginPath();
+    ctx.arc(w - 12, 14, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#f8ecd6";
+    ctx.font = "bold 10px 'Noto Serif SC', serif";
+    ctx.fillText(face.mark, w - 12, 17);
+  }
+
   // 底栏
-  ctx.fillStyle = "rgba(0,0,0,0.45)";
-  ctx.fillRect(0, h - 22, w, 22);
-  const clsName = { infantry: "步兵", cavalry: "骑兵", archer: "弓兵", strategist: "策士" }[
-    u.classId
-  ];
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(0, h - 24, w, 24);
   ctx.fillStyle = "#f8ecd6";
   ctx.font = "bold 11px 'Noto Serif SC', serif";
   ctx.textAlign = "center";
-  ctx.fillText(`${u.name} · ${clsName || ""}`, w / 2, h - 7);
+  ctx.fillText(`${u.name} · ${CLS_NAME[u.classId] || ""}`, w / 2, h - 8);
+}
+
+function drawMinionPortrait(ctx, u, w, h) {
+  const troop = u.troop || styleOf(u).minionHelm || "iron";
+  const armor = u.portrait || "#6a5a48";
+
+  const grd = ctx.createLinearGradient(0, 0, 0, h);
+  grd.addColorStop(0, "#2a2420");
+  grd.addColorStop(1, "#12100e");
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, w, h);
+
+  // 素框
+  ctx.strokeStyle = "rgba(160,150,130,0.35)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(2, 2, w - 4, h - 4);
+
+  // 肩甲（更矮、更朴素）
+  ctx.fillStyle = armor;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.08, h);
+  ctx.lineTo(w * 0.2, h * 0.55);
+  ctx.lineTo(w * 0.8, h * 0.55);
+  ctx.lineTo(w * 0.92, h);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.25)";
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(w * 0.22, h * 0.62 + i * 8);
+    ctx.lineTo(w * 0.78, h * 0.62 + i * 8);
+    ctx.stroke();
+  }
+
+  // 头盔遮脸
+  ctx.fillStyle = "#c8a888";
+  ctx.beginPath();
+  ctx.arc(w / 2, h * 0.4, w * 0.16, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (troop === "yellow") {
+    ctx.fillStyle = "#e8d060";
+    ctx.beginPath();
+    ctx.arc(w / 2, h * 0.32, w * 0.22, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(w * 0.28, h * 0.3, w * 0.44, h * 0.14);
+    ctx.fillStyle = "#c9a227";
+    ctx.fillRect(w * 0.28, h * 0.4, w * 0.44, 4);
+    ctx.fillStyle = "#f0e080";
+    ctx.beginPath();
+    ctx.moveTo(w * 0.7, h * 0.34);
+    ctx.lineTo(w * 0.88, h * 0.3);
+    ctx.lineTo(w * 0.82, h * 0.42);
+    ctx.fill();
+  } else if (troop === "hood" || u.classId === "strategist") {
+    ctx.fillStyle = "#3a2a4a";
+    ctx.beginPath();
+    ctx.arc(w / 2, h * 0.3, w * 0.24, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(w * 0.26, h * 0.28, w * 0.48, h * 0.18);
+  } else {
+    ctx.fillStyle = "#6a6a72";
+    ctx.beginPath();
+    ctx.arc(w / 2, h * 0.3, w * 0.24, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(w * 0.26, h * 0.28, w * 0.48, h * 0.14);
+    ctx.fillStyle = "#4a4a52";
+    ctx.fillRect(w * 0.24, h * 0.4, w * 0.52, 5);
+    ctx.fillStyle = "#8a8a92";
+    ctx.fillRect(w * 0.48, h * 0.34, w * 0.04, h * 0.1);
+    ctx.fillStyle = "rgba(255,255,255,0.2)";
+    ctx.fillRect(w * 0.36, h * 0.22, w * 0.08, 4);
+  }
+
+  // 眼缝
+  ctx.fillStyle = "rgba(20,12,8,0.55)";
+  ctx.fillRect(w * 0.38, h * 0.38, w * 0.08, 3);
+  ctx.fillRect(w * 0.54, h * 0.38, w * 0.08, 3);
+
+  // 角标「小兵」
+  ctx.fillStyle = "rgba(120,110,95,0.85)";
+  ctx.fillRect(4, 4, 28, 14);
+  ctx.fillStyle = "#f0e8d8";
+  ctx.font = "bold 9px 'Noto Serif SC', serif";
+  ctx.textAlign = "center";
+  ctx.fillText("小兵", 18, 14);
+
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(0, h - 24, w, 24);
+  ctx.fillStyle = "#d8d0c0";
+  ctx.font = "bold 10px 'Noto Serif SC', serif";
+  ctx.fillText(`${CLS_NAME[u.classId] || "士卒"} · 无名`, w / 2, h - 8);
 }
