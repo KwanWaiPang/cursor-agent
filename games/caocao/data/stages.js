@@ -225,6 +225,8 @@ function buildStageFromMeta(id, meta, prevId, index) {
     optional: !!meta.optional,
     unlockAfter: prevId,
     handcrafted: false,
+    turnLimit: meta.win?.turns || null,
+    scriptEvents: scriptEventsFor(id),
   };
 }
 
