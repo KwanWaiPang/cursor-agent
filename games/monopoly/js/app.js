@@ -94,17 +94,13 @@ function cellInnerHTML(def) {
     def.type === "property" || def.type === "station" || def.type === "utility"
       ? `$${def.value}`
       : def.subtitle || "";
-  const mark =
-    def.type === "chance"
-      ? "？"
-      : def.type === "fate"
-        ? "！"
-        : def.icon || "";
+  // 国家地产不放图标；特殊格用文字记号（不用国旗）
+  const mark = def.type === "property" ? "" : def.mark || "";
 
   return `
     <span class="cell-band" aria-hidden="true"></span>
     <span class="cell-body">
-      <span class="cell-icon">${mark}</span>
+      ${mark ? `<span class="cell-icon">${mark}</span>` : `<span class="cell-icon cell-icon-empty"></span>`}
       <span class="cell-name">${def.name}</span>
       <span class="cell-price">${price}</span>
       <span class="cell-houses" aria-hidden="true"></span>
@@ -193,7 +189,7 @@ function showTip(i, anchor) {
     cell.owner == null ? "无" : state.players[cell.owner]?.name || "—";
   els.tip.hidden = false;
   els.tip.innerHTML = `
-    <strong>${cell.icon || ""} ${cell.name}</strong>
+    <strong>${cell.name}</strong>
     <div>地主：${owner}</div>
     <div>现租金：$${rentOf(cell, state)}</div>
     <div class="tip-hint">点击查看地契</div>
@@ -217,7 +213,7 @@ function openDeed(index) {
   play(selectAudio);
 
   els.deedKind.textContent = deed.kindLabel;
-  els.deedTitle.textContent = `${deed.icon} ${deed.name}`.trim();
+  els.deedTitle.textContent = deed.name;
   els.deedBand.style.background = deed.groupColor || (
     deed.type === "station" ? "#43a047" : deed.type === "utility" ? "#0288d1" : "#8d6e63"
   );
