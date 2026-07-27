@@ -101,6 +101,9 @@ export const CARDS = [
 
 export const MAX_BUILD_LEVEL = 4; // 1–3 栋房子，第 4 级为酒店
 
+/** 国家地产租金系数：空地 / 1栋 / 2栋 / 3栋 / 酒店 */
+export const PROPERTY_RENT_FACTORS = [0.2, 0.45, 0.75, 1.2, 2.2];
+
 export function isDeed(cell) {
   return cell && (cell.type === "property" || cell.type === "station" || cell.type === "utility");
 }
@@ -109,19 +112,24 @@ export function canUpgrade(cell) {
   return cell && cell.type === "property";
 }
 
+export function stationRentByCount(count) {
+  const n = Math.max(1, Math.min(4, count || 1));
+  return 250 * n * n;
+}
+
 export function rentOf(cell, state) {
   if (!cell) return 0;
   if (cell.type === "property") {
     const level = cell.level || 0;
-    // 空地 / 1栋 / 2栋 / 3栋 / 酒店
-    const factors = [0.2, 0.45, 0.75, 1.2, 2.2];
-    return Math.round(cell.value * factors[Math.min(level, MAX_BUILD_LEVEL)]);
+    return Math.round(
+      cell.value * PROPERTY_RENT_FACTORS[Math.min(level, MAX_BUILD_LEVEL)]
+    );
   }
   if (cell.type === "station" && state) {
     const owned = state.cells.filter(
       (c) => c.type === "station" && c.owner === cell.owner
     ).length;
-    return 250 * owned * owned;
+    return stationRentByCount(Math.max(1, owned));
   }
   if (cell.type === "utility") {
     return Math.round(cell.value * 0.4);
@@ -138,3 +146,74 @@ export function buildLevelLabel(level) {
   if (level >= MAX_BUILD_LEVEL) return "酒店";
   return `${level} 栋房子`;
 }
+
+/**
+ * 生成地契卡展示数据（与对局公式一致）
+ */
+export function getDeedCard(cell, state) {
+  if (!isDeed(cell)) return null;
+
+  const houseCost = upgradeCost(cell);
+  const base = {
+    name: cell.name,
+    icon: cell.icon || "",
+    type: cell.type,
+    group: cell.group || null,
+    groupColor: cell.group ? GROUP_COLORS[cell.group] : null,
+    price: cell.value,
+    ownerId: cell.owner,
+    level: cell.level || 0,
+  };
+
+  if (cell.type === "property") {
+    const rents = PROPERTY_RENT_FACTORS.map((f) => Math.round(cell.value * f));
+    return {
+      ...base,
+      kindLabel: "地产契",
+      rows: [
+        { label: "空地租金", value: rents[0], level: 0 },
+        { label: "1 栋房子", value: rents[1], level: 1 },
+        { label: "2 栋房子", value: rents[2], level: 2 },
+        { label: "3 栋房子", value: rents[3], level: 3 },
+        { label: "酒店", value: rents[4], level: 4 },
+      ],
+      costs: [
+        { label: "购买价格", value: cell.value },
+        { label: "每栋房价", value: houseCost },
+        { label: "改建酒店", value: houseCost },
+      ],
+      note: "停在自己的地产上可再建一级；满级为酒店。",
+    };
+  }
+
+  if (cell.type === "station") {
+    return {
+      ...base,
+      kindLabel: "车站契",
+      rows: [
+        { label: "拥有 1 座车站", value: stationRentByCount(1), level: 1 },
+        { label: "拥有 2 座车站", value: stationRentByCount(2), level: 2 },
+        { label: "拥有 3 座车站", value: stationRentByCount(3), level: 3 },
+        { label: "拥有 4 座车站", value: stationRentByCount(4), level: 4 },
+      ],
+      costs: [{ label: "购买价格", value: cell.value }],
+      note: "租金随你拥有的车站数量增加。",
+      stationOwned:
+        state && cell.owner != null
+          ? state.cells.filter(
+              (c) => c.type === "station" && c.owner === cell.owner
+            ).length
+          : 0,
+    };
+  }
+
+  const utilRent = Math.round(cell.value * 0.4);
+  return {
+    ...base,
+    kindLabel: "事业契",
+    rows: [{ label: "使用费（租金）", value: utilRent, level: 0 }],
+    costs: [{ label: "购买价格", value: cell.value }],
+    note: "他人停留时收取固定使用费。",
+  };
+}
+

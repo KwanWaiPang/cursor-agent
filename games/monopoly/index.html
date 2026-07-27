@@ -110,6 +110,7 @@
             <ul class="help">
               <li>实体棋「世界之旅」式环线：国旗地产、色带分组、火车站与公用事业。</li>
               <li>路过起点领取 $2000；空地/车站/水电可购买，国家地产可盖房。</li>
+              <li>点击地产 / 车站 / 水电可查看地契卡（购价、盖房费与各级租金）。</li>
               <li>盖房最多 4 级：1–3 栋房子，第 4 级升级为酒店（地图上可见）。</li>
               <li>踩到他人产业付租金；机会/命运随机奖惩；「强制暂停」停走数日。</li>
               <li>最后一名未破产者获胜。视觉参考实体环线棋，城市配置为原创。</li>
@@ -128,6 +129,29 @@
         <button type="button" id="dialogOk">确定</button>
         <button type="button" id="dialogCancel" class="secondary">取消</button>
       </div>
+    </div>
+
+    <div id="deedOverlay" class="deed-overlay" hidden>
+      <article id="deedCard" class="deed-card" role="dialog" aria-modal="true" aria-labelledby="deedTitle">
+        <header class="deed-header">
+          <span id="deedBand" class="deed-band"></span>
+          <div class="deed-heading">
+            <p id="deedKind" class="deed-kind">地产契</p>
+            <h3 id="deedTitle">—</h3>
+          </div>
+        </header>
+        <div class="deed-owner" id="deedOwner"></div>
+        <table class="deed-table" id="deedRentTable">
+          <caption>租金收益</caption>
+          <tbody></tbody>
+        </table>
+        <table class="deed-table deed-costs" id="deedCostTable">
+          <caption>价格</caption>
+          <tbody></tbody>
+        </table>
+        <p class="deed-note" id="deedNote"></p>
+        <button type="button" id="deedClose" class="secondary">关闭地契</button>
+      </article>
     </div>
     <div id="cellTip" class="cell-tip" hidden></div>
 
