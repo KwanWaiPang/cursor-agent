@@ -5,6 +5,7 @@ import {
   isDeed,
   buildLevelLabel,
   MAX_BUILD_LEVEL,
+  getDeedCard,
 } from "./data.js";
 import {
   createInitialState,
@@ -37,6 +38,15 @@ const els = {
   dialogOk: document.getElementById("dialogOk"),
   dialogCancel: document.getElementById("dialogCancel"),
   tip: document.getElementById("cellTip"),
+  deedOverlay: document.getElementById("deedOverlay"),
+  deedBand: document.getElementById("deedBand"),
+  deedKind: document.getElementById("deedKind"),
+  deedTitle: document.getElementById("deedTitle"),
+  deedOwner: document.getElementById("deedOwner"),
+  deedRentTable: document.querySelector("#deedRentTable tbody"),
+  deedCostTable: document.querySelector("#deedCostTable tbody"),
+  deedNote: document.getElementById("deedNote"),
+  deedClose: document.getElementById("deedClose"),
   startMoney: document.getElementById("startMoney"),
   humanCount: document.getElementById("humanCount"),
   aiCount: document.getElementById("aiCount"),
@@ -153,6 +163,11 @@ function buildBoard() {
     node.addEventListener("mouseleave", hideTip);
     node.addEventListener("focus", () => showTip(i, node));
     node.addEventListener("blur", hideTip);
+    node.addEventListener("click", (ev) => {
+      if (!state || !isDeed(state.cells[i])) return;
+      ev.preventDefault();
+      openDeed(i);
+    });
     els.board.appendChild(node);
     cellNodes[i] = node;
   });
@@ -171,13 +186,8 @@ function showTip(i, anchor) {
   els.tip.innerHTML = `
     <strong>${cell.icon || ""} ${cell.name}</strong>
     <div>地主：${owner}</div>
-    <div>价格：$${cell.value}</div>
-    ${
-      cell.type === "property"
-        ? `<div>建筑：${buildLevelLabel(cell.level)}（最多酒店）</div>`
-        : ""
-    }
-    <div>租金：$${rentOf(cell, state)}</div>
+    <div>现租金：$${rentOf(cell, state)}</div>
+    <div class="tip-hint">点击查看地契</div>
   `;
   const rect = anchor.getBoundingClientRect();
   els.tip.style.left = `${Math.min(window.innerWidth - 200, Math.max(8, rect.left))}px`;
@@ -186,6 +196,71 @@ function showTip(i, anchor) {
 
 function hideTip() {
   els.tip.hidden = true;
+}
+
+function openDeed(index) {
+  if (!state) return;
+  const cell = state.cells[index];
+  const deed = getDeedCard(cell, state);
+  if (!deed) return;
+
+  hideTip();
+  play(selectAudio);
+
+  els.deedKind.textContent = deed.kindLabel;
+  els.deedTitle.textContent = `${deed.icon} ${deed.name}`.trim();
+  els.deedBand.style.background = deed.groupColor || (
+    deed.type === "station" ? "#43a047" : deed.type === "utility" ? "#0288d1" : "#8d6e63"
+  );
+
+  const ownerName =
+    deed.ownerId == null
+      ? "尚未出售"
+      : state.players[deed.ownerId]?.name || "—";
+  let status = "";
+  if (deed.type === "property") {
+    status = `当前建筑：${buildLevelLabel(deed.level)}`;
+  } else if (deed.type === "station") {
+    status = deed.ownerId == null
+      ? "当前无人持有"
+      : `持有者已有 ${deed.stationOwned} 座车站`;
+  }
+  els.deedOwner.textContent = `地主：${ownerName}${status ? ` · ${status}` : ""}`;
+
+  const activeLevel =
+    deed.type === "property"
+      ? deed.level
+      : deed.type === "station"
+        ? deed.stationOwned || 0
+        : 0;
+
+  els.deedRentTable.innerHTML = deed.rows
+    .map((row) => {
+      const active =
+        (deed.type === "property" && row.level === activeLevel) ||
+        (deed.type === "station" && row.level === activeLevel);
+      return `<tr class="${active ? "is-current" : ""}">
+        <th scope="row">${row.label}</th>
+        <td>$${row.value}</td>
+      </tr>`;
+    })
+    .join("");
+
+  els.deedCostTable.innerHTML = deed.costs
+    .map(
+      (row) => `<tr>
+        <th scope="row">${row.label}</th>
+        <td>$${row.value}</td>
+      </tr>`
+    )
+    .join("");
+
+  els.deedNote.textContent = deed.note || "";
+  els.deedOverlay.hidden = false;
+}
+
+function closeDeed() {
+  els.deedOverlay.hidden = true;
 }
 
 /** 地图上盖房：1–3 栋小房子，第 4 级换成酒店 */
@@ -360,6 +435,13 @@ function startNew() {
 els.btnNew.addEventListener("click", startNew);
 els.dialogOk.addEventListener("click", () => onDialog(true));
 els.dialogCancel.addEventListener("click", () => onDialog(false));
+els.deedClose.addEventListener("click", closeDeed);
+els.deedOverlay.addEventListener("click", (ev) => {
+  if (ev.target === els.deedOverlay) closeDeed();
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") closeDeed();
+});
 els.btnSpeed.addEventListener("click", () => {
   fast = !fast;
   els.btnSpeed.textContent = fast ? "正常速度" : "加快速度";

@@ -651,6 +651,135 @@ body.game-page {
   letter-spacing: 0.06em;
 }
 
+.cell-tip .tip-hint {
+  margin-top: 0.25rem;
+  color: #f3c27a;
+  font-size: 0.75rem;
+}
+
+/* —— 地契卡 —— */
+.deed-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(20, 12, 8, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.deed-overlay[hidden] {
+  display: none !important;
+}
+
+.deed-card {
+  width: min(340px, calc(100vw - 2rem));
+  background:
+    linear-gradient(180deg, #fffdf6 0%, #f7ecd4 100%);
+  border: 2px solid #3d2f26;
+  border-radius: 10px;
+  box-shadow: 0 18px 40px rgba(20, 12, 8, 0.4);
+  padding: 0 0 0.85rem;
+  color: #1c1410;
+  font-family: var(--font-body);
+}
+
+.deed-header {
+  display: grid;
+  gap: 0;
+}
+
+.deed-band {
+  display: block;
+  height: 0.85rem;
+  background: #8d6e63;
+}
+
+.deed-heading {
+  padding: 0.65rem 0.9rem 0.35rem;
+  text-align: center;
+}
+
+.deed-kind {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  color: #6a5648;
+}
+
+.deed-heading h3 {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.35rem;
+  letter-spacing: 0.08em;
+}
+
+.deed-owner {
+  margin: 0 0.9rem 0.55rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(15, 92, 76, 0.08);
+  font-size: 0.84rem;
+  color: #3d2f26;
+  text-align: center;
+}
+
+.deed-table {
+  width: calc(100% - 1.8rem);
+  margin: 0 auto 0.55rem;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.deed-table caption {
+  caption-side: top;
+  text-align: left;
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  font-size: 0.92rem;
+  padding: 0.15rem 0 0.35rem;
+  color: #3d2f26;
+}
+
+.deed-table th,
+.deed-table td {
+  border-bottom: 1px solid rgba(61, 47, 38, 0.15);
+  padding: 0.32rem 0.15rem;
+}
+
+.deed-table th {
+  font-weight: 400;
+  text-align: left;
+  color: #4a3a30;
+}
+
+.deed-table td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.deed-table tr.is-current th,
+.deed-table tr.is-current td {
+  background: rgba(15, 92, 76, 0.12);
+  color: #0f5c4c;
+}
+
+.deed-note {
+  margin: 0.35rem 0.9rem 0.7rem;
+  font-size: 0.8rem;
+  color: #6a5648;
+  line-height: 1.4;
+}
+
+.deed-card #deedClose {
+  display: block;
+  width: calc(100% - 1.8rem);
+  margin: 0 auto;
+}
+
 .footer-note {
   text-align: center;
   color: rgba(248, 236, 214, 0.65);
