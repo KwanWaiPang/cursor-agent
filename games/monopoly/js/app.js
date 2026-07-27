@@ -2,6 +2,7 @@ import {
   BOARD,
   GROUP_COLORS,
   rentOf,
+  isDeed,
 } from "./data.js";
 import {
   createInitialState,
@@ -65,11 +66,36 @@ function speed() {
   return fast ? Math.max(220, (state?.speedMs || 700) * 0.45) : state?.speedMs || 700;
 }
 
+/** 起点在右下角，顺时针 */
 function cellGridPos(i) {
-  if (i <= 10) return { row: 11, col: i + 1 };
-  if (i <= 19) return { row: 11 - (i - 10), col: 11 };
-  if (i <= 30) return { row: 1, col: 11 - (i - 20) };
-  return { row: i - 30 + 1, col: 1 };
+  if (i <= 10) return { row: 11, col: 11 - i, side: "bottom" }; // 右→左
+  if (i <= 19) return { row: 11 - (i - 10), col: 1, side: "left" }; // 下→上
+  if (i <= 30) return { row: 1, col: i - 19, side: "top" }; // 左→右
+  return { row: i - 29, col: 11, side: "right" }; // 上→下  i=31→row2, i=39→row10
+}
+
+function cellInnerHTML(def) {
+  const price =
+    def.type === "property" || def.type === "station" || def.type === "utility"
+      ? `$${def.value}`
+      : def.subtitle || "";
+  const mark =
+    def.type === "chance"
+      ? "？"
+      : def.type === "fate"
+        ? "！"
+        : def.icon || "";
+
+  return `
+    <span class="cell-band" aria-hidden="true"></span>
+    <span class="cell-body">
+      <span class="cell-icon">${mark}</span>
+      <span class="cell-name">${def.name}</span>
+      <span class="cell-price">${price}</span>
+      <span class="cell-level"></span>
+      <span class="cell-tokens"></span>
+    </span>
+  `;
 }
 
 function buildBoard() {
@@ -81,8 +107,18 @@ function buildBoard() {
   center.style.gridColumn = "2 / 11";
   center.style.gridRow = "2 / 11";
   center.innerHTML = `
-    <div class="center-brand">世界之旅</div>
-    <div class="center-sub">环线大富翁 · 本地人机</div>
+    <div class="center-sky" aria-hidden="true"></div>
+    <div class="center-landmarks" aria-hidden="true">
+      <span>🗽</span><span>🗼</span><span>🏛️</span><span>🏯</span>
+    </div>
+    <div class="center-title">
+      <div class="center-brand">大富翁</div>
+      <div class="center-sub">世界之旅</div>
+    </div>
+    <div class="center-cards" aria-hidden="true">
+      <span class="fake-card chance">机会</span>
+      <span class="fake-card fate">命运</span>
+    </div>
     <button type="button" class="dice-btn" id="diceBtnInner" aria-label="掷骰子">
       <span class="dice-face" id="diceFaceInner">?</span>
       <span>掷骰前进</span>
@@ -90,7 +126,6 @@ function buildBoard() {
   `;
   els.board.appendChild(center);
 
-  // rebind center dice to same handlers via proxy ids used in render
   const innerBtn = center.querySelector("#diceBtnInner");
   const innerFace = center.querySelector("#diceFaceInner");
   els.dice = innerBtn;
@@ -101,18 +136,17 @@ function buildBoard() {
     const pos = cellGridPos(i);
     const node = document.createElement("button");
     node.type = "button";
-    node.className = `cell cell-${def.type}`;
+    node.className = `cell cell-${def.type} side-${pos.side}`;
+    if (i === 0 || i === 10 || i === 20 || i === 30) {
+      node.classList.add("cell-corner");
+    }
     node.style.gridRow = String(pos.row);
     node.style.gridColumn = String(pos.col);
     if (def.group) {
       node.style.setProperty("--group", GROUP_COLORS[def.group] || "#888");
     }
     node.dataset.index = String(i);
-    node.innerHTML = `
-      <span class="cell-name">${def.name}</span>
-      <span class="cell-meta"></span>
-      <span class="cell-tokens"></span>
-    `;
+    node.innerHTML = cellInnerHTML(def);
     node.addEventListener("mouseenter", () => showTip(i, node));
     node.addEventListener("mouseleave", hideTip);
     node.addEventListener("focus", () => showTip(i, node));
@@ -125,7 +159,7 @@ function buildBoard() {
 function showTip(i, anchor) {
   if (!state) return;
   const cell = state.cells[i];
-  if (cell.type !== "property" && cell.type !== "airport") {
+  if (!isDeed(cell)) {
     hideTip();
     return;
   }
@@ -134,17 +168,18 @@ function showTip(i, anchor) {
   const levels = ["空地", "小屋", "别墅", "酒店"];
   els.tip.hidden = false;
   els.tip.innerHTML = `
-    <strong>${cell.name}</strong>
+    <strong>${cell.icon || ""} ${cell.name}</strong>
     <div>地主：${owner}</div>
     <div>价格：$${cell.value}</div>
     ${
       cell.type === "property"
-        ? `<div>等级：${levels[cell.level] || "空地"}</div><div>住宿：$${rentOf(cell)}</div>`
+        ? `<div>等级：${levels[cell.level] || "空地"}</div>`
         : ""
     }
+    <div>租金：$${rentOf(cell, state)}</div>
   `;
   const rect = anchor.getBoundingClientRect();
-  els.tip.style.left = `${Math.min(window.innerWidth - 200, rect.left)}px`;
+  els.tip.style.left = `${Math.min(window.innerWidth - 200, Math.max(8, rect.left))}px`;
   els.tip.style.top = `${Math.max(8, rect.top - 8)}px`;
 }
 
@@ -156,9 +191,8 @@ function render() {
   if (!state) return;
   const p = currentPlayer(state);
 
-  els.turnLabel.textContent = state.phase === "ended"
-    ? "对局结束"
-    : `${p.name} 行动`;
+  els.turnLabel.textContent =
+    state.phase === "ended" ? "对局结束" : `${p.name} 行动`;
   els.turnDot.style.background = p?.color || "#888";
   els.dayCount.textContent = `第 ${state.day} 天`;
   els.message.textContent = state.message || "";
@@ -181,7 +215,6 @@ function render() {
     els.result.textContent = "";
   }
 
-  // players
   els.players.innerHTML = state.players
     .map((pl) => {
       const props = state.cells.filter((c) => c.owner === pl.id).length;
@@ -193,7 +226,7 @@ function render() {
         pl.auto ? " · 托管" : ""
       }</span>
         <span class="money">$${pl.bankrupt ? 0 : pl.money}</span>
-        <span class="props">${props}处地产</span>
+        <span class="props">${props}处产业</span>
       </li>`;
     })
     .join("");
@@ -203,11 +236,11 @@ function render() {
     .map((t) => `<li>${t}</li>`)
     .join("");
 
-  // cells
   state.cells.forEach((cell, i) => {
     const node = cellNodes[i];
     if (!node) return;
-    const meta = node.querySelector(".cell-meta");
+    const levelEl = node.querySelector(".cell-level");
+    const priceEl = node.querySelector(".cell-price");
     const tokens = node.querySelector(".cell-tokens");
     node.classList.toggle("owned", cell.owner != null);
     if (cell.owner != null) {
@@ -216,12 +249,11 @@ function render() {
       node.style.removeProperty("--owner");
     }
     if (cell.type === "property") {
-      meta.textContent =
-        cell.level > 0 ? "▲".repeat(cell.level) : `$${cell.value}`;
-    } else if (cell.type === "airport") {
-      meta.textContent = "站";
-    } else {
-      meta.textContent = "";
+      levelEl.textContent = cell.level > 0 ? "🏠".repeat(cell.level) : "";
+      priceEl.textContent = `$${cell.value}`;
+    } else if (cell.type === "station" || cell.type === "utility") {
+      levelEl.textContent = "";
+      priceEl.textContent = `$${cell.value}`;
     }
     const here = state.players.filter(
       (pl) => !pl.bankrupt && pl.position === i
@@ -247,7 +279,6 @@ function render() {
     state.phase !== "ended";
   if (els.dice) els.dice.disabled = !canRoll;
 
-  // dialog
   if (state.phase === "dialog" && state.pendingDialog) {
     els.dialog.hidden = false;
     els.dialogTitle.textContent = state.pendingDialog.title;
@@ -326,11 +357,9 @@ els.btnAuto.addEventListener("click", () => {
   }
 });
 
-// 限制人数总和 ≤ 4
 function syncCounts() {
   const h = Number(els.humanCount.value);
-  const a = Number(els.aiCount.value);
-  if (h + a > 4) {
+  if (h + Number(els.aiCount.value) > 4) {
     els.aiCount.value = String(Math.max(0, 4 - h));
   }
   if (h + Number(els.aiCount.value) < 2) {

@@ -10,6 +10,7 @@ import {
   TOKEN_PRESETS,
   rentOf,
   upgradeCost,
+  canUpgrade,
 } from "./data.js";
 
 export function createInitialState(opts) {
@@ -162,9 +163,9 @@ function resolveLanding(state) {
       return finishEvent(state);
     }
     case "property":
+    case "station":
+    case "utility":
       return resolveProperty(state, cell);
-    case "airport":
-      return resolveAirport(state, cell);
     case "chance":
     case "fate":
       return resolveCard(state);
@@ -188,7 +189,7 @@ function resolveLanding(state) {
       return finishEvent(state);
     }
     case "park": {
-      state.message = `${player.name} 在免费停车区稍作休息`;
+      state.message = `${player.name} 在免费停车场稍作休息`;
       pushLog(state, state.message);
       return finishEvent(state);
     }
@@ -205,7 +206,7 @@ function resolveLanding(state) {
       const cost = days * 1000;
       player.money -= cost;
       player.stop = days;
-      state.message = `${player.name} 赴阿尔卑斯度假 ${days} 天，花费 $${cost}`;
+      state.message = `${player.name} 度假 ${days} 天，花费 $${cost}`;
       pushLog(state, state.message);
       return afterMoneyChange(state);
     }
@@ -244,8 +245,10 @@ function resolveProperty(state, cell) {
   }
 
   if (cell.owner === player.id) {
-    if (cell.level >= 3) {
-      state.message = `「${cell.name}」已是酒店，无需升级`;
+    if (!canUpgrade(cell) || cell.level >= 3) {
+      state.message = canUpgrade(cell)
+        ? `「${cell.name}」已是酒店，无需升级`
+        : `停在自己的「${cell.name}」`;
       pushLog(state, state.message);
       return finishEvent(state);
     }
@@ -279,25 +282,11 @@ function resolveProperty(state, cell) {
     pushLog(state, state.message);
     return finishEvent(state);
   }
-  const rent = rentOf(cell);
+  const rent = rentOf(cell, state);
   player.money -= rent;
   owner.money += rent;
   state.message = `${player.name} 在「${cell.name}」付给 ${owner.name} 租金 $${rent}`;
   pushLog(state, state.message);
-  return afterMoneyChange(state);
-}
-
-function resolveAirport(state, cell) {
-  const player = currentPlayer(state);
-  const fee = 800;
-  const dest = cell.twin ?? 0;
-  player.money -= fee;
-  player.position = dest;
-  state.message = `${player.name} 花费 $${fee} 搭乘「${cell.name}」飞往「${state.cells[dest].name}」`;
-  pushLog(state, state.message);
-  // 落地后再结算目的地（避免无限飞机连环：若目的地是机场则只路过）
-  const landed = state.cells[dest];
-  if (landed.type === "property") return resolveProperty(state, landed);
   return afterMoneyChange(state);
 }
 
@@ -343,7 +332,7 @@ export function confirmDialog(state, yes) {
 
   if (dlg.kind === "upgrade") {
     const cost = upgradeCost(cell);
-    if (player.money < cost || cell.level >= 3) {
+    if (!canUpgrade(cell) || player.money < cost || cell.level >= 3) {
       state.message = "无法升级";
       return finishEvent(state);
     }
