@@ -265,6 +265,55 @@ body.game-page {
   min-height: 0.45em;
 }
 
+.cell-houses {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 1px;
+  min-height: 0.55rem;
+  width: 100%;
+}
+
+.house {
+  width: 0.42rem;
+  height: 0.36rem;
+  background: #2e7d32;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 1px 1px 0 0;
+  position: relative;
+  flex: 0 0 auto;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+}
+
+.house::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: -0.22rem;
+  height: 0.24rem;
+  background: #c62828;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.house.hotel {
+  width: 0.7rem;
+  height: 0.55rem;
+  background: linear-gradient(180deg, #ef5350, #c62828);
+  border-radius: 2px 2px 1px 1px;
+}
+
+.house.hotel::before {
+  top: -0.18rem;
+  height: 0.2rem;
+  background: #b71c1c;
+}
+
+.cell.has-hotel .cell-price {
+  font-size: clamp(0.38rem, 0.85vw, 0.58rem);
+}
+
 .cell-tokens {
   display: flex;
   flex-wrap: wrap;

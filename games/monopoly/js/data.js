@@ -29,7 +29,7 @@ export const BOARD = [
   { name: "机会", type: "chance", value: 0, icon: "?" },
   { name: "加拿大", type: "property", value: 1200, group: "sky", icon: "🇨🇦" },
   { name: "美国", type: "property", value: 1400, group: "sky", icon: "🇺🇸" },
-  { name: "坐牢", type: "jail", value: 0, icon: "🔒", subtitle: "只是探视" },
+  { name: "暂停", type: "jail", value: 0, icon: "⏸️", subtitle: "路过无停留" },
 
   // 左边（下→上）：欧洲
   { name: "荷兰", type: "property", value: 1600, group: "pink", icon: "🇳🇱" },
@@ -53,7 +53,7 @@ export const BOARD = [
   { name: "澳大利亚", type: "property", value: 3600, group: "yellow", icon: "🇦🇺" },
   { name: "自来水公司", type: "utility", value: 1500, icon: "🚰" },
   { name: "新加坡", type: "property", value: 3800, group: "yellow", icon: "🇸🇬" },
-  { name: "进监", type: "gotojail", value: 0, icon: "🚨", subtitle: "立刻入狱" },
+  { name: "强制暂停", type: "gotojail", value: 0, icon: "🛑", subtitle: "停走数日" },
 
   // 右边（上→下）：东亚
   { name: "巴西", type: "property", value: 4000, group: "green", icon: "🇧🇷" },
@@ -89,15 +89,17 @@ export const CARDS = [
   { text: "奖学金到账 $3000", money: 3000, jail: 0 },
   { text: "环球旅行超支 $2000", money: -2000, jail: 0 },
   { text: "什么也没发生", money: 0, jail: 0 },
-  { text: "偷税漏税：罚款 $1000，拘留 1 天", money: -1000, jail: 1 },
-  { text: "超速行驶：罚款 $2000，拘留 2 天", money: -2000, jail: 2 },
-  { text: "违建查处：罚款 $1000，拘留 3 天", money: -1000, jail: 3 },
-  { text: "无照经营被关 5 天", money: 0, jail: 5 },
+  { text: "偷税漏税：罚款 $1000，暂停 1 天", money: -1000, jail: 1 },
+  { text: "超速行驶：罚款 $2000，暂停 2 天", money: -2000, jail: 2 },
+  { text: "违建查处：罚款 $1000，暂停 3 天", money: -1000, jail: 3 },
+  { text: "证件过期被勒令暂停 5 天", money: 0, jail: 5 },
   { text: "卖闲置赚了 $100", money: 100, jail: 0 },
   { text: "看电影花了 $100", money: -100, jail: 0 },
   { text: "导游小费收入 $500", money: 500, jail: 0 },
   { text: "护照丢失补办 $1000", money: -1000, jail: 0 },
 ];
+
+export const MAX_BUILD_LEVEL = 4; // 1–3 栋房子，第 4 级为酒店
 
 export function isDeed(cell) {
   return cell && (cell.type === "property" || cell.type === "station" || cell.type === "utility");
@@ -111,14 +113,15 @@ export function rentOf(cell, state) {
   if (!cell) return 0;
   if (cell.type === "property") {
     const level = cell.level || 0;
-    const factors = [0.2, 0.5, 1, 2];
-    return Math.round(cell.value * factors[Math.min(level, 3)]);
+    // 空地 / 1栋 / 2栋 / 3栋 / 酒店
+    const factors = [0.2, 0.45, 0.75, 1.2, 2.2];
+    return Math.round(cell.value * factors[Math.min(level, MAX_BUILD_LEVEL)]);
   }
   if (cell.type === "station" && state) {
     const owned = state.cells.filter(
       (c) => c.type === "station" && c.owner === cell.owner
     ).length;
-    return 250 * owned * owned; // 1→250, 2→1000, 3→2250, 4→4000
+    return 250 * owned * owned;
   }
   if (cell.type === "utility") {
     return Math.round(cell.value * 0.4);
@@ -128,4 +131,10 @@ export function rentOf(cell, state) {
 
 export function upgradeCost(cell) {
   return Math.round(cell.value / 2);
+}
+
+export function buildLevelLabel(level) {
+  if (!level) return "空地";
+  if (level >= MAX_BUILD_LEVEL) return "酒店";
+  return `${level} 栋房子`;
 }

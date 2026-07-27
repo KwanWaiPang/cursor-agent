@@ -3,6 +3,8 @@ import {
   GROUP_COLORS,
   rentOf,
   isDeed,
+  buildLevelLabel,
+  MAX_BUILD_LEVEL,
 } from "./data.js";
 import {
   createInitialState,
@@ -92,7 +94,7 @@ function cellInnerHTML(def) {
       <span class="cell-icon">${mark}</span>
       <span class="cell-name">${def.name}</span>
       <span class="cell-price">${price}</span>
-      <span class="cell-level"></span>
+      <span class="cell-houses" aria-hidden="true"></span>
       <span class="cell-tokens"></span>
     </span>
   `;
@@ -165,7 +167,6 @@ function showTip(i, anchor) {
   }
   const owner =
     cell.owner == null ? "无" : state.players[cell.owner]?.name || "—";
-  const levels = ["空地", "小屋", "别墅", "酒店"];
   els.tip.hidden = false;
   els.tip.innerHTML = `
     <strong>${cell.icon || ""} ${cell.name}</strong>
@@ -173,7 +174,7 @@ function showTip(i, anchor) {
     <div>价格：$${cell.value}</div>
     ${
       cell.type === "property"
-        ? `<div>等级：${levels[cell.level] || "空地"}</div>`
+        ? `<div>建筑：${buildLevelLabel(cell.level)}（最多酒店）</div>`
         : ""
     }
     <div>租金：$${rentOf(cell, state)}</div>
@@ -185,6 +186,16 @@ function showTip(i, anchor) {
 
 function hideTip() {
   els.tip.hidden = true;
+}
+
+/** 地图上盖房：1–3 栋小房子，第 4 级换成酒店 */
+function renderHouses(level) {
+  const n = Math.max(0, Math.min(level || 0, MAX_BUILD_LEVEL));
+  if (n <= 0) return "";
+  if (n >= MAX_BUILD_LEVEL) {
+    return `<span class="house hotel" title="酒店"></span>`;
+  }
+  return Array.from({ length: n }, () => `<span class="house" title="房子"></span>`).join("");
 }
 
 function render() {
@@ -239,7 +250,7 @@ function render() {
   state.cells.forEach((cell, i) => {
     const node = cellNodes[i];
     if (!node) return;
-    const levelEl = node.querySelector(".cell-level");
+    const housesEl = node.querySelector(".cell-houses");
     const priceEl = node.querySelector(".cell-price");
     const tokens = node.querySelector(".cell-tokens");
     node.classList.toggle("owned", cell.owner != null);
@@ -249,11 +260,17 @@ function render() {
       node.style.removeProperty("--owner");
     }
     if (cell.type === "property") {
-      levelEl.textContent = cell.level > 0 ? "🏠".repeat(cell.level) : "";
       priceEl.textContent = `$${cell.value}`;
+      housesEl.innerHTML = renderHouses(cell.level || 0);
+      node.classList.toggle("has-houses", (cell.level || 0) > 0);
+      node.classList.toggle("has-hotel", (cell.level || 0) >= MAX_BUILD_LEVEL);
     } else if (cell.type === "station" || cell.type === "utility") {
-      levelEl.textContent = "";
+      housesEl.innerHTML = "";
       priceEl.textContent = `$${cell.value}`;
+      node.classList.remove("has-houses", "has-hotel");
+    } else {
+      housesEl.innerHTML = "";
+      node.classList.remove("has-houses", "has-hotel");
     }
     const here = state.players.filter(
       (pl) => !pl.bankrupt && pl.position === i
