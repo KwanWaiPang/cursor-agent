@@ -10,7 +10,8 @@ import {
 import {
   createInitialState,
   currentPlayer,
-  rollAndMove,
+  rollDicePair,
+  applyDiceMove,
   confirmDialog,
   shouldAutoAct,
   autoAct,
@@ -31,7 +32,9 @@ const els = {
   players: document.getElementById("playerList"),
   log: document.getElementById("logList"),
   dice: null,
-  diceFace: null,
+  diceTray: null,
+  dieA: null,
+  dieB: null,
   dialog: document.getElementById("dialog"),
   dialogTitle: document.getElementById("dialogTitle"),
   dialogText: document.getElementById("dialogText"),
@@ -131,17 +134,23 @@ function buildBoard() {
       <span class="fake-card chance">机会</span>
       <span class="fake-card fate">命运</span>
     </div>
+    <div class="dice-tray" id="diceTray">
+      <button type="button" class="die" id="dieA" data-value="0" aria-label="骰子一"></button>
+      <button type="button" class="die" id="dieB" data-value="0" aria-label="骰子二"></button>
+    </div>
     <button type="button" class="dice-btn" id="diceBtnInner" aria-label="掷骰子">
-      <span class="dice-face" id="diceFaceInner">?</span>
-      <span>掷骰前进</span>
+      掷双骰前进
     </button>
   `;
   els.board.appendChild(center);
 
   const innerBtn = center.querySelector("#diceBtnInner");
-  const innerFace = center.querySelector("#diceFaceInner");
   els.dice = innerBtn;
-  els.diceFace = innerFace;
+  els.diceTray = center.querySelector("#diceTray");
+  els.dieA = center.querySelector("#dieA");
+  els.dieB = center.querySelector("#dieB");
+  paintDie(els.dieA, 0);
+  paintDie(els.dieB, 0);
   innerBtn.addEventListener("click", onDice);
 
   BOARD.forEach((def, i) => {
@@ -263,6 +272,65 @@ function closeDeed() {
   els.deedOverlay.hidden = true;
 }
 
+/** 骰子点数面（圆点） */
+function paintDie(el, value) {
+  if (!el) return;
+  const n = Math.max(0, Math.min(6, value | 0));
+  el.dataset.value = String(n);
+  el.classList.toggle("die-blank", n === 0);
+  const map = {
+    0: [],
+    1: [4],
+    2: [0, 8],
+    3: [0, 4, 8],
+    4: [0, 2, 6, 8],
+    5: [0, 2, 4, 6, 8],
+    6: [0, 2, 3, 5, 6, 8],
+  };
+  el.innerHTML = Array.from({ length: 9 }, (_, i) =>
+    map[n].includes(i) ? '<span class="pip"></span>' : "<span></span>"
+  ).join("");
+}
+
+function randFace() {
+  return 1 + Math.floor(Math.random() * 6);
+}
+
+async function animateDice(a, b) {
+  if (els.diceTray) els.diceTray.classList.add("is-rolling");
+  const spins = fast ? 8 : 14;
+  for (let i = 0; i < spins; i++) {
+    paintDie(els.dieA, randFace());
+    paintDie(els.dieB, randFace());
+    await delay(fast ? 35 : 55);
+  }
+  paintDie(els.dieA, a);
+  paintDie(els.dieB, b);
+  if (els.diceTray) {
+    els.diceTray.classList.remove("is-rolling");
+    els.diceTray.classList.add("is-landed");
+    await delay(fast ? 180 : 320);
+    els.diceTray.classList.remove("is-landed");
+  }
+}
+
+async function playTurnRoll() {
+  const pair = rollDicePair();
+  play(selectAudio);
+  await animateDice(pair.a, pair.b);
+  state = applyDiceMove(state, pair);
+  play(clickAudio);
+  render();
+}
+
+function meepleHTML(pl) {
+  return `<span class="meeple" style="--piece:${pl.color};--piece-light:${pl.accent || "#fff"}" title="${pl.name}">
+    <span class="meeple-head"></span>
+    <span class="meeple-body"></span>
+    <span class="meeple-base"></span>
+  </span>`;
+}
+
 /** 地图上盖房：1–3 栋小房子，第 4 级换成酒店 */
 function renderHouses(level) {
   const n = Math.max(0, Math.min(level || 0, MAX_BUILD_LEVEL));
@@ -307,7 +375,7 @@ function render() {
       return `<li class="${pl.bankrupt ? "bankrupt" : ""} ${
         pl.id === state.turn ? "current" : ""
       }">
-        <span class="token" style="background:${pl.color}"></span>
+        <span class="token-wrap">${meepleHTML(pl)}</span>
         <span class="name">${pl.name}${pl.isHuman ? "" : " · AI"}${
         pl.auto ? " · 托管" : ""
       }</span>
@@ -350,16 +418,12 @@ function render() {
     const here = state.players.filter(
       (pl) => !pl.bankrupt && pl.position === i
     );
-    tokens.innerHTML = here
-      .map(
-        (pl) =>
-          `<span class="pawn" style="background:${pl.color}" title="${pl.name}"></span>`
-      )
-      .join("");
+    tokens.innerHTML = here.map((pl) => meepleHTML(pl)).join("");
   });
 
-  if (els.diceFace && state.lastDice) {
-    els.diceFace.textContent = String(state.lastDice);
+  if (state.lastDiceA && state.lastDiceB) {
+    paintDie(els.dieA, state.lastDiceA);
+    paintDie(els.dieB, state.lastDiceB);
   }
 
   const canRoll =
@@ -385,12 +449,16 @@ async function runAutoLoop() {
   while (state && shouldAutoAct(state) && state.phase !== "ended") {
     busy = true;
     render();
-    await delay(speed());
-    state = autoAct(state);
-    play(clickAudio);
-    busy = false;
-    render();
-    await delay(speed() * 0.6);
+    if (state.phase === "ready") {
+      await delay(speed() * 0.35);
+      await playTurnRoll();
+    } else {
+      await delay(speed());
+      state = autoAct(state);
+      play(clickAudio);
+      render();
+    }
+    await delay(speed() * 0.45);
   }
   busy = false;
   render();
@@ -401,11 +469,8 @@ async function onDice() {
   const p = currentPlayer(state);
   if (!p.isHuman || p.auto) return;
   busy = true;
-  play(selectAudio);
   render();
-  await delay(120);
-  state = rollAndMove(state);
-  play(clickAudio);
+  await playTurnRoll();
   busy = false;
   render();
   await runAutoLoop();
