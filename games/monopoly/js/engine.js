@@ -10,6 +10,9 @@ import {
   TOKEN_PRESETS,
   rentOf,
   upgradeCost,
+  canUpgrade,
+  MAX_BUILD_LEVEL,
+  buildLevelLabel,
 } from "./data.js";
 
 export function createInitialState(opts) {
@@ -108,7 +111,7 @@ export function advanceTurn(state, _guard = 0) {
   const p = currentPlayer(state);
   if (p.stop > 0) {
     const where =
-      state.cells[p.position].type === "jail" ? "狱中" : "度假中";
+      state.cells[p.position].type === "jail" ? "暂停中" : "度假中";
     state.message = `${p.name}仍在${where}，剩余 ${p.stop} 天`;
     pushLog(state, state.message);
     p.stop -= 1;
@@ -162,9 +165,9 @@ function resolveLanding(state) {
       return finishEvent(state);
     }
     case "property":
+    case "station":
+    case "utility":
       return resolveProperty(state, cell);
-    case "airport":
-      return resolveAirport(state, cell);
     case "chance":
     case "fate":
       return resolveCard(state);
@@ -176,19 +179,19 @@ function resolveLanding(state) {
       return afterMoneyChange(state);
     }
     case "jail": {
-      state.message = `${player.name} 只是路过监狱探视`;
+      state.message = `${player.name} 路过暂停格，继续旅程`;
       pushLog(state, state.message);
       return finishEvent(state);
     }
     case "gotojail": {
       player.position = 10;
       player.stop = rand(1, 3);
-      state.message = `${player.name} 被送进监狱，关押 ${player.stop} 天`;
+      state.message = `${player.name} 强制暂停 ${player.stop} 天`;
       pushLog(state, state.message);
       return finishEvent(state);
     }
     case "park": {
-      state.message = `${player.name} 在免费停车区稍作休息`;
+      state.message = `${player.name} 在免费停车场稍作休息`;
       pushLog(state, state.message);
       return finishEvent(state);
     }
@@ -205,7 +208,7 @@ function resolveLanding(state) {
       const cost = days * 1000;
       player.money -= cost;
       player.stop = days;
-      state.message = `${player.name} 赴阿尔卑斯度假 ${days} 天，花费 $${cost}`;
+      state.message = `${player.name} 度假 ${days} 天，花费 $${cost}`;
       pushLog(state, state.message);
       return afterMoneyChange(state);
     }
@@ -244,8 +247,10 @@ function resolveProperty(state, cell) {
   }
 
   if (cell.owner === player.id) {
-    if (cell.level >= 3) {
-      state.message = `「${cell.name}」已是酒店，无需升级`;
+    if (!canUpgrade(cell) || cell.level >= MAX_BUILD_LEVEL) {
+      state.message = canUpgrade(cell)
+        ? `「${cell.name}」已是酒店，无法再建`
+        : `停在自己的「${cell.name}」`;
       pushLog(state, state.message);
       return finishEvent(state);
     }
@@ -256,7 +261,7 @@ function resolveProperty(state, cell) {
       state.pendingDialog = {
         kind: "upgrade",
         title: "升级地产",
-        text: `是否花费 $${cost} 升级「${cell.name}」？`,
+        text: `是否花费 $${cost} 在「${cell.name}」再建一级？（当前 ${buildLevelLabel(cell.level)}，满级为酒店）`,
         canConfirm: canUp,
         cellIndex: cell.index,
       };
@@ -279,25 +284,11 @@ function resolveProperty(state, cell) {
     pushLog(state, state.message);
     return finishEvent(state);
   }
-  const rent = rentOf(cell);
+  const rent = rentOf(cell, state);
   player.money -= rent;
   owner.money += rent;
   state.message = `${player.name} 在「${cell.name}」付给 ${owner.name} 租金 $${rent}`;
   pushLog(state, state.message);
-  return afterMoneyChange(state);
-}
-
-function resolveAirport(state, cell) {
-  const player = currentPlayer(state);
-  const fee = 800;
-  const dest = cell.twin ?? 0;
-  player.money -= fee;
-  player.position = dest;
-  state.message = `${player.name} 花费 $${fee} 搭乘「${cell.name}」飞往「${state.cells[dest].name}」`;
-  pushLog(state, state.message);
-  // 落地后再结算目的地（避免无限飞机连环：若目的地是机场则只路过）
-  const landed = state.cells[dest];
-  if (landed.type === "property") return resolveProperty(state, landed);
   return afterMoneyChange(state);
 }
 
@@ -343,14 +334,13 @@ export function confirmDialog(state, yes) {
 
   if (dlg.kind === "upgrade") {
     const cost = upgradeCost(cell);
-    if (player.money < cost || cell.level >= 3) {
+    if (!canUpgrade(cell) || player.money < cost || cell.level >= MAX_BUILD_LEVEL) {
       state.message = "无法升级";
       return finishEvent(state);
     }
     player.money -= cost;
     cell.level += 1;
-    const names = ["小屋", "别墅", "酒店"];
-    state.message = `${player.name} 将「${cell.name}」升级为${names[cell.level - 1]}`;
+    state.message = `${player.name} 在「${cell.name}」建了${buildLevelLabel(cell.level)}`;
     pushLog(state, state.message);
     return finishEvent(state);
   }
