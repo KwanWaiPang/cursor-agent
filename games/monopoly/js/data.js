@@ -15,56 +15,56 @@ export const TOKEN_PRESETS = [
 
 /**
  * 起点在右下角，顺时针：底边向左 → 左边向上 → 顶边向右 → 右边向下
- * icon: emoji；group: 色组
+ * 国家地产不使用国旗；特殊格仅用文字记号
  */
 export const BOARD = [
   // 底边（右→左）：美洲
-  { name: "起点", type: "go", value: 2000, icon: "🚀", subtitle: "路过领 $2000" },
-  { name: "古巴", type: "property", value: 600, group: "brown", icon: "🇨🇺" },
-  { name: "命运", type: "fate", value: 0, icon: "❗" },
-  { name: "墨西哥", type: "property", value: 800, group: "brown", icon: "🇲🇽" },
-  { name: "所得税", type: "tax", value: 1000, icon: "💵" },
-  { name: "纽约站", type: "station", value: 2000, icon: "🚉" },
-  { name: "阿根廷", type: "property", value: 1000, group: "sky", icon: "🇦🇷" },
-  { name: "机会", type: "chance", value: 0, icon: "?" },
-  { name: "加拿大", type: "property", value: 1200, group: "sky", icon: "🇨🇦" },
-  { name: "美国", type: "property", value: 1400, group: "sky", icon: "🇺🇸" },
-  { name: "暂停", type: "jail", value: 0, icon: "⏸️", subtitle: "路过无停留" },
+  { name: "起点", type: "go", value: 2000, mark: "起", subtitle: "路过领 $2000" },
+  { name: "古巴", type: "property", value: 600, group: "brown" },
+  { name: "命运", type: "fate", value: 0, mark: "！" },
+  { name: "墨西哥", type: "property", value: 800, group: "brown" },
+  { name: "所得税", type: "tax", value: 1000, mark: "税" },
+  { name: "纽约站", type: "station", value: 2000, mark: "站" },
+  { name: "阿根廷", type: "property", value: 1000, group: "sky" },
+  { name: "机会", type: "chance", value: 0, mark: "？" },
+  { name: "加拿大", type: "property", value: 1200, group: "sky" },
+  { name: "美国", type: "property", value: 1400, group: "sky" },
+  { name: "暂停", type: "jail", value: 0, mark: "停", subtitle: "路过无停留" },
 
   // 左边（下→上）：欧洲
-  { name: "荷兰", type: "property", value: 1600, group: "pink", icon: "🇳🇱" },
-  { name: "电力公司", type: "utility", value: 1500, icon: "💡" },
-  { name: "希腊", type: "property", value: 1800, group: "pink", icon: "🇬🇷" },
-  { name: "西班牙", type: "property", value: 2000, group: "pink", icon: "🇪🇸" },
-  { name: "巴黎站", type: "station", value: 2000, icon: "🚉" },
-  { name: "意大利", type: "property", value: 2200, group: "orange", icon: "🇮🇹" },
-  { name: "命运", type: "fate", value: 0, icon: "❗" },
-  { name: "德国", type: "property", value: 2400, group: "orange", icon: "🇩🇪" },
-  { name: "法国", type: "property", value: 2600, group: "orange", icon: "🇫🇷" },
+  { name: "荷兰", type: "property", value: 1600, group: "pink" },
+  { name: "电力公司", type: "utility", value: 1500, mark: "电" },
+  { name: "希腊", type: "property", value: 1800, group: "pink" },
+  { name: "西班牙", type: "property", value: 2000, group: "pink" },
+  { name: "巴黎站", type: "station", value: 2000, mark: "站" },
+  { name: "意大利", type: "property", value: 2200, group: "orange" },
+  { name: "命运", type: "fate", value: 0, mark: "！" },
+  { name: "德国", type: "property", value: 2400, group: "orange" },
+  { name: "法国", type: "property", value: 2600, group: "orange" },
 
-  // 顶边（左→右）：亚欧
-  { name: "免费停车场", type: "park", value: 0, icon: "🅿️", subtitle: "休息一回" },
-  { name: "英国", type: "property", value: 2800, group: "red", icon: "🇬🇧" },
-  { name: "机会", type: "chance", value: 0, icon: "?" },
-  { name: "俄罗斯", type: "property", value: 3000, group: "red", icon: "🇷🇺" },
-  { name: "土耳其", type: "property", value: 3200, group: "red", icon: "🇹🇷" },
-  { name: "东京站", type: "station", value: 2000, icon: "🚉" },
-  { name: "泰国", type: "property", value: 3400, group: "yellow", icon: "🇹🇭" },
-  { name: "澳大利亚", type: "property", value: 3600, group: "yellow", icon: "🇦🇺" },
-  { name: "自来水公司", type: "utility", value: 1500, icon: "🚰" },
-  { name: "新加坡", type: "property", value: 3800, group: "yellow", icon: "🇸🇬" },
-  { name: "强制暂停", type: "gotojail", value: 0, icon: "🛑", subtitle: "停走数日" },
+  // 顶边（左→右）：欧亚
+  { name: "免费停车场", type: "park", value: 0, mark: "泊", subtitle: "休息一回" },
+  { name: "英国", type: "property", value: 2800, group: "red" },
+  { name: "机会", type: "chance", value: 0, mark: "？" },
+  { name: "俄罗斯", type: "property", value: 3000, group: "red" },
+  { name: "土耳其", type: "property", value: 3200, group: "red" },
+  { name: "东京站", type: "station", value: 2000, mark: "站" },
+  { name: "泰国", type: "property", value: 3400, group: "yellow" },
+  { name: "澳大利亚", type: "property", value: 3600, group: "yellow" },
+  { name: "自来水公司", type: "utility", value: 1500, mark: "水" },
+  { name: "新加坡", type: "property", value: 3800, group: "yellow" },
+  { name: "强制暂停", type: "gotojail", value: 0, mark: "止", subtitle: "停走数日" },
 
-  // 右边（上→下）：东亚
-  { name: "巴西", type: "property", value: 4000, group: "green", icon: "🇧🇷" },
-  { name: "日本", type: "property", value: 4200, group: "green", icon: "🇯🇵" },
-  { name: "命运", type: "fate", value: 0, icon: "❗" },
-  { name: "韩国", type: "property", value: 4400, group: "green", icon: "🇰🇷" },
-  { name: "香港站", type: "station", value: 2000, icon: "🚉" },
-  { name: "香港", type: "property", value: 4600, group: "navy", icon: "🇭🇰" },
-  { name: "机会", type: "chance", value: 0, icon: "?" },
-  { name: "中国", type: "property", value: 4800, group: "navy", icon: "🇨🇳" },
-  { name: "财产税", type: "tax", value: 1500, icon: "💰" },
+  // 右边（上→下）：亚非等（中国为统一国家地产，不含港澳台分列）
+  { name: "巴西", type: "property", value: 4000, group: "green" },
+  { name: "日本", type: "property", value: 4200, group: "green" },
+  { name: "命运", type: "fate", value: 0, mark: "！" },
+  { name: "韩国", type: "property", value: 4400, group: "green" },
+  { name: "上海站", type: "station", value: 2000, mark: "站" },
+  { name: "印度", type: "property", value: 4600, group: "navy" },
+  { name: "机会", type: "chance", value: 0, mark: "？" },
+  { name: "中国", type: "property", value: 4800, group: "navy" },
+  { name: "财产税", type: "tax", value: 1500, mark: "税" },
 ];
 
 export const GROUP_COLORS = {
@@ -156,7 +156,7 @@ export function getDeedCard(cell, state) {
   const houseCost = upgradeCost(cell);
   const base = {
     name: cell.name,
-    icon: cell.icon || "",
+    icon: cell.mark || "",
     type: cell.type,
     group: cell.group || null,
     groupColor: cell.group ? GROUP_COLORS[cell.group] : null,
