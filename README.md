@@ -1,6 +1,6 @@
 # 游戏馆
 
-统一风格的网页游戏集合：围棋、中国象棋、五子棋、军棋、3D 国际象棋、3D 战术射击。可部署到 GitHub Pages，从大厅任选开玩。
+统一风格的网页游戏集合：围棋、中国象棋、五子棋、军棋、大富翁（世界之旅环线）、3D 国际象棋、3D 战术射击。可部署到 GitHub Pages，从大厅任选开玩。
 
 ## 在线地址
 
@@ -18,6 +18,7 @@ games/go/               # 围棋
 games/xiangqi/          # 中国象棋
 games/gomoku/           # 五子棋（双人 / 人机）
 games/junqi/            # 军棋暗棋（仅人机，真实棋盘）
+games/monopoly/         # 大富翁 · 世界之旅环线（本地人机）
 games/chess3d/          # 3D 国际象棋
 games/fps/              # 3D 战术射击（据点清剿 / 迷你大逃杀）
 THIRD_PARTY_NOTICES.md  # 第三方许可说明

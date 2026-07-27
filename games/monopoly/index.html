@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>大富翁 · 世界之旅 · 游戏馆</title>
+    <meta
+      name="description"
+      content="实体棋「世界之旅」式环线大富翁：世界城市买地收租，支持本地人机。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=ZCOOL+XiaoWei&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../css/shared.css" />
+    <link rel="stylesheet" href="../../css/game-page.css" />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body class="theme-yi game-page">
+    <audio id="clickAudio" src="../../assets/audio/click.wav" preload="auto"></audio>
+    <audio id="selectAudio" src="../../assets/audio/select.wav" preload="auto"></audio>
+
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <a href="../../"><h1>大富翁</h1></a>
+          <p>游戏馆 · 世界之旅环线 · 本地人机</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn secondary" href="../../">返回游戏馆</a>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="board-wrap" aria-label="世界之旅棋盘">
+          <div id="board" class="board" role="grid" aria-label="环线棋盘"></div>
+        </section>
+
+        <aside class="panel">
+          <section class="card">
+            <h2>局势</h2>
+            <div class="status-row">
+              <div class="turn">
+                <span id="turnDot" class="stone-dot" aria-hidden="true"></span>
+                <span id="turnLabel">准备开局</span>
+              </div>
+              <span id="phaseBadge" class="badge">待掷骰</span>
+            </div>
+            <div class="meta">
+              <div id="dayCount">第 1 天</div>
+            </div>
+            <div id="message" class="message info">从右侧开始新对局</div>
+            <div id="result" class="result-banner" hidden></div>
+          </section>
+
+          <section class="card">
+            <h2>旅行团</h2>
+            <ul id="playerList" class="player-list"></ul>
+          </section>
+
+          <section class="card">
+            <h2>操作</h2>
+            <div class="controls">
+              <button id="btnSpeed" class="secondary" type="button">加快速度</button>
+              <button id="btnAuto" class="secondary" type="button">开启托管</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>新对局</h2>
+            <div class="field">
+              <label for="startMoney">起始金钱</label>
+              <select id="startMoney">
+                <option value="10000">10000</option>
+                <option value="15000" selected>15000</option>
+                <option value="20000">20000</option>
+                <option value="25000">25000</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="humanCount">玩家人数</label>
+              <select id="humanCount">
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="aiCount">电脑人数</label>
+              <select id="aiCount">
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
+            </div>
+            <div class="controls" style="grid-template-columns: 1fr">
+              <button id="btnNew" type="button">开始新对局</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>旅途日志</h2>
+            <ul id="logList" class="log-list"></ul>
+          </section>
+
+          <section class="card">
+            <h2>规则说明</h2>
+            <ul class="help">
+              <li>实体棋「世界之旅」式环线：顺时针走遍世界城市。</li>
+              <li>路过起点领取 $2000；停在空地可买地，停在自己的地可升级。</li>
+              <li>踩到他人地产需付租金；机会/命运随机奖惩。</li>
+              <li>车站可付费飞往对侧车站；破产则地产充公。</li>
+              <li>最后一名未破产者获胜。逻辑参考开源 javascript-monopoly（ISC）。</li>
+            </ul>
+          </section>
+        </aside>
+      </main>
+
+      <p class="footer-note">游戏馆 · 大富翁 · 世界之旅环线</p>
+    </div>
+
+    <div id="dialog" class="mono-dialog" hidden>
+      <h3 id="dialogTitle">购买地产</h3>
+      <p id="dialogText"></p>
+      <div class="dialog-actions">
+        <button type="button" id="dialogOk">确定</button>
+        <button type="button" id="dialogCancel" class="secondary">取消</button>
+      </div>
+    </div>
+    <div id="cellTip" class="cell-tip" hidden></div>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>

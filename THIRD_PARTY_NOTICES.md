@@ -18,6 +18,12 @@
 
 - 本仓库原创实现
 
+## 大富翁 · 世界之旅（`games/monopoly/`）
+
+- 玩法骨架参考：[HumanSean/javascript-monopoly](https://github.com/HumanSean/javascript-monopoly)（ISC）
+- 许可：ISC（见 `games/monopoly/LICENSE`）
+- 说明：实体棋「世界之旅」式环线；棋盘城市与界面为游戏馆原创配置，非商业大富翁产品官方地图复制。
+
 ## 战术突击 3D（`games/fps/`）
 
 - 渲染库：[Three.js](https://github.com/mrdoob/three.js) r160（MIT）
