@@ -34,6 +34,7 @@ export function createInitialState(opts) {
       id: i,
       name: token.name,
       color: token.color,
+      accent: token.accent || "#fff",
       tokenId: token.id,
       money: startMoney,
       position: 0,
@@ -60,6 +61,8 @@ export function createInitialState(opts) {
     speedMs,
     winner: null,
     lastDice: 0,
+    lastDiceA: 0,
+    lastDiceB: 0,
     message: "点击骰子开始旅行",
     log: [],
     pendingDialog: null,
@@ -141,14 +144,30 @@ export function applyMove(state, steps) {
   player.position = to;
   passGoBonus(state, player, crossed);
 
-  state.message = `${player.name} 掷出 ${steps}，前往「${state.cells[to].name}」`;
+  const diceText =
+    state.lastDiceA && state.lastDiceB
+      ? `${state.lastDiceA}+${state.lastDiceB}=${steps}`
+      : String(steps);
+  state.message = `${player.name} 掷出 ${diceText}，前往「${state.cells[to].name}」`;
   pushLog(state, state.message);
   return resolveLanding(state);
 }
 
+/** 掷两枚骰子 */
+export function rollDicePair() {
+  const a = rand(1, 6);
+  const b = rand(1, 6);
+  return { a, b, sum: a + b };
+}
+
+export function applyDiceMove(state, pair) {
+  state.lastDiceA = pair.a;
+  state.lastDiceB = pair.b;
+  return applyMove(state, pair.sum);
+}
+
 export function rollAndMove(state) {
-  const steps = rand(1, 6);
-  return applyMove(state, steps);
+  return applyDiceMove(state, rollDicePair());
 }
 
 function resolveLanding(state) {
@@ -418,7 +437,8 @@ export function autoAct(state) {
     return confirmDialog(state, false);
   }
   if (state.phase === "ready") {
-    return rollAndMove(state);
+    // 由界面侧播放双骰动画后再走子
+    return state;
   }
   return state;
 }

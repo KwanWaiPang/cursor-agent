@@ -7,10 +7,10 @@
 export const CELL_COUNT = 40;
 
 export const TOKEN_PRESETS = [
-  { id: "red", name: "赤旅", color: "#c62828" },
-  { id: "blue", name: "青旅", color: "#1565c0" },
-  { id: "green", name: "翠旅", color: "#2e7d32" },
-  { id: "gold", name: "金旅", color: "#f9a825" },
+  { id: "red", name: "赤旅", color: "#ff5252", accent: "#ffcdd2" },
+  { id: "blue", name: "青旅", color: "#448aff", accent: "#bbdefb" },
+  { id: "green", name: "翠旅", color: "#69f0ae", accent: "#c8e6c9" },
+  { id: "gold", name: "金旅", color: "#ffd740", accent: "#fff9c4" },
 ];
 
 /**
