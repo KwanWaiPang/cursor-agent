@@ -270,16 +270,17 @@ function resolveProperty(state, cell) {
       state.message = state.pendingDialog.text;
       return state;
     }
-    // AI / 托管：保留约 3000 才买（须先写入 pendingDialog，否则 confirmDialog 会空操作）
-    const buy = canBuy && player.money - cell.value >= 3000;
+    // AI / 托管：保留约 2000 才买（须先写入 pendingDialog，否则 confirmDialog 会空操作）
+    const buy = canBuy && player.money - cell.value >= 2000;
     return confirmDialog(state, buy);
   }
 
   if (cell.owner === player.id) {
-    if (!canUpgrade(cell) || cell.level >= MAX_BUILD_LEVEL) {
-      state.message = canUpgrade(cell)
-        ? `「${cell.name}」已是酒店，无法再建`
-        : `停在自己的「${cell.name}」`;
+    if (!canUpgrade(cell, state) || cell.level >= MAX_BUILD_LEVEL) {
+      state.message =
+        cell.level >= MAX_BUILD_LEVEL
+          ? `「${cell.name}」已是酒店，无法再建`
+          : `停在自己的「${cell.name}」`;
       pushLog(state, state.message);
       return finishEvent(state);
     }
@@ -297,7 +298,7 @@ function resolveProperty(state, cell) {
       state.message = state.pendingDialog.text;
       return state;
     }
-    const up = canUp && player.money - cost >= 2000;
+    const up = canUp && player.money - cost >= 1500;
     return confirmDialog(state, up);
   }
 
@@ -308,11 +309,7 @@ function resolveProperty(state, cell) {
     cell.level = 0;
     return resolveProperty(state, cell);
   }
-  if (owner.stop > 0) {
-    state.message = `房东 ${owner.name} 不在家，免费过夜`;
-    pushLog(state, state.message);
-    return finishEvent(state);
-  }
+  // 房东暂停仍收租（避免故意躲在暂停格逃租、拖长残局）
   const rent = rentOf(cell, state);
   return requirePayment(state, {
     amount: rent,
@@ -519,7 +516,11 @@ export function confirmDialog(state, yes) {
 
   if (dlg.kind === "upgrade") {
     const cost = upgradeCost(cell);
-    if (!canUpgrade(cell) || player.money < cost || cell.level >= MAX_BUILD_LEVEL) {
+    if (
+      !canUpgrade(cell, state) ||
+      player.money < cost ||
+      cell.level >= MAX_BUILD_LEVEL
+    ) {
       state.message = "无法升级";
       return finishEvent(state);
     }
@@ -616,14 +617,14 @@ export function autoAct(state) {
     if (dlg.kind === "buy") {
       return confirmDialog(
         state,
-        dlg.canConfirm && p.money - cell.value >= 3000
+        dlg.canConfirm && p.money - cell.value >= 2000
       );
     }
     if (dlg.kind === "upgrade") {
       const cost = upgradeCost(cell);
       return confirmDialog(
         state,
-        dlg.canConfirm && p.money - cost >= 2000
+        dlg.canConfirm && p.money - cost >= 1500
       );
     }
     return confirmDialog(state, false);
