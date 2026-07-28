@@ -890,6 +890,10 @@ export function createWorld(scene, size = 170) {
   const fillSun = new THREE.DirectionalLight(assaultTheme ? 0xc0d0d8 : 0xb8d4ff, assaultTheme ? 0.55 : 0.42);
   fillSun.position.set(-40, 30, -20);
   scene.add(fillSun);
+  if (assaultTheme) {
+    const ambient = new THREE.AmbientLight(0xd8dcc8, 0.42);
+    scene.add(ambient);
+  }
 
   // 据点色板：去饱和军用灰绿 / 水泥 / OD（提亮一档）
   const pal = assaultTheme
@@ -1150,7 +1154,7 @@ export function createWorld(scene, size = 170) {
     y: 0.5,
     z: -22 + 7 + 2.2,
     color: pal.concrete,
-    map: assaultTheme ? texConcrete() : null,
+    map: assaultTheme ? texConcrete(true) : null,
   });
   // 附棚
   rectBuilding(ctx, {
@@ -1315,7 +1319,7 @@ export function createWorld(scene, size = 170) {
     y: 5.5,
     z: 2,
     color: pal.brick,
-    map: assaultTheme ? texConcrete() : null,
+    map: assaultTheme ? texConcrete(true) : null,
   });
   addBox(scene, colliders, meshes, {
     w: 6.4,
@@ -1415,7 +1419,7 @@ export function createWorld(scene, size = 170) {
       y: 0.62,
       z,
       color: pal.concrete,
-      map: assaultTheme ? texConcrete() : null,
+      map: assaultTheme ? texConcrete(true) : null,
     });
   }
 
