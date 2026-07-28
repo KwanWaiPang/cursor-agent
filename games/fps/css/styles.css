@@ -304,6 +304,64 @@ kbd {
   letter-spacing: 0.08em;
 }
 
+.stat.ammo b[data-reload]::after {
+  content: " · " attr(data-reload);
+  font-size: 0.72rem;
+  color: #ffcf4d;
+  letter-spacing: 0.04em;
+}
+
+.reload-track {
+  margin-top: 0.35rem;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.reload-track i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, #c4a574, #ffe08a);
+}
+
+.hud.reloading .stat.ammo {
+  border-color: rgba(255, 207, 77, 0.55);
+}
+
+.hud.empty-mag .stat.ammo b {
+  color: #ffb4a2;
+}
+
+.medkit-text {
+  display: block;
+  margin-top: 0.2rem;
+  color: #9fdf9a;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  min-height: 0.9em;
+}
+
+.hit-dir {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2.2rem;
+  height: 2.2rem;
+  margin-top: -38vh;
+  display: grid;
+  place-items: center;
+  color: #ff7043;
+  font-size: 1.4rem;
+  text-shadow: 0 0 10px rgba(255, 80, 40, 0.85);
+  pointer-events: none;
+  z-index: 6;
+  transform-origin: 50% 38vh;
+}
+
 .bar {
   height: 8px;
   background: rgba(255, 255, 255, 0.08);

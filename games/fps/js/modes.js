@@ -23,19 +23,32 @@ function spawnUnit(ctx, team, baseSp, opts = {}) {
     damage: opts.damage ?? 6,
     reactRange: opts.reactRange ?? 48,
     fireRange: opts.fireRange ?? 36,
+    holdZone: opts.holdZone || null,
   });
   ctx.enemies.push(e);
   return e;
 }
 
-function spawnLootField(ctx, kinds, spread) {
+/**
+ * @param {{ center?: THREE.Vector3, radius?: number, preferInside?: boolean }} bias
+ */
+function spawnLootField(ctx, kinds, spread, bias = {}) {
   const { scene, world } = ctx;
+  const center = bias.center || new THREE.Vector3(0, 0, 0);
+  const radius = bias.radius ?? spread * 0.45;
   for (let i = 0; i < kinds.length; i++) {
-    const p = new THREE.Vector3(
-      (Math.random() - 0.5) * spread,
-      0,
-      (Math.random() - 0.5) * spread
-    );
+    let p;
+    if (bias.preferInside !== false && Math.random() < 0.78) {
+      const ang = Math.random() * Math.PI * 2;
+      const r = Math.sqrt(Math.random()) * Math.max(6, radius * 0.85);
+      p = new THREE.Vector3(center.x + Math.cos(ang) * r, 0, center.z + Math.sin(ang) * r);
+    } else {
+      p = new THREE.Vector3(
+        center.x + (Math.random() - 0.5) * spread,
+        0,
+        center.z + (Math.random() - 0.5) * spread
+      );
+    }
     world.resolvePosition(p, 0.6);
     ctx.loot.push(new LootCrate(scene, p, kinds[i]));
   }
@@ -44,27 +57,31 @@ function spawnLootField(ctx, kinds, spread) {
 function applyLoot(ctx, kind, hud, sfx) {
   sfx.pickup();
   if (kind === "ammo") {
-    ctx.loadout.reserve += ctx.loadout.def.magSize;
+    ctx.loadout.reserve += ctx.loadout.def.magSize * 2;
     hud.toast("获得弹药补给");
     return;
   }
   if (kind === "health") {
-    if (typeof ctx.player.heal === "function") ctx.player.heal(40);
-    else ctx.player.hp = Math.min(ctx.player.maxHp, ctx.player.hp + 40);
-    hud.toast("使用急救包");
+    const result = ctx.player.takeMedkit?.(40);
+    if (result === "stored") {
+      hud.toast(`收纳急救包 ×${ctx.player.medkits}（生命已满）`);
+    } else {
+      hud.toast("使用急救包");
+    }
     return;
   }
   if (kind === "rifle" || kind === "smg" || kind === "pistol") {
     const keepReserve = ctx.loadout.reserve;
     ctx.loadout = createLoadout(kind);
-    ctx.loadout.reserve = Math.min(
-      ctx.loadout.def.reserve + 40,
-      Math.max(ctx.loadout.reserve, keepReserve)
-    );
+    ctx.loadout.reserve = Math.max(ctx.loadout.reserve, keepReserve);
     const names = { rifle: "AK-47", smg: "冲锋枪", pistol: "手枪" };
     hud.toast(`拾取 ${names[kind] || kind}`);
     ctx._game?.syncViewModel?.();
   }
+}
+
+function playerYaw(player) {
+  return player?.controls?.getObject?.()?.rotation?.y ?? 0;
 }
 
 export function createAssaultMode(ctx) {
@@ -76,17 +93,25 @@ export function createAssaultMode(ctx) {
   let spawnTimer = 0;
   let allyTimer = 0;
   let enemiesAlive = 0;
+  let leaveZoneTimer = 0;
   const maxWave = 5;
   const allyCount = 3;
 
-  ctx.loadout = createLoadout("rifle", { reserve: 90 });
+  ctx.loadout = createLoadout("rifle"); // 备弹 200
   player.grantSpawnProtect?.(4.5);
+  player.medkits = 0;
 
   hud.setMode("据点清剿 · 红方");
   hud.toast("站桩占领中央战术区即可胜利 · 波次为压力 · 开局短暂无敌");
   player.getObject().position.set(0, player.eyeHeight, 26);
 
-  spawnLootField(ctx, ["ammo", "health", "ammo", "smg", "health", "ammo"], world.size * 0.55);
+  // 多数补给靠近战术区
+  spawnLootField(
+    ctx,
+    ["ammo", "health", "ammo", "smg", "health", "ammo", "ammo"],
+    world.size * 0.5,
+    { center: world.zoneCenter, radius: world.zoneRadius + 14, preferInside: true }
+  );
 
   function spawnAllies() {
     const alive = ctx.enemies.filter((e) => e.alive && e.team === "red").length;
@@ -100,6 +125,7 @@ export function createAssaultMode(ctx) {
         speed: 3.5,
         damage: 7,
         jitter: 2.5,
+        holdZone: world.zoneCenter.clone(),
       });
     }
   }
@@ -157,6 +183,7 @@ export function createAssaultMode(ctx) {
 
       let capNote = "";
       if (inZone && player.alive) {
+        leaveZoneTimer = 0;
         if (bluesInZone > 0) {
           capture = Math.min(captureNeed, capture + dt * 4);
           capNote = "争夺中";
@@ -165,7 +192,11 @@ export function createAssaultMode(ctx) {
           capNote = "占领中";
         }
       } else {
-        capture = Math.max(0, capture - dt * 4);
+        leaveZoneTimer += dt;
+        // 离区约 1.6 秒缓冲后再缓慢掉进度
+        if (leaveZoneTimer > 1.6) {
+          capture = Math.max(0, capture - dt * 1.15);
+        }
       }
 
       enemiesAlive = ctx.enemies.filter((e) => e.alive && e.team === "blue").length;
@@ -188,7 +219,7 @@ export function createAssaultMode(ctx) {
         allyTimer = 0;
       }
 
-      const zoneDir = {
+      hud.setZoneHint?.({
         dx: world.zoneCenter.x - player.position.x,
         dz: world.zoneCenter.z - player.position.z,
         dist: Math.hypot(
@@ -196,9 +227,9 @@ export function createAssaultMode(ctx) {
           world.zoneCenter.z - player.position.z
         ),
         outside: !inZone,
-        label: inZone ? (capNote || "战术区") : "前往战术区",
-      };
-      hud.setZoneHint?.(zoneDir);
+        yaw: playerYaw(player),
+        label: inZone ? capNote || "战术区" : "前往战术区",
+      });
 
       hud.setObjective(
         `占领 ${Math.min(100, capture).toFixed(0)}%${capNote ? `（${capNote}）` : ""} · 波次 ${wave}/${maxWave} · 蓝 ${enemiesAlive} · 红 ${alliesAlive + (player.alive ? 1 : 0)}`
@@ -250,8 +281,9 @@ export function createRoyaleMode(ctx) {
     { t: 38, r: 6 },
   ];
 
-  ctx.loadout = createLoadout("rifle", { reserve: 90 });
+  ctx.loadout = createLoadout("rifle"); // 备弹 200
   player.grantSpawnProtect?.(5);
+  player.medkits = 0;
   hud.toast("红方小队 · 清剿全部蓝方即可获胜 · 注意安全区（开局无敌）");
 
   const start = world.spawnPoints[Math.floor(Math.random() * world.spawnPoints.length)].clone();
@@ -292,8 +324,12 @@ export function createRoyaleMode(ctx) {
     });
   }
 
-  const kinds = ["ammo", "ammo", "health", "smg", "ammo", "health", "rifle", "pistol"];
-  spawnLootField(ctx, kinds, world.size - 24);
+  const kinds = ["ammo", "ammo", "health", "smg", "ammo", "health", "rifle", "pistol", "ammo"];
+  spawnLootField(ctx, kinds, world.size - 24, {
+    center,
+    radius,
+    preferInside: true,
+  });
 
   hud.setMode("迷你大逃杀 · 红方");
 
@@ -318,8 +354,8 @@ export function createRoyaleMode(ctx) {
       const dist = Math.hypot(player.position.x - center.x, player.position.z - center.z);
       const outside = dist > radius;
       if (outside && player.alive) {
-        player.damage(6 * dt);
-        hud.flashDamage();
+        player.damage(6 * dt, center);
+        hud.flashDamage(center, playerYaw(player), player.position);
       }
 
       hud.setZoneHint?.({
@@ -328,6 +364,7 @@ export function createRoyaleMode(ctx) {
         dist,
         outside,
         radius,
+        yaw: playerYaw(player),
         label: outside ? "返回安全区" : "安全区内",
       });
 

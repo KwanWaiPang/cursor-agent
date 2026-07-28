@@ -11,7 +11,7 @@ import {
   consumeShot,
 } from "./weapons.js";
 import { createAssaultMode, createRoyaleMode } from "./modes.js";
-import { createAK47ViewModel, createPistolViewModel } from "./viewmodel.js";
+import { createAK47ViewModel, createPistolViewModel, createSMGViewModel } from "./viewmodel.js";
 
 export class Game {
   constructor({ mode, onEnd, onQuit }) {
@@ -52,10 +52,12 @@ export class Game {
     this.player = new Player(this.camera, this.renderer.domElement, this.world);
     this.loadout = createLoadout("rifle");
 
-    // 第一人称武器（默认 AK-47）
+    // 第一人称武器（AK / 冲锋枪 / 手枪）
     this.viewAk = createAK47ViewModel();
+    this.viewSmg = createSMGViewModel();
     this.viewPistol = createPistolViewModel();
     this.camera.add(this.viewAk.root);
+    this.camera.add(this.viewSmg.root);
     this.camera.add(this.viewPistol.root);
     this.scene.add(this.camera);
     this.activeView = this.viewAk;
@@ -157,10 +159,12 @@ export class Game {
   }
 
   syncViewModel() {
-    const useAk = this.loadout?.def?.view !== "pistol";
-    this.viewAk.setVisible(useAk);
-    this.viewPistol.setVisible(!useAk);
-    this.activeView = useAk ? this.viewAk : this.viewPistol;
+    const view = this.loadout?.def?.view || "ak";
+    this.viewAk.setVisible(view === "ak");
+    this.viewSmg.setVisible(view === "smg");
+    this.viewPistol.setVisible(view === "pistol");
+    this.activeView =
+      view === "smg" ? this.viewSmg : view === "pistol" ? this.viewPistol : this.viewAk;
   }
 
   refreshEnemyMeshCache(force = false) {
@@ -355,9 +359,14 @@ export class Game {
           if (blocked || !shot.hit) return;
           if (shot.targetKind === "player") {
             if (shot.team === "blue" && this.player.alive) {
-              this.player.damage(shot.damage);
+              const from = shot.origin || e.position;
+              this.player.damage(shot.damage, from);
               this.sfx.hurt();
-              this.hud.flashDamage();
+              this.hud.flashDamage(
+                from,
+                this.player.controls.getObject().rotation.y,
+                this.player.position
+              );
             }
             return;
           }

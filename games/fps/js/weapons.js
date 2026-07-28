@@ -18,12 +18,12 @@ export const WEAPONS = {
     damage: 14,
     rpm: 780,
     magSize: 35,
-    reserve: 105,
+    reserve: 140,
     reloadMs: 2600,
     spread: 0.02,
     range: 60,
     heavy: false,
-    view: "pistol",
+    view: "smg",
   },
   rifle: {
     id: "rifle",
@@ -31,7 +31,7 @@ export const WEAPONS = {
     damage: 20,
     rpm: 600,
     magSize: 30,
-    reserve: 90,
+    reserve: 200,
     reloadMs: 3000,
     spread: 0.014,
     range: 85,
@@ -42,8 +42,7 @@ export const WEAPONS = {
 
 export function createLoadout(primary = "rifle", opts = {}) {
   const def = WEAPONS[primary] || WEAPONS.rifle;
-  const reserve =
-    opts.reserve != null ? opts.reserve : def.reserve;
+  const reserve = opts.reserve != null ? opts.reserve : def.reserve;
   return {
     def,
     mag: def.magSize,

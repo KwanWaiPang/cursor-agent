@@ -58,7 +58,7 @@
         </ul>
       </section>
 
-      <p class="menu-note">需要桌面浏览器与 WebGL。点击模式后锁定指针开始。开局短暂无敌；脱战约 4 秒后自动回血。红方为我方、蓝方为敌方。补给箱可拾取弹药、医疗包或手枪/冲锋枪/AK。</p>
+      <p class="menu-note">需要桌面浏览器与 WebGL。点击模式后锁定指针开始。开局短暂无敌；脱战约 4 秒后自动回血。红方为我方、蓝方为敌方。AK 备弹 200；补给箱可拾取弹药、急救包或手枪/冲锋枪/AK。</p>
       <p class="back-link"><a href="../../">← 返回游戏馆</a></p>
     </div>
 
@@ -76,15 +76,20 @@
       </div>
       <div class="hit-marker" id="hitMarker"></div>
       <div class="damage-vignette" id="damageVignette"></div>
+      <div id="hitDir" class="hit-dir hidden" aria-hidden="true">▲</div>
       <div class="hud-bottom">
         <div class="stat">
           <label>生命</label>
           <div class="bar"><i id="hpBar"></i></div>
           <b id="hpText">100</b>
+          <small id="medkitText" class="medkit-text"></small>
         </div>
         <div class="stat ammo">
           <label>弹药</label>
-          <b id="ammoText">30 / 90</b>
+          <b id="ammoText">30 / 200</b>
+          <div id="reloadTrack" class="reload-track hidden" aria-hidden="true">
+            <i id="reloadBar"></i>
+          </div>
           <small id="weaponName">步枪</small>
         </div>
         <div class="stat">
