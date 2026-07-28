@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { Enemy, LootCrate } from "./enemy.js";
 import { createSafeZoneVisual } from "./world.js";
-import { createLoadout, isWeaponLoot } from "./weapons.js";
+import { createArsenal, pickupWeapon, isWeaponLoot } from "./weapons.js";
 
 function pruneGone(list) {
   for (let i = list.length - 1; i >= 0; i--) {
@@ -57,8 +57,10 @@ function spawnLootField(ctx, kinds, spread, bias = {}) {
 function applyLoot(ctx, kind, hud, sfx) {
   sfx.pickup();
   if (kind === "ammo") {
-    ctx.loadout.reserve += ctx.loadout.def.magSize * 2;
-    hud.toast("获得弹药补给");
+    const lo = ctx.loadout;
+    lo.reserve += lo.def.magSize * 2;
+    hud.toast("获得弹药补给（当前武器）");
+    hud.setArsenal?.(ctx.arsenal);
     return;
   }
   if (kind === "health") {
@@ -71,22 +73,16 @@ function applyLoot(ctx, kind, hud, sfx) {
     return;
   }
   if (isWeaponLoot(kind)) {
-    const keepReserve = ctx.loadout.reserve;
-    ctx.loadout = createLoadout(kind);
-    // 换枪时保留一部分备弹手感，但不无限叠
-    ctx.loadout.reserve = Math.max(
-      ctx.loadout.reserve,
-      Math.min(keepReserve, ctx.loadout.def.reserve)
-    );
-    const names = {
-      rifle: "AK-47",
-      m4: "M4",
-      shotgun: "霰弹枪",
-      sniper: "栓狙",
-      pistol: "手枪",
-    };
-    hud.toast(`拾取 ${names[kind] || kind}`);
-    ctx._game?.syncViewModel?.();
+    const arsenal = ctx.arsenal || ctx._game?.arsenal;
+    const result = pickupWeapon(arsenal, kind);
+    if (!result) return;
+    if (result.status === "ammo") {
+      hud.toast(`补充 ${result.name} 弹药`);
+    } else {
+      hud.toast(`入库 ${result.name} · 按 ${result.slot} 切换（不自动换枪）`);
+    }
+    hud.setArsenal?.(arsenal);
+    // 不自动切换当前武器
   }
 }
 
@@ -109,10 +105,11 @@ export function createAssaultMode(ctx) {
   const allyCount = 9;
   const teamSize = 10;
 
-  ctx.loadout = createLoadout("rifle"); // 备弹 200
+  ctx.arsenal = createArsenal("rifle"); // 开局 AK，备弹 200
   player.grantSpawnProtect?.(4.5);
   player.medkits = 0;
   hud.setKills?.(0);
+  hud.setArsenal?.(ctx.arsenal);
 
   hud.setMode("据点清剿 · 红方");
   hud.toast("站桩占领中央战术区即可胜利 · 红蓝各 10 人 · 开局短暂无敌");
@@ -296,10 +293,11 @@ export function createRoyaleMode(ctx) {
     { t: 38, r: 6 },
   ];
 
-  ctx.loadout = createLoadout("rifle"); // 备弹 200
+  ctx.arsenal = createArsenal("rifle"); // 开局 AK，备弹 200
   player.grantSpawnProtect?.(5);
   player.medkits = 0;
   hud.setKills?.(0);
+  hud.setArsenal?.(ctx.arsenal);
   hud.toast("红蓝各 10 人 · 清剿全部蓝方即可获胜 · 注意安全区（开局无敌）");
 
   const start = world.spawnPoints[Math.floor(Math.random() * world.spawnPoints.length)].clone();

@@ -36,6 +36,7 @@ export class Player {
     /** 收纳的急救包数量（满血拾取不浪费） */
     this.medkits = 0;
     this._lastHitFrom = null;
+    this._weaponKey = null;
     this.yawObject = this.controls.getObject();
     this.yawObject.position.set(0, this.eyeHeight, 16);
 
@@ -73,6 +74,18 @@ export class Player {
         // 边沿触发换弹
         if (down && !this.keys.reload) this.keys.reload = true;
         break;
+      case "Digit1":
+      case "Digit2":
+      case "Digit3":
+      case "Digit4":
+      case "Digit5":
+      case "Numpad1":
+      case "Numpad2":
+      case "Numpad3":
+      case "Numpad4":
+      case "Numpad5":
+        if (down) this._weaponKey = e.code;
+        break;
       default:
         break;
     }
@@ -82,6 +95,12 @@ export class Player {
     if (!this.keys.reload) return false;
     this.keys.reload = false;
     return true;
+  }
+
+  consumeWeaponKey() {
+    const code = this._weaponKey;
+    this._weaponKey = null;
+    return code;
   }
 
   get crouching() {
