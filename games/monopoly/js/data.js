@@ -19,7 +19,7 @@ export const TOKEN_PRESETS = [
  */
 export const BOARD = [
   // 底边（右→左）：美洲
-  { name: "起点", type: "go", value: 2000, mark: "起", subtitle: "路过领 $2000" },
+  { name: "起点", type: "go", value: 2000, mark: "起", subtitle: "路过+$2000" },
   { name: "古巴", type: "property", value: 600, group: "brown" },
   { name: "命运", type: "fate", value: 0, mark: "！" },
   { name: "墨西哥", type: "property", value: 800, group: "brown" },
@@ -29,11 +29,11 @@ export const BOARD = [
   { name: "机会", type: "chance", value: 0, mark: "？" },
   { name: "加拿大", type: "property", value: 1200, group: "sky" },
   { name: "美国", type: "property", value: 1400, group: "sky" },
-  { name: "暂停", type: "jail", value: 0, mark: "停", subtitle: "路过无停留" },
+  { name: "暂停", type: "jail", value: 0, mark: "停", subtitle: "路过无事" },
 
   // 左边（下→上）：欧洲
   { name: "荷兰", type: "property", value: 1600, group: "pink" },
-  { name: "电力公司", type: "utility", value: 1500, mark: "电" },
+  { name: "电力", type: "utility", value: 1500, mark: "电" },
   { name: "希腊", type: "property", value: 1800, group: "pink" },
   { name: "西班牙", type: "property", value: 2000, group: "pink" },
   { name: "巴黎站", type: "station", value: 2000, mark: "站" },
@@ -43,7 +43,7 @@ export const BOARD = [
   { name: "法国", type: "property", value: 2600, group: "orange" },
 
   // 顶边（左→右）：欧亚
-  { name: "免费停车场", type: "park", value: 0, mark: "泊", subtitle: "休息一回" },
+  { name: "停车场", type: "park", value: 0, mark: "泊", subtitle: "休息一回" },
   { name: "英国", type: "property", value: 2800, group: "red" },
   { name: "机会", type: "chance", value: 0, mark: "？" },
   { name: "俄罗斯", type: "property", value: 3000, group: "red" },
@@ -51,7 +51,7 @@ export const BOARD = [
   { name: "东京站", type: "station", value: 2000, mark: "站" },
   { name: "泰国", type: "property", value: 3400, group: "yellow" },
   { name: "澳大利亚", type: "property", value: 3600, group: "yellow" },
-  { name: "自来水公司", type: "utility", value: 1500, mark: "水" },
+  { name: "自来水", type: "utility", value: 1500, mark: "水" },
   { name: "新加坡", type: "property", value: 3800, group: "yellow" },
   { name: "强制暂停", type: "gotojail", value: 0, mark: "止", subtitle: "停走数日" },
 

@@ -219,7 +219,7 @@ function resolveLanding(state) {
       return finishEvent(state);
     }
     case "park": {
-      state.message = `${player.name} 在免费停车场稍作休息`;
+      state.message = `${player.name} 在停车场稍作休息`;
       pushLog(state, state.message);
       return finishEvent(state);
     }
