@@ -663,7 +663,38 @@ function buildLootCrateMesh(kind) {
   light.position.set(0, 0.9, 0);
   root.add(light);
 
-  root.userData = { bead, halo, light, accent, label: LOOT_LABEL[kind] || "LOOT" };
+  // 顶部种类标签（便于远处辨认）
+  const label = LOOT_LABEL[kind] || "LOOT";
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 48;
+  const ctx2d = canvas.getContext("2d");
+  ctx2d.clearRect(0, 0, 128, 48);
+  ctx2d.fillStyle = "rgba(12,16,10,0.72)";
+  ctx2d.fillRect(8, 8, 112, 32);
+  ctx2d.strokeStyle = `#${accent.toString(16).padStart(6, "0")}`;
+  ctx2d.lineWidth = 3;
+  ctx2d.strokeRect(8, 8, 112, 32);
+  ctx2d.fillStyle = "#eef5d8";
+  ctx2d.font = "bold 22px monospace";
+  ctx2d.textAlign = "center";
+  ctx2d.textBaseline = "middle";
+  ctx2d.fillText(label, 64, 24);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  const tag = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.7, 0.26),
+    new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+  );
+  tag.position.set(0, 1.05, 0);
+  root.add(tag);
+
+  root.userData = { bead, halo, light, accent, label, tag };
   return root;
 }
 
@@ -688,6 +719,10 @@ export class LootCrate {
     this.mesh.position.y = this.baseY + bob;
     this.mesh.rotation.y += dt * 0.45;
     const u = this.mesh.userData;
+    if (u?.tag) {
+      // 标签始终朝上，不随箱子滚转文字
+      u.tag.rotation.y = -this.mesh.rotation.y;
+    }
     if (u?.halo?.material) {
       u.halo.material.opacity = 0.22 + Math.sin(this.pulse * 1.4) * 0.16;
       u.halo.scale.setScalar(1 + Math.sin(this.pulse) * 0.06);

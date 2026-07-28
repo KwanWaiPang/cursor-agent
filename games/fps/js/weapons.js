@@ -150,17 +150,50 @@ export function pickupWeapon(arsenal, kind) {
   return { status: "stowed", id: kind, name: def.name, slot: weaponSlotIndex(kind) };
 }
 
-/** 切换到已持有武器；中断换弹状态但保留弹匣进度 */
+/** 切换到已持有武器；换弹进度保留在该枪上，后台继续完成 */
 export function selectWeapon(arsenal, id) {
   if (!arsenal?.owned?.[id]) return false;
   if (arsenal.activeId === id) return false;
-  const cur = arsenal.active;
-  if (cur?.reloading) {
-    cur.reloading = false;
-    cur.reloadEnds = 0;
-  }
   arsenal.activeId = id;
   return true;
+}
+
+/** 推进武器库内所有换弹（切枪后也能装完） */
+export function updateArsenalReloads(arsenal, now) {
+  if (!arsenal?.owned) return;
+  for (const id of Object.keys(arsenal.owned)) {
+    updateReload(arsenal.owned[id], now);
+  }
+}
+
+/** 弹药补给：优先当前枪，溢出再分给其它已持有 */
+export function distributeAmmo(arsenal, amount = null) {
+  if (!arsenal?.active) return [];
+  const filled = [];
+  const active = arsenal.active;
+  const addActive = amount != null ? amount : active.def.magSize * 2;
+  const capActive = active.def.reserve * 2;
+  const before = active.reserve;
+  active.reserve = Math.min(capActive, active.reserve + addActive);
+  if (active.reserve > before) {
+    filled.push({ id: active.def.id, name: active.def.name, gained: active.reserve - before });
+  }
+  let spill = Math.max(0, addActive - (active.reserve - before));
+  if (spill <= 0) return filled;
+  for (const id of WEAPON_IDS) {
+    if (spill <= 0) break;
+    if (id === active.def.id) continue;
+    const lo = arsenal.owned[id];
+    if (!lo) continue;
+    const cap = lo.def.reserve * 2;
+    const room = cap - lo.reserve;
+    if (room <= 0) continue;
+    const give = Math.min(room, Math.max(lo.def.magSize, Math.floor(spill)));
+    lo.reserve += give;
+    spill -= give;
+    filled.push({ id, name: lo.def.name, gained: give });
+  }
+  return filled;
 }
 
 /** 在已持有武器间循环（滚轮） */

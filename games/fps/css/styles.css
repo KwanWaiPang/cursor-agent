@@ -338,6 +338,11 @@ kbd {
   box-shadow: 0 0 0 1px rgba(196, 165, 116, 0.25);
 }
 
+.weapon-slot.empty {
+  opacity: 0.38;
+  border-style: dashed;
+}
+
 .weapon-slot .slot-key {
   display: block;
   font-size: 0.68rem;
@@ -357,6 +362,68 @@ kbd {
   display: block;
   font-size: 0.68rem;
   opacity: 0.75;
+}
+
+.capture-hud {
+  position: absolute;
+  left: 50%;
+  top: 4.6rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 16rem;
+  padding: 0.4rem 0.7rem;
+  background: rgba(10, 14, 9, 0.66);
+  border: 1px solid rgba(183, 213, 154, 0.28);
+  border-radius: 999px;
+  color: #e4efd0;
+  font-family: var(--font-mono);
+  z-index: 6;
+  pointer-events: none;
+}
+
+.capture-hud.contested {
+  border-color: rgba(255, 170, 90, 0.55);
+  color: #ffe0b8;
+}
+
+.capture-hud.capturing {
+  border-color: rgba(150, 210, 120, 0.6);
+}
+
+.capture-track {
+  flex: 1;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.capture-track i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, #8faf5a, #d7e89a);
+}
+
+.capture-hud.contested .capture-track i {
+  background: linear-gradient(90deg, #c47a3a, #ffc078);
+}
+
+.capture-hud b {
+  font-size: 0.85rem;
+  min-width: 2.6rem;
+  text-align: right;
+}
+
+.capture-hud span {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+  white-space: nowrap;
 }
 
 .stat.ammo small {
@@ -411,17 +478,17 @@ kbd {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 2.2rem;
-  height: 2.2rem;
-  margin-top: -38vh;
+  width: 0;
+  height: 0;
   display: grid;
   place-items: center;
   color: #ff7043;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   text-shadow: 0 0 10px rgba(255, 80, 40, 0.85);
   pointer-events: none;
   z-index: 6;
-  transform-origin: 50% 38vh;
+  /* 箭头绕准星旋转，半径约 22vh */
+  transform: translate(-50%, -50%) rotate(var(--hit-rot, 0deg)) translateY(-22vh);
 }
 
 .bar {
@@ -442,6 +509,7 @@ kbd {
 }
 
 .crosshair {
+  --ch-gap: 6px;
   position: absolute;
   left: 50%;
   top: 50%;
@@ -454,6 +522,7 @@ kbd {
   position: absolute;
   background: rgba(183, 213, 154, 0.9);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  transition: top 0.08s linear, bottom 0.08s linear, left 0.08s linear, right 0.08s linear;
 }
 
 .crosshair span:nth-child(1),
@@ -465,10 +534,10 @@ kbd {
 }
 
 .crosshair span:nth-child(1) {
-  top: 0;
+  top: calc(-1 * var(--ch-gap));
 }
 .crosshair span:nth-child(2) {
-  bottom: 0;
+  bottom: calc(-1 * var(--ch-gap));
 }
 
 .crosshair span:nth-child(3),
@@ -480,14 +549,18 @@ kbd {
 }
 
 .crosshair span:nth-child(3) {
-  left: 0;
+  left: calc(-1 * var(--ch-gap));
 }
 .crosshair span:nth-child(4) {
-  right: 0;
+  right: calc(-1 * var(--ch-gap));
+}
+
+.crosshair.ads span {
+  background: rgba(230, 240, 200, 0.95);
 }
 
 .crosshair.fire {
-  transform: translate(-50%, -50%) scale(1.15);
+  transform: translate(-50%, -50%) scale(1.12);
 }
 
 .hit-marker {

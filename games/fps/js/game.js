@@ -7,11 +7,13 @@ import {
   createArsenal,
   tryReload,
   updateReload,
+  updateArsenalReloads,
   canShoot,
   consumeShot,
   selectWeapon,
   cycleWeapon,
   WEAPON_HOTKEYS,
+  WEAPONS,
 } from "./weapons.js";
 import { createAssaultMode, createRoyaleMode } from "./modes.js";
 import { createAK47ViewModel, createPistolViewModel, createM4ViewModel, createShotgunViewModel, createSniperViewModel } from "./viewmodel.js";
@@ -79,6 +81,7 @@ export class Game {
     this.kickRecover = 0;
     this._enemyMeshCache = [];
     this._enemyMeshCacheAt = 0;
+    this.switchUntil = 0;
 
     const ctx = {
       scene: this.scene,
@@ -139,9 +142,10 @@ export class Game {
       e.preventDefault();
       const dir = e.deltaY > 0 ? 1 : -1;
       if (cycleWeapon(this.arsenal, dir)) {
+        this.switchUntil = performance.now() + 280;
         this.syncViewModel();
         this.hud.setArsenal?.(this.arsenal);
-        this.hud.toast?.(`切换 ${this.loadout.def.name}`);
+        // 滚轮不弹 toast，避免刷屏
       }
     };
     this._onLock = () => this.onLock();
@@ -168,11 +172,18 @@ export class Game {
     return this.arsenal.active;
   }
 
-  trySelectWeapon(id) {
+  trySelectWeapon(id, opts = {}) {
+    if (!this.arsenal.owned[id]) {
+      const name = WEAPONS[id]?.name || id;
+      const slotNum = ["pistol", "rifle", "m4", "shotgun", "sniper"].indexOf(id) + 1;
+      this.hud.toast?.(`未持有 ${name}${slotNum ? ` · 拾取后按 ${slotNum}` : ""}`);
+      return false;
+    }
     if (!selectWeapon(this.arsenal, id)) return false;
+    this.switchUntil = performance.now() + 280;
     this.syncViewModel();
     this.hud.setArsenal?.(this.arsenal);
-    this.hud.toast?.(`切换 ${this.loadout.def.name}`);
+    if (opts.toast !== false) this.hud.toast?.(`切换 ${this.loadout.def.name}`);
     return true;
   }
 
@@ -313,6 +324,7 @@ export class Game {
   shoot(now) {
     if (!this.player.alive) return;
     if (!this.player.controls.isLocked) return;
+    if (now < this.switchUntil) return;
     updateReload(this.loadout, now);
     if (!canShoot(this.loadout, now)) {
       if (this.loadout.mag <= 0) tryReload(this.loadout, now, this.sfx);
@@ -328,8 +340,8 @@ export class Game {
 
     const ads = this.aiming && !this.loadout.reloading;
     const kick = (def.kick ?? 0.024) * (ads ? 0.55 : 1);
-    this.applyLookPitch(-kick);
-    this.kickRecover += kick;
+    this.applyLookPitch(-kick * 0.72);
+    this.kickRecover += kick * 0.55;
 
     const origin = this.camera.getWorldPosition(new THREE.Vector3());
     const baseDir = new THREE.Vector3();
@@ -338,6 +350,17 @@ export class Game {
     let spread = def.spread;
     if (ads) spread *= def.adsSpreadMul ?? 0.28;
     else spread *= def.hipSpreadMul ?? 1;
+
+    const moving =
+      this.player.keys.forward ||
+      this.player.keys.back ||
+      this.player.keys.left ||
+      this.player.keys.right;
+    if (this.player.keys.sprint && moving) spread *= 1.55;
+    else if (moving) spread *= 1.22;
+    if (this.player.crouching) spread *= 0.72;
+
+    this.hud.setSpread?.(spread, ads);
 
     const pellets = def.pellets || 1;
     const range = def.range;
@@ -408,8 +431,12 @@ export class Game {
       if (weaponKey && WEAPON_HOTKEYS[weaponKey]) {
         this.trySelectWeapon(WEAPON_HOTKEYS[weaponKey]);
       }
-      updateReload(this.loadout, now);
+      updateArsenalReloads(this.arsenal, now);
       if (this.player.consumeReloadRequest()) {
+        tryReload(this.loadout, now, this.sfx);
+      }
+      // 空仓自动换弹
+      if (!this.loadout.reloading && this.loadout.mag <= 0 && this.loadout.reserve > 0) {
         tryReload(this.loadout, now, this.sfx);
       }
       this.player.update(dt);
@@ -418,6 +445,21 @@ export class Game {
       const wantFov = this.aiming && !this.loadout.reloading ? adsFov : this.baseFov;
       this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, wantFov, 1 - Math.pow(0.0008, dt));
       this.camera.updateProjectionMatrix();
+
+      // 待机准星随姿态收放
+      {
+        const def = this.loadout.def;
+        let sp = def.spread * (this.aiming && !this.loadout.reloading ? def.adsSpreadMul ?? 0.28 : def.hipSpreadMul ?? 1);
+        const moving =
+          this.player.keys.forward ||
+          this.player.keys.back ||
+          this.player.keys.left ||
+          this.player.keys.right;
+        if (this.player.keys.sprint && moving) sp *= 1.55;
+        else if (moving) sp *= 1.22;
+        if (this.player.crouching) sp *= 0.72;
+        this.hud.setSpread?.(sp, this.aiming && !this.loadout.reloading);
+      }
 
       if (this.kickRecover > 0.0001) {
         const step = Math.min(this.kickRecover, this.kickRecover * 10 * dt + 0.002);
