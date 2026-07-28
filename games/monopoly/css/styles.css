@@ -266,7 +266,8 @@ body.monopoly-cartoon {
 
 .game-page.monopoly-cartoon .cell,
 .cell {
-  --band-size: 32%;
+  --band-size: 17%;
+  --token-space: 15%;
   position: relative;
   appearance: none;
   border: 2px solid var(--line-ink) !important;
@@ -277,7 +278,7 @@ body.monopoly-cartoon {
   min-width: 0;
   min-height: 0;
   cursor: default;
-  overflow: visible;
+  overflow: hidden;
   font-family: var(--font-body);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
   display: block !important;
@@ -295,9 +296,9 @@ body.monopoly-cartoon {
   align-items: center;
   justify-content: center;
   position: absolute;
-  z-index: 5;
+  z-index: 3;
   border-bottom: 2px solid rgba(0, 0, 0, 0.12);
-  overflow: visible;
+  overflow: hidden;
 }
 
 .cell-body {
@@ -306,32 +307,42 @@ body.monopoly-cartoon {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 0;
-  padding: 1px 2px 2px;
+  justify-content: center;
+  gap: 2px;
+  padding: 2px 3px;
   box-sizing: border-box;
-  z-index: 2;
+  z-index: 7;
+  pointer-events: none;
+  min-height: 0;
 }
 
-.cell-icon { font-size: clamp(0.88rem, 1.9vw, 1.3rem); line-height: 1; font-weight: 700; }
+.cell-icon { font-size: clamp(0.78rem, 1.65vw, 1.15rem); line-height: 1; font-weight: 700; flex: 0 0 auto; }
 .cell-icon-empty { display: none; }
 .cell-name {
-  font-size: clamp(0.68rem, 1.45vw, 0.98rem);
-  line-height: 1.12;
+  font-size: clamp(0.62rem, 1.3vw, 0.9rem);
+  line-height: 1.15;
   text-align: center;
   font-weight: 700;
   letter-spacing: 0.01em;
   max-width: 100%;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: rgba(255, 253, 245, 0.92);
+  text-shadow: 0 0 2px rgba(255, 253, 245, 0.95);
+  flex: 0 0 auto;
 }
 .cell-price {
-  font-size: clamp(0.58rem, 1.2vw, 0.84rem);
+  font-size: clamp(0.52rem, 1.1vw, 0.76rem);
   color: #5a4638;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: rgba(255, 253, 245, 0.9);
+  flex: 0 0 auto;
 }
 
 .cell-houses {
@@ -351,18 +362,15 @@ body.monopoly-cartoon {
 .house {
   --house: var(--owner, #43a047);
   --house-light: var(--owner-light, #a5d6a7);
-  width: 1.2rem;
-  height: 1.15rem;
+  width: 0.52rem;
+  height: 0.48rem;
   position: relative;
   flex: 0 0 auto;
   background:
     linear-gradient(180deg, var(--house-light) 0%, var(--house) 100%);
-  border: 2px solid #2b1d14;
-  border-bottom-width: 2px;
-  /* 房屋剪影：尖顶 + 房身 */
+  border: 1px solid #2b1d14;
   clip-path: polygon(50% 0%, 100% 38%, 100% 100%, 0% 100%, 0% 38%);
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.28);
-  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.2));
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
 }
 
 .house::before,
@@ -370,29 +378,29 @@ body.monopoly-cartoon {
 
 /* 酒店：高楼 + 平顶檐 + 窗户 + 旗，和小尖顶房明显不同 */
 .house.hotel {
-  width: 1.5rem;
-  height: 1.75rem;
+  width: 0.78rem;
+  height: 0.85rem;
   clip-path: none;
-  border-radius: 3px 3px 2px 2px;
-  border: 2.5px solid #2b1d14;
+  border-radius: 2px;
+  border: 1.5px solid #2b1d14;
   background: linear-gradient(180deg, var(--house-light) 0%, var(--house) 100%);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.35) inset,
-    0 3px 3px rgba(0, 0, 0, 0.3);
+    0 1px 1px rgba(0, 0, 0, 0.25);
   display: block;
-  overflow: visible;
+  overflow: hidden;
 }
 
 /* 平顶檐口 */
 .house.hotel::before {
   content: "";
   position: absolute;
-  left: -20%;
-  right: -20%;
-  top: -0.2rem;
-  height: 0.26rem;
+  left: -14%;
+  right: -14%;
+  top: -0.14rem;
+  height: 0.18rem;
   background: color-mix(in srgb, var(--house) 42%, #1a120c);
-  border: 2px solid #2b1d14;
+  border: 1.5px solid #2b1d14;
   border-radius: 2px;
   box-sizing: border-box;
   z-index: 2;
@@ -401,10 +409,10 @@ body.monopoly-cartoon {
 .hotel-flag {
   position: absolute;
   left: 50%;
-  top: -0.58rem;
-  width: 0.15rem;
-  height: 0.45rem;
-  margin-left: -0.07rem;
+  top: -0.38rem;
+  width: 0.12rem;
+  height: 0.32rem;
+  margin-left: -0.06rem;
   background: #2b1d14;
   z-index: 3;
 }
@@ -412,12 +420,12 @@ body.monopoly-cartoon {
 .hotel-flag::after {
   content: "";
   position: absolute;
-  left: 0.13rem;
+  left: 0.1rem;
   top: 0.02rem;
-  width: 0.45rem;
-  height: 0.3rem;
+  width: 0.32rem;
+  height: 0.22rem;
   background: #fff8e7;
-  border: 1.5px solid #2b1d14;
+  border: 1px solid #2b1d14;
   clip-path: polygon(0 0, 100% 45%, 0 90%);
   box-sizing: border-box;
 }
@@ -457,20 +465,24 @@ body.monopoly-cartoon {
 }
 
 .cell.has-hotel .cell-band {
-  overflow: visible;
+  overflow: hidden;
 }
 
-/* 棋子叠在格子上、不随 cell-body 旋转，始终正立 */
+/* 棋子只占格子底部条带，避免盖住地名/价格 */
 .cell-tokens {
   position: absolute;
-  inset: 0;
-  z-index: 6;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  top: auto;
+  height: var(--token-space);
+  z-index: 5;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: flex-end;
   gap: 1px;
-  padding: 1px 2px 2px;
+  padding: 0 1px 1px;
   pointer-events: none;
 }
 
@@ -524,24 +536,101 @@ body.monopoly-cartoon {
   opacity: 0.65;
 }
 
-.cell-tokens .meeple:nth-child(2) { transform: translateX(3px); }
-.cell-tokens .meeple:nth-child(3) { transform: translateX(-3px) translateY(-3px); }
-.cell-tokens .meeple:nth-child(4) { transform: translateY(-4px); }
-.cell.is-stepping .meeple { transform: translateY(-3px) scale(1.08); }
+.cell-tokens .meeple {
+  width: 0.82rem;
+  height: 1rem;
+  transform-origin: bottom center;
+}
+.cell-tokens .meeple:nth-child(2) { transform: translateX(2px); }
+.cell-tokens .meeple:nth-child(3) { transform: translateX(-2px) translateY(-2px); }
+.cell-tokens .meeple:nth-child(4) { transform: translateY(-2px); }
+.cell.is-stepping .meeple { transform: translateY(-2px) scale(1.06); }
 
 .side-bottom.cell-property .cell-band { left: 0; right: 0; top: 0; height: var(--band-size); }
-.side-bottom.cell-property .cell-body { top: var(--band-size); }
+.side-bottom.cell-property .cell-body {
+  top: var(--band-size);
+  bottom: var(--token-space);
+  left: 0; right: 0;
+}
+.side-bottom .cell-tokens { bottom: 1px; top: auto; height: var(--token-space); }
+
 .side-top.cell-property .cell-band { left: 0; right: 0; bottom: 0; height: var(--band-size); }
-.side-top.cell-property .cell-body { bottom: var(--band-size); transform: rotate(180deg); }
+.side-top.cell-property .cell-body {
+  bottom: var(--band-size);
+  top: var(--token-space);
+  left: 0; right: 0;
+  transform: rotate(180deg);
+}
+.side-top .cell-tokens {
+  top: 1px; bottom: auto; height: var(--token-space);
+  align-items: flex-start;
+}
+
 .side-left.cell-property .cell-band {
   top: 0; bottom: 0; right: 0; width: var(--band-size);
   flex-direction: column;
 }
-.side-left .cell-body { transform: rotate(90deg); transform-origin: center; width: 100%; height: 100%; inset: 0; padding: 3px 2px; }
+.side-left.cell-property .cell-body {
+  transform: rotate(90deg);
+  transform-origin: center;
+  width: calc(100% - var(--band-size) - var(--token-space));
+  height: 100%;
+  left: var(--token-space);
+  right: auto;
+  top: 0;
+  bottom: 0;
+  padding: 2px;
+}
+.side-left .cell-body {
+  transform: rotate(90deg);
+  transform-origin: center;
+  width: calc(100% - var(--token-space));
+  height: 100%;
+  left: var(--token-space);
+  right: auto;
+  top: 0; bottom: 0;
+  padding: 2px;
+}
+.side-left .cell-tokens {
+  left: 1px; right: auto; top: 1px; bottom: 1px;
+  width: var(--token-space); height: auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
 .side-right.cell-property .cell-band {
   top: 0; bottom: 0; left: 0; width: var(--band-size);
   flex-direction: column;
 }
+.side-right.cell-property .cell-body {
+  transform: rotate(-90deg);
+  transform-origin: center;
+  width: calc(100% - var(--band-size) - var(--token-space));
+  height: 100%;
+  right: var(--token-space);
+  left: auto;
+  top: 0; bottom: 0;
+  padding: 2px;
+}
+.side-right .cell-body {
+  transform: rotate(-90deg);
+  transform-origin: center;
+  width: calc(100% - var(--token-space));
+  height: 100%;
+  right: var(--token-space);
+  left: auto;
+  top: 0; bottom: 0;
+  padding: 2px;
+}
+.side-right .cell-tokens {
+  right: 1px; left: auto; top: 1px; bottom: 1px;
+  width: var(--token-space); height: auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
 .side-left.cell-property .cell-houses,
 .side-right.cell-property .cell-houses {
   flex-direction: column-reverse;
@@ -549,10 +638,14 @@ body.monopoly-cartoon {
   height: 100%;
   padding: 2px 0;
 }
-.side-right .cell-body { transform: rotate(-90deg); transform-origin: center; width: 100%; height: 100%; inset: 0; }
-.side-top:not(.cell-property) .cell-body { transform: rotate(180deg); }
-.side-left:not(.cell-property) .cell-body { transform: rotate(90deg); }
-.side-right:not(.cell-property) .cell-body { transform: rotate(-90deg); }
+
+.side-top:not(.cell-property) .cell-body {
+  transform: rotate(180deg);
+  top: var(--token-space);
+  bottom: 0;
+}
+.side-left:not(.cell-property) .cell-body { /* covered above */ }
+.side-right:not(.cell-property) .cell-body { /* covered above */ }
 
 .cell-go { background: linear-gradient(145deg, #ffab91, #ffe082); }
 .cell-go .cell-name { color: #c62828; font-size: clamp(0.75rem, 1.55vw, 1.15rem); }
