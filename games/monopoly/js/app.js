@@ -392,7 +392,13 @@ function renderHouses(level, ownerName = "") {
   if (n <= 0) return "";
   const who = ownerName ? `${ownerName}的` : "";
   if (n >= MAX_BUILD_LEVEL) {
-    return `<span class="house hotel" title="${who}酒店"></span>`;
+    return `<span class="house hotel" title="${who}酒店" aria-label="${who}酒店">
+      <span class="hotel-flag"></span>
+      <span class="hotel-windows" aria-hidden="true">
+        <i></i><i></i><i></i><i></i>
+      </span>
+      <span class="hotel-door" aria-hidden="true"></span>
+    </span>`;
   }
   return Array.from(
     { length: n },
