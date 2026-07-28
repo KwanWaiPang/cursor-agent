@@ -35,6 +35,7 @@ const els = {
   diceTray: null,
   dieA: null,
   dieB: null,
+  diceSum: null,
   dialog: document.getElementById("dialog"),
   dialogTitle: document.getElementById("dialogTitle"),
   dialogText: document.getElementById("dialogText"),
@@ -104,8 +105,8 @@ function cellInnerHTML(def) {
       <span class="cell-name">${def.name}</span>
       <span class="cell-price">${price}</span>
       <span class="cell-houses" aria-hidden="true"></span>
-      <span class="cell-tokens"></span>
     </span>
+    <span class="cell-tokens" aria-hidden="true"></span>
   `;
 }
 
@@ -130,10 +131,11 @@ function buildBoard() {
       <span class="fake-card chance">机会</span>
       <span class="fake-card fate">命运</span>
     </div>
-    <div class="dice-tray" id="diceTray">
-      <button type="button" class="die" id="dieA" data-value="0" aria-label="骰子一"></button>
-      <button type="button" class="die" id="dieB" data-value="0" aria-label="骰子二"></button>
+    <div class="dice-tray" id="diceTray" aria-live="polite">
+      <div class="die" id="dieA" data-value="0" role="img" aria-label="骰子一"></div>
+      <div class="die" id="dieB" data-value="0" role="img" aria-label="骰子二"></div>
     </div>
+    <p class="dice-sum" id="diceSum">点击下方掷骰</p>
     <button type="button" class="dice-btn" id="diceBtnInner" aria-label="掷骰子">
       掷双骰前进
     </button>
@@ -145,8 +147,10 @@ function buildBoard() {
   els.diceTray = center.querySelector("#diceTray");
   els.dieA = center.querySelector("#dieA");
   els.dieB = center.querySelector("#dieB");
+  els.diceSum = center.querySelector("#diceSum");
   paintDie(els.dieA, 0);
   paintDie(els.dieB, 0);
+  setDiceSumText("点击下方掷骰");
   innerBtn.addEventListener("click", onDice);
 
   BOARD.forEach((def, i) => {
@@ -288,39 +292,86 @@ function paintDie(el, value) {
   ).join("");
 }
 
+function setDiceSumText(text) {
+  if (els.diceSum) els.diceSum.textContent = text;
+}
+
 function randFace() {
   return 1 + Math.floor(Math.random() * 6);
 }
 
 async function animateDice(a, b) {
-  if (els.diceTray) els.diceTray.classList.add("is-rolling");
-  const spins = fast ? 8 : 14;
+  if (els.diceTray) {
+    els.diceTray.classList.remove("is-landed");
+    els.diceTray.classList.add("is-rolling");
+  }
+  setDiceSumText("骰子滚动中…");
+  const spins = fast ? 10 : 18;
   for (let i = 0; i < spins; i++) {
     paintDie(els.dieA, randFace());
     paintDie(els.dieB, randFace());
-    await delay(fast ? 35 : 55);
+    await delay(fast ? 40 : 70);
   }
   paintDie(els.dieA, a);
   paintDie(els.dieB, b);
+  setDiceSumText(`${a} + ${b} = ${a + b}`);
   if (els.diceTray) {
     els.diceTray.classList.remove("is-rolling");
     els.diceTray.classList.add("is-landed");
-    await delay(fast ? 180 : 320);
+    await delay(fast ? 220 : 420);
     els.diceTray.classList.remove("is-landed");
   }
 }
 
+/** 棋子逐格走动（视觉），不结算路过起点奖金 */
+async function animateWalk(playerId, from, steps) {
+  const pl = state.players[playerId];
+  if (!pl || steps <= 0) return;
+  const total = BOARD.length;
+  for (let i = 1; i <= steps; i++) {
+    pl.position = (from + i) % total;
+    renderTokensOnly();
+    const node = cellNodes[pl.position];
+    if (node) {
+      node.classList.add("is-stepping");
+      await delay(fast ? 90 : 160);
+      node.classList.remove("is-stepping");
+    } else {
+      await delay(fast ? 90 : 160);
+    }
+  }
+}
+
+function renderTokensOnly() {
+  if (!state) return;
+  state.cells.forEach((_, i) => {
+    const node = cellNodes[i];
+    if (!node) return;
+    const tokens = node.querySelector(".cell-tokens");
+    if (!tokens) return;
+    const here = state.players.filter(
+      (pl) => !pl.bankrupt && pl.position === i
+    );
+    tokens.innerHTML = here.map((pl) => meepleHTML(pl)).join("");
+  });
+}
+
 async function playTurnRoll() {
+  const p = currentPlayer(state);
+  const from = p.position;
   const pair = rollDicePair();
   play(selectAudio);
   await animateDice(pair.a, pair.b);
+  await animateWalk(p.id, from, pair.sum);
+  // 走动已到终点，先复位再交给引擎做正式位移与结算
+  p.position = from;
   state = applyDiceMove(state, pair);
   play(clickAudio);
   render();
 }
 
 function meepleHTML(pl) {
-  return `<span class="meeple" style="--piece:${pl.color};--piece-light:${pl.accent || "#fff"}" title="${pl.name}">
+  return `<span class="meeple" data-id="${pl.id}" style="--piece:${pl.color};--piece-light:${pl.accent || "#fff"}" title="${pl.name}">
     <span class="meeple-head"></span>
     <span class="meeple-body"></span>
     <span class="meeple-base"></span>
@@ -420,6 +471,13 @@ function render() {
   if (state.lastDiceA && state.lastDiceB) {
     paintDie(els.dieA, state.lastDiceA);
     paintDie(els.dieB, state.lastDiceB);
+    if (!els.diceTray?.classList.contains("is-rolling")) {
+      setDiceSumText(
+        `${state.lastDiceA} + ${state.lastDiceB} = ${state.lastDiceA + state.lastDiceB}`
+      );
+    }
+  } else {
+    setDiceSumText("点击下方掷骰");
   }
 
   const canRoll =

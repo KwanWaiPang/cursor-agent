@@ -163,53 +163,85 @@ body.monopoly-cartoon {
 .dice-tray {
   display: flex;
   justify-content: center;
-  gap: 0.65rem;
-  margin: 0.15rem 0 0.2rem;
-  min-height: 3rem;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.2rem 0 0.1rem;
+  min-height: 3.4rem;
+  perspective: 240px;
 }
 
+/* 用 div.die，并加高优先级，避免被 .game-page button 样式盖掉 */
+.game-page.monopoly-cartoon .die,
+.monopoly-cartoon .die,
 .die {
-  width: 2.6rem;
-  height: 2.6rem;
-  border: 3px solid #3b2a1f;
-  border-radius: 12px;
-  background: linear-gradient(160deg, #fff, #ffe9c2);
-  box-shadow: 0 4px 0 #3b2a1f;
-  display: grid;
+  box-sizing: border-box;
+  width: 3rem;
+  height: 3rem;
+  border: 3px solid #2b1d14 !important;
+  border-radius: 14px !important;
+  background: linear-gradient(160deg, #fffef8 0%, #ffe7b0 100%) !important;
+  color: #2b1d14 !important;
+  box-shadow:
+    0 5px 0 #2b1d14,
+    inset 0 2px 0 rgba(255, 255, 255, 0.75) !important;
+  display: grid !important;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
   gap: 2px;
-  padding: 0.28rem;
+  padding: 0.32rem !important;
+  margin: 0;
   cursor: default;
   appearance: none;
+  transform-style: preserve-3d;
 }
 
-.die.die-blank { opacity: 0.7; }
+.die.die-blank { opacity: 0.55; }
 
 .die .pip {
-  width: 0.38rem;
-  height: 0.38rem;
+  width: 0.42rem;
+  height: 0.42rem;
   margin: auto;
   border-radius: 50%;
-  background: #2b1d14;
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.25);
+  background: #1f140e;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.2);
 }
 
-.dice-tray.is-rolling .die { animation: die-tumble 0.18s linear infinite; }
-.dice-tray.is-landed .die { animation: die-pop 0.35s ease; }
+.dice-sum {
+  margin: 0.05rem 0 0.2rem;
+  min-height: 1.2em;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: clamp(0.85rem, 1.8vw, 1.05rem);
+  letter-spacing: 0.06em;
+  color: #3b2416;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.dice-tray.is-rolling .die {
+  animation: die-tumble 0.22s ease-in-out infinite;
+}
+
+.dice-tray.is-rolling .die:nth-child(2) {
+  animation-delay: 0.05s;
+}
+
+.dice-tray.is-landed .die {
+  animation: die-pop 0.42s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
 
 @keyframes die-tumble {
-  0% { transform: translateY(0) rotate(0deg); }
-  25% { transform: translateY(-6px) rotate(8deg); }
-  50% { transform: translateY(2px) rotate(-6deg); }
-  75% { transform: translateY(-4px) rotate(5deg); }
-  100% { transform: translateY(0) rotate(0deg); }
+  0% { transform: translateY(0) rotateX(0deg) rotateZ(0deg) scale(1); }
+  20% { transform: translateY(-10px) rotateX(28deg) rotateZ(14deg) scale(1.05); }
+  40% { transform: translateY(3px) rotateX(-18deg) rotateZ(-12deg) scale(0.98); }
+  60% { transform: translateY(-8px) rotateX(22deg) rotateZ(10deg) scale(1.04); }
+  80% { transform: translateY(2px) rotateX(-10deg) rotateZ(-8deg) scale(0.99); }
+  100% { transform: translateY(0) rotateX(0deg) rotateZ(0deg) scale(1); }
 }
 
 @keyframes die-pop {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.18); }
-  100% { transform: scale(1); }
+  0% { transform: scale(0.85) rotate(-8deg); }
+  45% { transform: scale(1.22) rotate(4deg); }
+  100% { transform: scale(1) rotate(0deg); }
 }
 
 .dice-btn {
@@ -232,21 +264,25 @@ body.monopoly-cartoon {
 
 .dice-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
+.game-page.monopoly-cartoon .cell,
 .cell {
   --band-size: 22%;
   position: relative;
   appearance: none;
-  border: 2px solid var(--line-ink);
-  border-radius: 8px;
-  background: var(--cell-paper);
-  color: #1c1410;
-  padding: 0;
+  border: 2px solid var(--line-ink) !important;
+  border-radius: 8px !important;
+  background: var(--cell-paper) !important;
+  color: #1c1410 !important;
+  padding: 0 !important;
   min-width: 0;
   min-height: 0;
   cursor: default;
-  overflow: hidden;
+  overflow: visible;
   font-family: var(--font-body);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  display: block !important;
+  align-items: unset;
+  justify-content: unset;
 }
 
 .cell.owned {
@@ -324,14 +360,24 @@ body.monopoly-cartoon {
 }
 .house.hotel::before { top: -0.18rem; height: 0.2rem; background: #d32f2f; }
 
+/* 棋子叠在格子上、不随 cell-body 旋转，始终正立 */
 .cell-tokens {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: flex-end;
-  gap: 2px;
-  min-height: 0.85rem;
-  width: 100%;
+  gap: 1px;
+  padding: 1px 2px 2px;
+  pointer-events: none;
+}
+
+.cell.is-stepping {
+  outline: 3px solid rgba(255, 87, 34, 0.85);
+  outline-offset: -2px;
+  z-index: 4;
 }
 
 .meeple {
@@ -339,47 +385,49 @@ body.monopoly-cartoon {
   --piece-light: #ffcdd2;
   position: relative;
   display: inline-block;
-  width: 0.85rem;
-  height: 1.05rem;
-  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25));
+  width: 1.15rem;
+  height: 1.4rem;
+  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.35));
   z-index: 3;
+  transition: transform 0.12s ease;
 }
 
 .meeple-head {
   position: absolute;
   left: 50%; top: 0;
-  width: 0.42rem; height: 0.42rem;
-  margin-left: -0.21rem;
+  width: 0.55rem; height: 0.55rem;
+  margin-left: -0.275rem;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff 0 18%, var(--piece-light) 19%, var(--piece) 100%);
-  border: 1.5px solid #2b1d14;
+  border: 2px solid #2b1d14;
   z-index: 2;
 }
 
 .meeple-body {
   position: absolute;
-  left: 50%; top: 0.32rem;
-  width: 0.62rem; height: 0.48rem;
-  margin-left: -0.31rem;
-  border-radius: 0.35rem 0.35rem 0.2rem 0.2rem;
+  left: 50%; top: 0.42rem;
+  width: 0.78rem; height: 0.62rem;
+  margin-left: -0.39rem;
+  border-radius: 0.4rem 0.4rem 0.22rem 0.22rem;
   background: linear-gradient(180deg, var(--piece-light), var(--piece));
-  border: 1.5px solid #2b1d14;
+  border: 2px solid #2b1d14;
   z-index: 1;
 }
 
 .meeple-base {
   position: absolute;
   left: 50%; bottom: 0;
-  width: 0.72rem; height: 0.22rem;
-  margin-left: -0.36rem;
+  width: 0.95rem; height: 0.28rem;
+  margin-left: -0.475rem;
   border-radius: 999px;
   background: #2b1d14;
-  opacity: 0.55;
+  opacity: 0.65;
 }
 
-.cell-tokens .meeple:nth-child(2) { transform: translateX(2px); }
-.cell-tokens .meeple:nth-child(3) { transform: translateX(-2px) translateY(-2px); }
-.cell-tokens .meeple:nth-child(4) { transform: translateY(-3px); }
+.cell-tokens .meeple:nth-child(2) { transform: translateX(3px); }
+.cell-tokens .meeple:nth-child(3) { transform: translateX(-3px) translateY(-3px); }
+.cell-tokens .meeple:nth-child(4) { transform: translateY(-4px); }
+.cell.is-stepping .meeple { transform: translateY(-3px) scale(1.08); }
 
 .side-bottom.cell-property .cell-band { left: 0; right: 0; top: 0; height: var(--band-size); }
 .side-bottom.cell-property .cell-body { top: var(--band-size); }
@@ -554,5 +602,6 @@ body.monopoly-cartoon {
   .board { gap: 2px; padding: 3px; }
   .center-cards { display: none; }
   .center-landmarks { font-size: 1rem; }
-  .die { width: 2.2rem; height: 2.2rem; }
+  .die { width: 2.45rem; height: 2.45rem; }
+  .meeple { width: 1rem; height: 1.2rem; }
 }
