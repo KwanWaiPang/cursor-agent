@@ -77,7 +77,7 @@ export const WEAPONS = {
   sniper: {
     id: "sniper",
     name: "栓狙",
-    damage: 92, // 躯干可秒杀多数 AI；高血量波次仍一击
+    damage: 48, // 躯干约 2 枪；爆头仍可一击
     rpm: 42,
     magSize: 5,
     reserve: 25,
@@ -91,7 +91,7 @@ export const WEAPONS = {
     hipSpreadMul: 18,
     adsFov: 28,
     kick: 0.07,
-    zoneMul: { head: 2.4, body: 1, limb: 0.85 },
+    zoneMul: { head: 2.5, body: 1, limb: 0.85 },
   },
 };
 
