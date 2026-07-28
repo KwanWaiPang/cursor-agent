@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { Enemy, LootCrate } from "./enemy.js";
 import { createSafeZoneVisual } from "./world.js";
-import { createArsenal, pickupWeapon, isWeaponLoot } from "./weapons.js";
+import { createArsenal, pickupWeapon, isWeaponLoot, distributeAmmo } from "./weapons.js";
 
 function pruneGone(list) {
   for (let i = list.length - 1; i >= 0; i--) {
@@ -57,9 +57,14 @@ function spawnLootField(ctx, kinds, spread, bias = {}) {
 function applyLoot(ctx, kind, hud, sfx) {
   sfx.pickup();
   if (kind === "ammo") {
-    const lo = ctx.loadout;
-    lo.reserve += lo.def.magSize * 2;
-    hud.toast("获得弹药补给（当前武器）");
+    const filled = distributeAmmo(ctx.arsenal);
+    if (!filled.length) {
+      hud.toast("弹药已满");
+    } else if (filled.length === 1) {
+      hud.toast(`弹药 → ${filled[0].name} +${filled[0].gained}`);
+    } else {
+      hud.toast(`弹药分配：${filled.map((f) => f.name).join("、")}`);
+    }
     hud.setArsenal?.(ctx.arsenal);
     return;
   }
@@ -112,7 +117,8 @@ export function createAssaultMode(ctx) {
   hud.setArsenal?.(ctx.arsenal);
 
   hud.setMode("据点清剿 · 红方");
-  hud.toast("站桩占领中央战术区即可胜利 · 红蓝各 10 人 · 开局短暂无敌");
+  hud.toast("队友也可帮你占领中央区 · 红蓝各 10 人 · 开局短暂无敌");
+  hud.setCapture?.(0, "");
   player.getObject().position.set(0, player.eyeHeight, 26);
 
   // 多数补给靠近战术区
@@ -129,13 +135,15 @@ export function createAssaultMode(ctx) {
     for (let i = 0; i < need; i++) {
       const ang = ((alive + i) / allyCount) * Math.PI * 2;
       const sp = player.position.clone();
-      sp.x += Math.cos(ang) * (5 + (i % 3));
-      sp.z += Math.sin(ang) * (5 + (i % 3)) + 2;
+      // 更分散，减少贴脸挡视野
+      const ring = 9 + (i % 3) * 2.2;
+      sp.x += Math.cos(ang) * ring;
+      sp.z += Math.sin(ang) * ring + 3;
       spawnUnit(ctx, "red", sp, {
         hp: 80,
         speed: 3.5,
         damage: 7,
-        jitter: 1.8,
+        jitter: 2.2,
         holdZone: world.zoneCenter.clone(),
       });
     }
@@ -192,14 +200,25 @@ export function createAssaultMode(ctx) {
         );
       }).length;
 
+      const redsInZone = ctx.enemies.filter((e) => {
+        if (!e.alive || e.team !== "red") return false;
+        return (
+          Math.hypot(e.position.x - world.zoneCenter.x, e.position.z - world.zoneCenter.z) <=
+          world.zoneRadius + 1.2
+        );
+      }).length;
+
+      const friendsInZone = redsInZone + (inZone && player.alive ? 1 : 0);
       let capNote = "";
-      if (inZone && player.alive) {
+      if (friendsInZone > 0) {
         leaveZoneTimer = 0;
         if (bluesInZone > 0) {
-          capture = Math.min(captureNeed, capture + dt * 4);
+          const net = friendsInZone - bluesInZone;
+          const rate = net > 0 ? 5 + Math.min(6, net) * 1.2 : 2.2;
+          capture = Math.min(captureNeed, capture + dt * rate);
           capNote = "争夺中";
         } else {
-          capture = Math.min(captureNeed, capture + dt * 12);
+          capture = Math.min(captureNeed, capture + dt * (10 + Math.min(6, friendsInZone) * 1.1));
           capNote = "占领中";
         }
       } else {
@@ -230,6 +249,8 @@ export function createAssaultMode(ctx) {
         allyTimer = 0;
       }
 
+      const capPct = Math.min(100, (capture / captureNeed) * 100);
+      hud.setCapture?.(capPct, capNote || (friendsInZone > 0 ? "战术区" : ""));
       hud.setZoneHint?.({
         dx: world.zoneCenter.x - player.position.x,
         dz: world.zoneCenter.z - player.position.z,
@@ -239,11 +260,11 @@ export function createAssaultMode(ctx) {
         ),
         outside: !inZone,
         yaw: playerYaw(player),
-        label: inZone ? capNote || "战术区" : "前往战术区",
+        label: inZone ? capNote || "战术区" : friendsInZone > 0 ? "队友占领中" : "前往战术区",
       });
 
       hud.setObjective(
-        `占领 ${Math.min(100, capture).toFixed(0)}%${capNote ? `（${capNote}）` : ""} · 波次 ${wave}/${maxWave} · 蓝 ${enemiesAlive} · 红 ${alliesAlive + (player.alive ? 1 : 0)}`
+        `波次 ${wave}/${maxWave} · 蓝 ${enemiesAlive} · 红 ${alliesAlive + (player.alive ? 1 : 0)}${capNote ? ` · ${capNote}` : ""}`
       );
       hud.setKills?.(kills);
 
@@ -298,6 +319,7 @@ export function createRoyaleMode(ctx) {
   player.medkits = 0;
   hud.setKills?.(0);
   hud.setArsenal?.(ctx.arsenal);
+  hud.setCapture?.(0, "");
   hud.toast("红蓝各 10 人 · 清剿全部蓝方即可获胜 · 注意安全区（开局无敌）");
 
   const start = world.spawnPoints[Math.floor(Math.random() * world.spawnPoints.length)].clone();
@@ -307,15 +329,16 @@ export function createRoyaleMode(ctx) {
   for (let i = 0; i < allyCount; i++) {
     const ang = (i / allyCount) * Math.PI * 2;
     const sp = start.clone();
-    sp.x += Math.cos(ang) * (4.5 + (i % 3) * 0.8);
-    sp.z += Math.sin(ang) * (4.5 + (i % 3) * 0.8);
+    const ring = 8.5 + (i % 3) * 2;
+    sp.x += Math.cos(ang) * ring;
+    sp.z += Math.sin(ang) * ring;
     spawnUnit(ctx, "red", sp, {
       hp: 90,
       speed: 3.6,
       damage: 7,
       reactRange: 48,
       fireRange: 34,
-      jitter: 1.6,
+      jitter: 2,
     });
   }
 
@@ -387,7 +410,15 @@ export function createRoyaleMode(ctx) {
       for (const e of ctx.enemies) {
         if (!e.alive) continue;
         const ed = Math.hypot(e.position.x - center.x, e.position.z - center.z);
-        if (ed > radius) e.damageBy(8 * dt);
+        if (ed > radius) {
+          e.damageBy(8 * dt);
+          // 毒圈外优先撤回安全区，避免站桩等死
+          e.holdZone = center.clone();
+          e.patrolTarget = center.clone();
+          e.seekCoverUntil = 0;
+          e.state = "patrol";
+          e.sprintBoost = Math.max(e.sprintBoost || 1, 1.45);
+        }
       }
 
       for (const crate of ctx.loot) {

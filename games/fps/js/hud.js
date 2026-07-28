@@ -20,6 +20,10 @@ export function createHud() {
     medkitText: document.getElementById("medkitText"),
     hitDir: document.getElementById("hitDir"),
     weaponStrip: document.getElementById("weaponStrip"),
+    captureHud: document.getElementById("captureHud"),
+    captureBar: document.getElementById("captureBar"),
+    capturePct: document.getElementById("capturePct"),
+    captureLabel: document.getElementById("captureLabel"),
   };
 
   let toastTimer = 0;
@@ -50,6 +54,7 @@ export function createHud() {
       els.zoneHint?.classList.add("hidden");
       els.hitDir?.classList.add("hidden");
       els.reloadTrack?.classList.add("hidden");
+      els.captureHud?.classList.add("hidden");
     },
     setMode(text) {
       els.modeLabel.textContent = text;
@@ -60,37 +65,64 @@ export function createHud() {
     setScore(text) {
       els.scoreText.textContent = text;
     },
-    /** 玩家击杀数（仅本人，不含队友） */
     setKills(n) {
       const v = Math.max(0, n | 0);
       els.scoreText.textContent = String(v);
       els.scoreText.dataset.kills = String(v);
     },
+    setCapture(pct, note = "") {
+      if (!els.captureHud) return;
+      const p = Math.max(0, Math.min(100, pct || 0));
+      if (p <= 0.05 && !note) {
+        els.captureHud.classList.add("hidden");
+        return;
+      }
+      els.captureHud.classList.remove("hidden");
+      els.captureHud.classList.toggle("contested", note === "争夺中");
+      els.captureHud.classList.toggle("capturing", note === "占领中");
+      if (els.captureBar) els.captureBar.style.transform = `scaleX(${p / 100})`;
+      if (els.capturePct) els.capturePct.textContent = `${p.toFixed(0)}%`;
+      if (els.captureLabel) els.captureLabel.textContent = note || "占领";
+    },
+    setSpread(spread, aiming = false) {
+      if (!els.crosshair) return;
+      const gap = Math.max(4, Math.min(28, 4 + spread * 220));
+      els.crosshair.style.setProperty("--ch-gap", `${gap.toFixed(1)}px`);
+      els.crosshair.classList.toggle("ads", !!aiming);
+    },
     setArsenal(arsenal) {
       arsenalRef = arsenal;
       if (!els.weaponStrip || !arsenal) return;
-      const owned = SLOT_IDS.filter((id) => arsenal.owned[id]);
-      const sig = owned.join(",") + "|" + arsenal.activeId;
+      const ownedIds = SLOT_IDS.filter((id) => arsenal.owned[id]);
+      const sig = ownedIds.join(",") + "|" + arsenal.activeId + "|all";
       if (sig !== stripSig) {
         stripSig = sig;
         els.weaponStrip.innerHTML = "";
-        for (const id of owned) {
+        for (let i = 0; i < SLOT_IDS.length; i++) {
+          const id = SLOT_IDS[i];
           const lo = arsenal.owned[id];
-          const slot = SLOT_IDS.indexOf(id) + 1;
           const btn = document.createElement("div");
-          btn.className = "weapon-slot" + (id === arsenal.activeId ? " active" : "");
+          const owned = !!lo;
+          btn.className =
+            "weapon-slot" +
+            (owned ? "" : " empty") +
+            (id === arsenal.activeId ? " active" : "");
           btn.dataset.id = id;
-          btn.innerHTML = `<span class="slot-key">${slot}</span><span class="slot-name">${SLOT_NAMES[id] || lo.def.name}</span><span class="slot-ammo">${lo.mag}/${lo.reserve}</span>`;
+          if (owned) {
+            btn.innerHTML = `<span class="slot-key">${i + 1}</span><span class="slot-name">${SLOT_NAMES[id]}</span><span class="slot-ammo">${lo.mag}/${lo.reserve}</span>`;
+          } else {
+            btn.innerHTML = `<span class="slot-key">${i + 1}</span><span class="slot-name">${SLOT_NAMES[id]}</span><span class="slot-ammo">—</span>`;
+          }
           els.weaponStrip.appendChild(btn);
         }
       } else {
         for (const node of els.weaponStrip.children) {
           const id = node.dataset.id;
           const lo = arsenal.owned[id];
-          if (!lo) continue;
+          node.classList.toggle("empty", !lo);
           node.classList.toggle("active", id === arsenal.activeId);
           const ammo = node.querySelector(".slot-ammo");
-          if (ammo) ammo.textContent = `${lo.mag}/${lo.reserve}`;
+          if (ammo) ammo.textContent = lo ? `${lo.mag}/${lo.reserve}` : "—";
         }
       }
     },
@@ -156,7 +188,7 @@ export function createHud() {
         els.ammoText.textContent = `${loadout.mag} / ${loadout.reserve}`;
         delete els.ammoText.dataset.reload;
         if (loadout.mag <= 0 && loadout.reserve > 0) {
-          els.ammoText.dataset.reload = "空仓 · 换弹中";
+          els.ammoText.dataset.reload = "空仓 · 按 R";
         } else if (loadout.mag <= 0) {
           els.ammoText.dataset.reload = "弹药耗尽";
         }
@@ -181,7 +213,7 @@ export function createHud() {
         while (rel > Math.PI) rel -= Math.PI * 2;
         while (rel < -Math.PI) rel += Math.PI * 2;
         els.hitDir.classList.remove("hidden");
-        els.hitDir.style.transform = `translate(-50%, -50%) rotate(${(rel * 180) / Math.PI}deg)`;
+        els.hitDir.style.setProperty("--hit-rot", `${(rel * 180) / Math.PI}deg`);
         hitDirTimer = 0.85;
       }
     },
