@@ -95,7 +95,16 @@ export function createHud() {
         els.reloadTrack?.classList.remove("hidden");
         if (els.reloadBar) els.reloadBar.style.transform = `scaleX(${Math.min(1, Math.max(0, done))})`;
         els.ammoText.textContent = `${loadout.mag} / ${loadout.reserve}`;
-        els.ammoText.dataset.reload = `换弹 ${ (left / 1000).toFixed(1)}s`;
+        els.ammoText.dataset.reload = `换弹 ${(left / 1000).toFixed(1)}s`;
+      } else if (loadout.chamberUntil && performance.now() < loadout.chamberUntil) {
+        const left = Math.max(0, loadout.chamberUntil - performance.now());
+        const total = loadout.def.chamberMs || 1400;
+        els.reloadTrack?.classList.remove("hidden");
+        if (els.reloadBar) {
+          els.reloadBar.style.transform = `scaleX(${Math.min(1, Math.max(0, 1 - left / total))})`;
+        }
+        els.ammoText.textContent = `${loadout.mag} / ${loadout.reserve}`;
+        els.ammoText.dataset.reload = `拉栓 ${(left / 1000).toFixed(1)}s`;
       } else {
         els.reloadTrack?.classList.add("hidden");
         if (els.reloadBar) els.reloadBar.style.transform = "scaleX(0)";

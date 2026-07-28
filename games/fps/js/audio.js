@@ -70,15 +70,38 @@ export class Sfx {
     osc.stop(t0 + dur + 0.02);
   }
 
-  shoot(heavy = false) {
+  shoot(heavy = false, weaponId = "") {
     this.ensure();
+    if (weaponId === "shotgun") {
+      this.tone(90, 0.14, "sawtooth", 0.08, -70);
+      this.tone(50, 0.12, "triangle", 0.05, -30);
+      this.tone(180, 0.06, "square", 0.03, -120);
+      return;
+    }
+    if (weaponId === "sniper") {
+      this.tone(160, 0.12, "sawtooth", 0.07, -100);
+      this.tone(70, 0.16, "triangle", 0.05, -40);
+      // 拉栓咔哒
+      this.tone(420, 0.04, "square", 0.02, -80);
+      return;
+    }
+    if (weaponId === "m4") {
+      const ok = this.playBuffer("ak", {
+        gain: 0.72,
+        rate: 1.08 + Math.random() * 0.06,
+      });
+      if (!ok) {
+        this.tone(150, 0.08, "sawtooth", 0.045, -85);
+        this.tone(70, 0.07, "triangle", 0.03, -35);
+      }
+      return;
+    }
     const key = heavy ? "ak" : "pistol";
     const ok = this.playBuffer(key, {
       gain: heavy ? 0.85 : 0.7,
       rate: 0.96 + Math.random() * 0.08,
     });
     if (!ok) {
-      // 回退
       this.tone(heavy ? 120 : 200, heavy ? 0.1 : 0.06, "sawtooth", 0.05, -90);
       this.tone(heavy ? 55 : 80, 0.08, "triangle", 0.035, -40);
     }
