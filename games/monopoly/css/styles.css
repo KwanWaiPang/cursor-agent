@@ -266,7 +266,7 @@ body.monopoly-cartoon {
 
 .game-page.monopoly-cartoon .cell,
 .cell {
-  --band-size: 22%;
+  --band-size: 30%;
   position: relative;
   appearance: none;
   border: 2px solid var(--line-ink) !important;
@@ -291,10 +291,13 @@ body.monopoly-cartoon {
 
 .cell-band { display: none; background: var(--group, #888); }
 .cell-property .cell-band {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: absolute;
-  z-index: 1;
+  z-index: 5;
   border-bottom: 2px solid rgba(0, 0, 0, 0.12);
+  overflow: visible;
 }
 
 .cell-body {
@@ -328,37 +331,68 @@ body.monopoly-cartoon {
   flex-wrap: nowrap;
   justify-content: center;
   align-items: flex-end;
-  gap: 1px;
-  min-height: 0.55rem;
+  gap: 3px;
+  min-height: 0;
   width: 100%;
+  height: 100%;
+  padding: 2px;
+  box-sizing: border-box;
 }
 
+/* 房子/酒店颜色跟随地主玩家；整体含屋顶，避免被色带裁切 */
 .house {
-  width: 0.42rem;
-  height: 0.36rem;
-  background: #43a047;
-  border: 1px solid rgba(0, 0, 0, 0.25);
-  border-radius: 1px 1px 0 0;
+  --house: var(--owner, #43a047);
+  --house-light: var(--owner-light, #a5d6a7);
+  --roof: color-mix(in srgb, var(--house) 62%, #1a120c);
+  width: 1.05rem;
+  height: 1.05rem;
   position: relative;
   flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .house::before {
   content: "";
   position: absolute;
-  left: -1px; right: -1px; top: -0.22rem;
-  height: 0.24rem;
-  background: #ff5252;
+  left: 0; right: 0; top: 0;
+  height: 42%;
+  background: var(--roof);
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25));
+}
+
+.house::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 38%;
+  bottom: 4%;
+  background: linear-gradient(180deg, var(--house-light) 0%, var(--house) 100%);
+  border: 2px solid #2b1d14;
+  border-radius: 2px 2px 1px 1px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 2px 2px rgba(0, 0, 0, 0.22);
 }
 
 .house.hotel {
-  width: 0.7rem;
-  height: 0.55rem;
-  background: linear-gradient(180deg, #ff8a80, #ff5252);
-  border-radius: 2px;
+  width: 1.55rem;
+  height: 1.25rem;
 }
-.house.hotel::before { top: -0.18rem; height: 0.2rem; background: #d32f2f; }
+.house.hotel::before {
+  background: color-mix(in srgb, var(--house) 45%, #111);
+}
+.house.hotel::after {
+  left: 8%;
+  right: 8%;
+  background:
+    linear-gradient(90deg, transparent 22%, rgba(255, 255, 255, 0.45) 23% 40%, transparent 41%),
+    linear-gradient(180deg, var(--house-light), var(--house));
+  border-radius: 3px;
+}
 
 /* 棋子叠在格子上、不随 cell-body 旋转，始终正立 */
 .cell-tokens {
@@ -433,9 +467,22 @@ body.monopoly-cartoon {
 .side-bottom.cell-property .cell-body { top: var(--band-size); }
 .side-top.cell-property .cell-band { left: 0; right: 0; bottom: 0; height: var(--band-size); }
 .side-top.cell-property .cell-body { bottom: var(--band-size); transform: rotate(180deg); }
-.side-left.cell-property .cell-band { top: 0; bottom: 0; right: 0; width: var(--band-size); }
+.side-left.cell-property .cell-band {
+  top: 0; bottom: 0; right: 0; width: var(--band-size);
+  flex-direction: column;
+}
 .side-left .cell-body { transform: rotate(90deg); transform-origin: center; width: 100%; height: 100%; inset: 0; padding: 3px 2px; }
-.side-right.cell-property .cell-band { top: 0; bottom: 0; left: 0; width: var(--band-size); }
+.side-right.cell-property .cell-band {
+  top: 0; bottom: 0; left: 0; width: var(--band-size);
+  flex-direction: column;
+}
+.side-left.cell-property .cell-houses,
+.side-right.cell-property .cell-houses {
+  flex-direction: column-reverse;
+  width: auto;
+  height: 100%;
+  padding: 2px 0;
+}
 .side-right .cell-body { transform: rotate(-90deg); transform-origin: center; width: 100%; height: 100%; inset: 0; }
 .side-top:not(.cell-property) .cell-body { transform: rotate(180deg); }
 .side-left:not(.cell-property) .cell-body { transform: rotate(90deg); }

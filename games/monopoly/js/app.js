@@ -99,12 +99,13 @@ function cellInnerHTML(def) {
   const mark = def.type === "property" ? "" : def.mark || "";
 
   return `
-    <span class="cell-band" aria-hidden="true"></span>
+    <span class="cell-band" aria-hidden="true">
+      <span class="cell-houses" aria-hidden="true"></span>
+    </span>
     <span class="cell-body">
       ${mark ? `<span class="cell-icon">${mark}</span>` : `<span class="cell-icon cell-icon-empty"></span>`}
       <span class="cell-name">${def.name}</span>
       <span class="cell-price">${price}</span>
-      <span class="cell-houses" aria-hidden="true"></span>
     </span>
     <span class="cell-tokens" aria-hidden="true"></span>
   `;
@@ -385,14 +386,18 @@ function meepleHTML(pl) {
   </span>`;
 }
 
-/** 地图上盖房：1–3 栋小房子，第 4 级换成酒店 */
-function renderHouses(level) {
+/** 地图上盖房：1–3 栋小房子，第 4 级换成酒店；颜色随地主 */
+function renderHouses(level, ownerName = "") {
   const n = Math.max(0, Math.min(level || 0, MAX_BUILD_LEVEL));
   if (n <= 0) return "";
+  const who = ownerName ? `${ownerName}的` : "";
   if (n >= MAX_BUILD_LEVEL) {
-    return `<span class="house hotel" title="酒店"></span>`;
+    return `<span class="house hotel" title="${who}酒店"></span>`;
   }
-  return Array.from({ length: n }, () => `<span class="house" title="房子"></span>`).join("");
+  return Array.from(
+    { length: n },
+    () => `<span class="house" title="${who}房子"></span>`
+  ).join("");
 }
 
 function render() {
@@ -452,13 +457,18 @@ function render() {
     const tokens = node.querySelector(".cell-tokens");
     node.classList.toggle("owned", cell.owner != null);
     if (cell.owner != null) {
-      node.style.setProperty("--owner", state.players[cell.owner].color);
+      const owner = state.players[cell.owner];
+      node.style.setProperty("--owner", owner.color);
+      node.style.setProperty("--owner-light", owner.accent || "#fff");
     } else {
       node.style.removeProperty("--owner");
+      node.style.removeProperty("--owner-light");
     }
     if (cell.type === "property") {
       priceEl.textContent = `$${cell.value}`;
-      housesEl.innerHTML = renderHouses(cell.level || 0);
+      const ownerName =
+        cell.owner != null ? state.players[cell.owner]?.name || "" : "";
+      housesEl.innerHTML = renderHouses(cell.level || 0, ownerName);
       node.classList.toggle("has-houses", (cell.level || 0) > 0);
       node.classList.toggle("has-hotel", (cell.level || 0) >= MAX_BUILD_LEVEL);
     } else if (cell.type === "station" || cell.type === "utility") {
