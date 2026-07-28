@@ -9,6 +9,59 @@ function pruneGone(list) {
   }
 }
 
+/** 补给权重：栓狙稀有 */
+const LOOT_WEIGHTS = [
+  { kind: "ammo", w: 34 },
+  { kind: "health", w: 22 },
+  { kind: "m4", w: 14 },
+  { kind: "rifle", w: 12 },
+  { kind: "shotgun", w: 10 },
+  { kind: "pistol", w: 6 },
+  { kind: "sniper", w: 2 },
+];
+
+function rollLootKind() {
+  const total = LOOT_WEIGHTS.reduce((s, x) => s + x.w, 0);
+  let r = Math.random() * total;
+  for (const x of LOOT_WEIGHTS) {
+    r -= x.w;
+    if (r <= 0) return x.kind;
+  }
+  return "ammo";
+}
+
+/** 生成补给种类列表；整场最多 maxSniper 把栓狙 */
+function makeLootKinds(count, { maxSniper = 1 } = {}) {
+  const kinds = [];
+  let snipers = 0;
+  for (let i = 0; i < count; i++) {
+    let k = rollLootKind();
+    if (k === "sniper") {
+      if (snipers >= maxSniper) k = Math.random() < 0.5 ? "m4" : "shotgun";
+      else snipers += 1;
+    }
+    kinds.push(k);
+  }
+  // 保底弹药/急救各至少 1
+  if (!kinds.includes("ammo")) kinds[0] = "ammo";
+  if (!kinds.includes("health")) kinds[Math.min(1, kinds.length - 1)] = "health";
+  return kinds;
+}
+
+function pickAiStartWeapon(team) {
+  const r = Math.random();
+  if (team === "red") {
+    if (r < 0.55) return "rifle";
+    if (r < 0.82) return "m4";
+    if (r < 0.94) return "pistol";
+    return "shotgun";
+  }
+  if (r < 0.48) return "rifle";
+  if (r < 0.72) return "m4";
+  if (r < 0.88) return "pistol";
+  return "shotgun";
+}
+
 function spawnUnit(ctx, team, baseSp, opts = {}) {
   const { scene, world } = ctx;
   const sp = baseSp.clone();
@@ -20,10 +73,11 @@ function spawnUnit(ctx, team, baseSp, opts = {}) {
     team,
     hp: opts.hp ?? 70,
     speed: opts.speed ?? 3.5,
-    damage: opts.damage ?? 6,
+    damage: opts.damage,
     reactRange: opts.reactRange ?? 48,
     fireRange: opts.fireRange ?? 36,
     holdZone: opts.holdZone || null,
+    weaponId: opts.weaponId || pickAiStartWeapon(team),
   });
   ctx.enemies.push(e);
   return e;
@@ -121,10 +175,10 @@ export function createAssaultMode(ctx) {
   hud.setCapture?.(0, "");
   player.getObject().position.set(0, player.eyeHeight, 26);
 
-  // 多数补给靠近战术区
+  // 多数补给靠近战术区；栓狙整场最多 1
   spawnLootField(
     ctx,
-    ["ammo", "health", "ammo", "m4", "shotgun", "health", "sniper", "ammo"],
+    makeLootKinds(9, { maxSniper: 1 }),
     world.size * 0.5,
     { center: world.zoneCenter, radius: world.zoneRadius + 14, preferInside: true }
   );
@@ -363,7 +417,7 @@ export function createRoyaleMode(ctx) {
     });
   }
 
-  const kinds = ["ammo", "ammo", "health", "m4", "shotgun", "health", "rifle", "sniper", "pistol", "ammo"];
+  const kinds = makeLootKinds(12, { maxSniper: 1 });
   spawnLootField(ctx, kinds, world.size - 24, {
     center,
     radius,

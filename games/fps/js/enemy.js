@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { WEAPONS, isWeaponLoot } from "./weapons.js";
 
 const _tmp = new THREE.Vector3();
 const _tmp2 = new THREE.Vector3();
@@ -16,11 +17,91 @@ function mat(color, opts = {}) {
   });
 }
 
+/** AI 世界空间枪模：按种类外形可辨 */
+export function buildWorldGun(weaponId = "rifle") {
+  const gun = new THREE.Group();
+  gun.name = `worldGun_${weaponId}`;
+  const metal = mat(0x2a2e28, { roughness: 0.45, metalness: 0.55 });
+  const dark = mat(0x141814, { roughness: 0.5, metalness: 0.4 });
+  const wood = mat(0x6b4f32, { roughness: 0.85, metalness: 0.05 });
+  const polymer = mat(0x3d4650, { roughness: 0.55, metalness: 0.25 });
+
+  if (weaponId === "pistol") {
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.055, 0.16), metal);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.08, 6), dark);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.z = -0.11;
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.1, 0.05), wood);
+    grip.position.set(0, -0.06, 0.02);
+    gun.add(slide, barrel, grip);
+  } else if (weaponId === "m4") {
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.07, 0.26), polymer);
+    const carry = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.03, 0.14), dark);
+    carry.position.set(0, 0.05, -0.02);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.012, 0.22, 6), dark);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.z = -0.24;
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.1, 0.045), dark);
+    mag.position.set(0, -0.08, 0.02);
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.12), polymer);
+    stock.position.z = 0.18;
+    gun.add(receiver, carry, barrel, mag, stock);
+  } else if (weaponId === "shotgun") {
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.22), metal);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.32, 8), dark);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.z = -0.26;
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 6), metal);
+    tube.rotation.x = Math.PI / 2;
+    tube.position.set(0, -0.03, -0.18);
+    const pump = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.055, 0.1), wood);
+    pump.position.set(0, -0.02, -0.12);
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.16), wood);
+    stock.position.z = 0.16;
+    gun.add(receiver, barrel, tube, pump, stock);
+  } else if (weaponId === "sniper") {
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.24), polymer);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.012, 0.42, 8), dark);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.z = -0.34;
+    const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.12, 8), dark);
+    scope.rotation.x = Math.PI / 2;
+    scope.position.set(0, 0.05, -0.02);
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.04), dark);
+    mag.position.set(0, -0.07, 0.02);
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.055, 0.18), polymer);
+    stock.position.z = 0.18;
+    gun.add(receiver, barrel, scope, mag, stock);
+  } else {
+    // AK / rifle default
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.07, 0.28), metal);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.26, 8), dark);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.z = -0.26;
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.11, 0.055), dark);
+    mag.position.set(0, -0.09, 0.02);
+    mag.rotation.z = 0.2;
+    const woodStock = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.16), wood);
+    woodStock.position.z = 0.18;
+    const hg = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.05, 0.12), wood);
+    hg.position.z = -0.1;
+    gun.add(receiver, barrel, mag, woodStock, hg);
+  }
+
+  gun.traverse((o) => {
+    if (o.isMesh) o.castShadow = true;
+  });
+  gun.position.set(0.22, 1.0, 0.2);
+  gun.rotation.set(0.1, -0.4, 0.15);
+  gun.userData.weaponId = weaponId;
+  return gun;
+}
+
 /**
  * 阵营角色：我方红 / 敌方蓝
  * team: "red" | "blue"
  */
-function makeTeamCharacter(team = "blue") {
+function makeTeamCharacter(team = "blue", weaponId = "rifle") {
   const g = new THREE.Group();
   const isRed = team === "red";
 
@@ -111,16 +192,7 @@ function makeTeamCharacter(team = "blue") {
   headHit.userData.hitZone = "head";
   g.add(headHit);
 
-  const gun = new THREE.Group();
-  const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.28), mat(0x222522, { metalness: 0.6 }));
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.2, 6), mat(0x111111, { metalness: 0.7 }));
-  barrel.rotation.x = Math.PI / 2;
-  barrel.position.z = -0.22;
-  const mag = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.1, 0.06), mat(0x1a1a1a));
-  mag.position.set(0, -0.08, 0);
-  gun.add(receiver, barrel, mag);
-  gun.position.set(0.22, 1.0, 0.2);
-  gun.rotation.set(0.1, -0.4, 0.15);
+  const gun = buildWorldGun(weaponId);
   g.add(gun);
 
   g.scale.setScalar(1.12);
@@ -129,6 +201,7 @@ function makeTeamCharacter(team = "blue") {
   g.userData.head = helmet;
   g.userData.headHit = headHit;
   g.userData.team = team;
+  g.userData.gun = gun;
 
   // 红方描边：远处也好认，减少挡枪口误伤感
   if (isRed) {
@@ -183,14 +256,14 @@ export class Enemy {
     this.scene = scene;
     this.world = world;
     this.team = opts.team === "red" ? "red" : "blue";
-    this.mesh = makeTeamCharacter(this.team);
+    const startWeapon = opts.weaponId || "rifle";
+    this.mesh = makeTeamCharacter(this.team, startWeapon);
     this.mesh.position.copy(position);
     this.mesh.position.y = 0;
     scene.add(this.mesh);
     this.hp = opts.hp ?? 70;
     this.maxHp = this.hp;
     this.speed = opts.speed ?? 3.6;
-    this.damage = opts.damage ?? 6;
     this.alive = true;
     this.radius = 0.4;
     this.fireCd = 0.35 + Math.random() * 0.5;
@@ -215,6 +288,8 @@ export class Enemy {
     this.coverTarget = null;
     /** 据点模式：优先靠近战术区 */
     this.holdZone = opts.holdZone || null;
+    this.lootCd = 0.4 + Math.random() * 0.8;
+    this.equipWeapon(startWeapon, { silent: true, damageOverride: opts.damage });
   }
 
   get position() {
@@ -223,6 +298,88 @@ export class Enemy {
 
   get isAlly() {
     return this.team === "red";
+  }
+
+  /** 武器强度分：决定 AI 是否换枪 */
+  static weaponRank(id) {
+    return { pistol: 1, rifle: 2, m4: 3, shotgun: 3, sniper: 4 }[id] || 0;
+  }
+
+  equipWeapon(weaponId, opts = {}) {
+    const def = WEAPONS[weaponId] || WEAPONS.rifle;
+    this.weaponId = def.id;
+    this.weaponDef = def;
+    if (opts.damageOverride != null) {
+      this.damage = opts.damageOverride;
+    } else if (def.pellets) {
+      // 霰弹：一次齐射折算
+      this.damage = Math.max(8, Math.round(def.damage * def.pellets * 0.2));
+    } else {
+      this.damage = Math.max(4, Math.round(def.damage * 0.3));
+    }
+    this.fireRange = Math.min(52, Math.max(18, def.range * 0.4));
+    this.baseFireGap = def.chamberMs
+      ? Math.max(0.9, def.chamberMs / 1000)
+      : Math.max(0.11, 60 / def.rpm);
+    this.shotSpread = (def.spread || 0.014) * (def.hipSpreadMul || 1) * 1.8;
+    if (def.id === "shotgun") this.idealRange = 5 + Math.random() * 4;
+    else if (def.id === "sniper") this.idealRange = 16 + Math.random() * 10;
+    else if (def.id === "pistol") this.idealRange = 6 + Math.random() * 5;
+    else this.idealRange = 8 + Math.random() * 8;
+
+    const old = this.mesh.userData.gun;
+    if (old) {
+      this.mesh.remove(old);
+      old.traverse((o) => {
+        o.geometry?.dispose?.();
+        o.material?.dispose?.();
+      });
+    }
+    const gun = buildWorldGun(def.id);
+    this.mesh.add(gun);
+    this.mesh.userData.gun = gun;
+  }
+
+  /**
+   * AI 拾取附近补给：枪则换装；急救则回血。
+   * @returns {string|null} 拾取到的 kind
+   */
+  tryLoot(lootList, radius = 1.9) {
+    if (!this.alive || !lootList?.length) return null;
+    let best = null;
+    let bestDist = radius;
+    for (const crate of lootList) {
+      if (!crate.alive || crate.taken) continue;
+      const dx = crate.mesh.position.x - this.position.x;
+      const dz = crate.mesh.position.z - this.position.z;
+      const d = Math.hypot(dx, dz);
+      if (d < bestDist) {
+        bestDist = d;
+        best = crate;
+      }
+    }
+    if (!best) return null;
+    const kind = best.kind;
+    // 枪：比现有强，或同级有小概率换口味
+    if (isWeaponLoot(kind)) {
+      const cur = Enemy.weaponRank(this.weaponId);
+      const next = Enemy.weaponRank(kind);
+      if (next < cur && Math.random() > 0.12) return null;
+      if (next === cur && kind === this.weaponId) return null;
+      const got = best.tryPickup(this.position, radius + 0.2);
+      if (!got) return null;
+      this.equipWeapon(got);
+      return got;
+    }
+    if (kind === "health") {
+      if (this.hp >= this.maxHp * 0.92) return null;
+      const got = best.tryPickup(this.position, radius + 0.2);
+      if (!got) return null;
+      this.hp = Math.min(this.maxHp, this.hp + 35);
+      return got;
+    }
+    // ammo：AI 不持弹匣数，忽略
+    return null;
   }
 
   damageBy(amount, opts = {}) {
@@ -396,6 +553,26 @@ export class Enemy {
       this.state = "patrol";
     }
 
+    // 无交火时，朝更强的枪箱走两步
+    if ((!target || dist > this.fireRange * 0.9) && this._lootList?.length && Math.random() < 0.02) {
+      let upgrade = null;
+      let bestScore = Enemy.weaponRank(this.weaponId);
+      for (const c of this._lootList) {
+        if (!c.alive || !isWeaponLoot(c.kind)) continue;
+        const rank = Enemy.weaponRank(c.kind);
+        if (rank <= bestScore) continue;
+        const d = Math.hypot(c.mesh.position.x - this.position.x, c.mesh.position.z - this.position.z);
+        if (d < 28) {
+          bestScore = rank;
+          upgrade = c;
+        }
+      }
+      if (upgrade) {
+        this.patrolTarget.set(upgrade.mesh.position.x, 0, upgrade.mesh.position.z);
+        if (!target) this.state = "patrol";
+      }
+    }
+
     this.fireCd = Math.max(0, this.fireCd - dt);
     this.tacticCd = Math.max(0, this.tacticCd - dt);
     this.sprintBoost = THREE.MathUtils.lerp(this.sprintBoost, 1, dt * 1.8);
@@ -484,8 +661,9 @@ export class Enemy {
 
       // 有视线才开火；命中由真实射线判定（与弹道一致）
       if (los && dist < this.fireRange && this.fireCd <= 0) {
-        const burst = Math.random() < 0.38;
-        this.fireCd = burst ? 0.12 + Math.random() * 0.08 : 0.48 + Math.random() * 0.4;
+        const gap = this.baseFireGap || 0.45;
+        const burst = !this.weaponDef?.chamberMs && this.weaponId !== "shotgun" && Math.random() < 0.38;
+        this.fireCd = burst ? gap * 0.45 : gap * (0.85 + Math.random() * 0.35);
 
         const origin = new THREE.Vector3(this.position.x, 1.48, this.position.z);
         const aimPos =
@@ -493,7 +671,7 @@ export class Enemy {
             ? _aim.set(player.position.x, player.eyeHeight ?? 1.7, player.position.z)
             : _aim.set(target.ref.position.x, 1.45, target.ref.position.z);
         _shotDir.subVectors(aimPos, origin);
-        const spread = 0.022 + dist * 0.0022;
+        const spread = (this.shotSpread || 0.025) + dist * 0.0018;
         _shotDir.x += (Math.random() - 0.5) * spread;
         _shotDir.y += (Math.random() - 0.5) * spread * 0.7;
         _shotDir.z += (Math.random() - 0.5) * spread;
@@ -517,10 +695,18 @@ export class Enemy {
             ? hitInfo.dist
             : Math.min(Number.isFinite(wallDist) ? wallDist : dist + 2, this.fireRange + 4),
           team: this.team,
+          weaponId: this.weaponId,
           targetKind: target.kind,
           targetUnit: target.kind === "unit" ? target.ref : null,
         });
       }
+    }
+
+    // 顺路捡补给
+    this.lootCd = Math.max(0, (this.lootCd || 0) - dt);
+    if (this.lootCd <= 0 && this._lootList) {
+      this.tryLoot(this._lootList);
+      this.lootCd = 0.55 + Math.random() * 0.7;
     }
 
     if (moving) {
