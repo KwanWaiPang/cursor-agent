@@ -1521,9 +1521,9 @@ export function createWorld(scene, size = 170) {
     const bulb = new THREE.Mesh(
       new THREE.SphereGeometry(0.4, 10, 10),
       new THREE.MeshStandardMaterial({
-        color: assaultTheme ? 0xe8d0a0 : 0xffe8b0,
-        emissive: assaultTheme ? 0x664422 : 0xaa7744,
-        emissiveIntensity: assaultTheme ? 0.35 : 0.7,
+        color: assaultTheme ? 0xf0e0b0 : 0xffe8b0,
+        emissive: assaultTheme ? 0x886633 : 0xaa7744,
+        emissiveIntensity: assaultTheme ? 0.55 : 0.7,
       })
     );
     bulb.position.set(lx, 5.4, lz);
