@@ -618,6 +618,46 @@ body.monopoly-cartoon {
   font-family: var(--font-body); color: var(--ink);
 }
 .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
+.controls #btnSell { grid-column: 1 / -1; }
+
+.asset-overlay {
+  position: fixed; inset: 0; z-index: 46; display: grid; place-items: center;
+  padding: 1rem; background: rgba(20, 12, 8, 0.55); backdrop-filter: blur(3px);
+}
+.asset-overlay[hidden] { display: none !important; }
+.asset-panel {
+  width: min(420px, calc(100vw - 2rem));
+  max-height: min(80vh, 640px);
+  overflow: auto;
+  background: rgba(255, 248, 235, 0.98);
+  border: 3px solid #fff; border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(20, 12, 8, 0.35);
+  padding: 1rem 1.1rem 1.1rem;
+}
+.asset-panel h3 {
+  margin: 0 0 0.4rem; font-family: var(--font-display);
+  font-weight: 400; letter-spacing: 0.08em;
+}
+.asset-hint { margin: 0 0 0.55rem; color: #5a4638; font-size: 0.86rem; line-height: 1.45; }
+.asset-status {
+  margin: 0 0 0.65rem; padding: 0.45rem 0.55rem; border-radius: 10px;
+  background: rgba(255, 111, 97, 0.12); color: #8d2f24; font-size: 0.9rem;
+}
+.asset-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.asset-list li {
+  display: grid; grid-template-columns: 1fr auto; gap: 0.45rem; align-items: center;
+  padding: 0.5rem 0.55rem; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72); border: 2px solid rgba(61, 47, 38, 0.12);
+}
+.asset-list .asset-meta { display: grid; gap: 0.1rem; }
+.asset-list .asset-name { font-weight: 700; color: #2b1d14; }
+.asset-list .asset-detail { font-size: 0.8rem; color: #6a5648; }
+.asset-list .asset-price { color: #c62828; font-variant-numeric: tabular-nums; font-weight: 700; }
+.asset-list button { white-space: nowrap; min-width: 7.5rem; }
+.asset-empty { margin: 0.4rem 0 0.8rem; color: #6a5648; font-size: 0.9rem; }
+.asset-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem; }
+.asset-actions #assetBankrupt:not([hidden]) { grid-column: 1 / -1; }
+.asset-actions #assetClose { grid-column: 1 / -1; }
 
 .mono-dialog {
   position: fixed; z-index: 40; left: 50%; top: 50%;

@@ -141,10 +141,56 @@ export function upgradeCost(cell) {
   return Math.round(cell.value / 2);
 }
 
+/** 卖给银行的折旧比例（半价回收，避免原价套利） */
+export const BANK_BUYBACK_RATE = 0.5;
+
+/** 卖掉一级建筑（房子/酒店）回收价 */
+export function buildingSellPrice(cell) {
+  return Math.round(upgradeCost(cell) * BANK_BUYBACK_RATE);
+}
+
+/** 卖掉空地/车站/水电回收价（须先拆完建筑） */
+export function landSellPrice(cell) {
+  return Math.round((cell.value || 0) * BANK_BUYBACK_RATE);
+}
+
 export function buildLevelLabel(level) {
   if (!level) return "空地";
   if (level >= MAX_BUILD_LEVEL) return "酒店";
   return `${level} 栋房子`;
+}
+
+/** 列出某玩家可向银行变卖的操作 */
+export function listBankSellActions(state, playerId) {
+  const actions = [];
+  state.cells.forEach((cell) => {
+    if (cell.owner !== playerId || !isDeed(cell)) return;
+    if ((cell.level || 0) > 0 && cell.type === "property") {
+      const price = buildingSellPrice(cell);
+      const label =
+        (cell.level || 0) >= MAX_BUILD_LEVEL ? "卖掉酒店" : "卖掉 1 栋房子";
+      actions.push({
+        cellIndex: cell.index,
+        kind: "building",
+        name: cell.name,
+        detail: `${buildLevelLabel(cell.level)} → ${buildLevelLabel(cell.level - 1)}`,
+        label,
+        price,
+      });
+    } else if ((cell.level || 0) === 0) {
+      actions.push({
+        cellIndex: cell.index,
+        kind: "land",
+        name: cell.name,
+        detail: "地契归还银行",
+        label: "卖掉地产",
+        price: landSellPrice(cell),
+      });
+    }
+  });
+  // 优先列出回收价高的，方便应急凑钱
+  actions.sort((a, b) => b.price - a.price);
+  return actions;
 }
 
 /**
@@ -181,8 +227,10 @@ export function getDeedCard(cell, state) {
         { label: "购买价格", value: cell.value },
         { label: "每栋房价", value: houseCost },
         { label: "改建酒店", value: houseCost },
+        { label: "卖房给银行", value: buildingSellPrice(cell) },
+        { label: "卖地给银行", value: landSellPrice(cell) },
       ],
-      note: "停在自己的地产上可再建一级；满级为酒店。",
+      note: "停在自己的地产上可再建一级；满级为酒店。卖给银行按半价折旧回收，须先拆房再卖地。",
     };
   }
 
@@ -196,8 +244,11 @@ export function getDeedCard(cell, state) {
         { label: "拥有 3 座车站", value: stationRentByCount(3), level: 3 },
         { label: "拥有 4 座车站", value: stationRentByCount(4), level: 4 },
       ],
-      costs: [{ label: "购买价格", value: cell.value }],
-      note: "租金随你拥有的车站数量增加。",
+      costs: [
+        { label: "购买价格", value: cell.value },
+        { label: "卖给银行", value: landSellPrice(cell) },
+      ],
+      note: "租金随你拥有的车站数量增加。卖给银行按半价折旧回收。",
       stationOwned:
         state && cell.owner != null
           ? state.cells.filter(
@@ -212,8 +263,11 @@ export function getDeedCard(cell, state) {
     ...base,
     kindLabel: "事业契",
     rows: [{ label: "使用费（租金）", value: utilRent, level: 0 }],
-    costs: [{ label: "购买价格", value: cell.value }],
-    note: "他人停留时收取固定使用费。",
+    costs: [
+      { label: "购买价格", value: cell.value },
+      { label: "卖给银行", value: landSellPrice(cell) },
+    ],
+    note: "他人停留时收取固定使用费。卖给银行按半价折旧回收。",
   };
 }
 

@@ -13,6 +13,10 @@ import {
   canUpgrade,
   MAX_BUILD_LEVEL,
   buildLevelLabel,
+  buildingSellPrice,
+  landSellPrice,
+  listBankSellActions,
+  isDeed,
 } from "./data.js";
 
 export function createInitialState(opts) {
@@ -58,7 +62,7 @@ export function createInitialState(opts) {
     cells,
     turn: 0,
     day: 1,
-    phase: "ready", // ready | moving | event | dialog | ended
+    phase: "ready", // ready | moving | event | dialog | raise | ended
     speedMs,
     winner: null,
     lastDice: 0,
@@ -67,6 +71,8 @@ export function createInitialState(opts) {
     message: "点击骰子开始旅行",
     log: [],
     pendingDialog: null,
+    /** 欠款待变卖凑钱：{ amount, creditorId, label, sideEffects? } */
+    pendingDebt: null,
   };
 }
 
@@ -111,6 +117,7 @@ export function advanceTurn(state, _guard = 0) {
   state.turn = next;
   state.phase = "ready";
   state.pendingDialog = null;
+  state.pendingDebt = null;
 
   const p = currentPlayer(state);
   if (p.stop > 0) {
@@ -193,10 +200,11 @@ function resolveLanding(state) {
       return resolveCard(state);
     case "tax": {
       const pay = cell.value || 1000;
-      player.money -= pay;
-      state.message = `${player.name} 缴纳「${cell.name}」$${pay}`;
-      pushLog(state, state.message);
-      return afterMoneyChange(state);
+      return requirePayment(state, {
+        amount: pay,
+        creditorId: null,
+        label: `缴纳「${cell.name}」$${pay}`,
+      });
     }
     case "jail": {
       state.message = `${player.name} 路过暂停格，继续旅程`;
@@ -226,11 +234,12 @@ function resolveLanding(state) {
     case "trip": {
       const days = rand(1, 3);
       const cost = days * 1000;
-      player.money -= cost;
-      player.stop = days;
-      state.message = `${player.name} 度假 ${days} 天，花费 $${cost}`;
-      pushLog(state, state.message);
-      return afterMoneyChange(state);
+      return requirePayment(state, {
+        amount: cost,
+        creditorId: null,
+        label: `度假 ${days} 天，花费 $${cost}`,
+        sideEffects: { stop: days },
+      });
     }
     case "bonus": {
       const gain = 500 * rand(1, 6);
@@ -305,34 +314,181 @@ function resolveProperty(state, cell) {
     return finishEvent(state);
   }
   const rent = rentOf(cell, state);
-  if (player.money < rent) {
-    const paid = Math.max(0, player.money);
-    player.money = 0;
-    owner.money += paid;
-    state.message = `${player.name} 无力支付「${cell.name}」租金 $${rent}（实付 $${paid}），破产`;
-    pushLog(state, state.message);
-    declareBankrupt(state, player, owner.id);
-    return state.phase === "ended" ? state : finishEvent(state);
-  }
-  player.money -= rent;
-  owner.money += rent;
-  state.message = `${player.name} 在「${cell.name}」付给 ${owner.name} 租金 $${rent}`;
-  pushLog(state, state.message);
-  return afterMoneyChange(state);
+  return requirePayment(state, {
+    amount: rent,
+    creditorId: owner.id,
+    label: `支付「${cell.name}」租金 $${rent} 给 ${owner.name}`,
+  });
 }
 
 function resolveCard(state) {
   const player = currentPlayer(state);
   const card = CARDS[rand(0, CARDS.length - 1)];
-  player.money += card.money;
   state.message = card.text;
   pushLog(state, `${player.name}：${card.text}`);
+  const sideEffects = {};
   if (card.jail > 0) {
-    player.position = 10;
-    player.stop = card.jail;
+    sideEffects.position = 10;
+    sideEffects.stop = card.jail;
   }
+  if (card.money >= 0) {
+    player.money += card.money;
+    applySideEffects(player, sideEffects);
+    return afterMoneyChange(state);
+  }
+  return requirePayment(state, {
+    amount: -card.money,
+    creditorId: null,
+    label: card.text,
+    sideEffects,
+  });
+}
+
+function applySideEffects(player, sideEffects) {
+  if (!sideEffects) return;
+  if (sideEffects.position != null) player.position = sideEffects.position;
+  if (sideEffects.stop != null) player.stop = sideEffects.stop;
+}
+
+/**
+ * 需要支付一笔费用：现金足够则直接付；否则进入变卖凑钱（可自选产业）
+ */
+function requirePayment(state, debt) {
+  const player = currentPlayer(state);
+  if (player.money >= debt.amount) {
+    return settlePayment(state, debt);
+  }
+  state.pendingDebt = {
+    amount: debt.amount,
+    creditorId: debt.creditorId ?? null,
+    label: debt.label,
+    sideEffects: debt.sideEffects || null,
+  };
+  state.message = `${player.name} 现金不足，需凑齐 $${debt.amount}（${debt.label}）。可向银行半价变卖房子/地产。`;
+  pushLog(state, state.message);
+
+  if (player.isHuman && !player.auto) {
+    state.phase = "raise";
+    return state;
+  }
+  return autoRaiseFunds(state);
+}
+
+function settlePayment(state, debt) {
+  const player = currentPlayer(state);
+  const amount = debt.amount;
+  if (player.money < amount) return state;
+  player.money -= amount;
+  if (debt.creditorId != null) {
+    const owner = state.players[debt.creditorId];
+    if (owner && !owner.bankrupt) owner.money += amount;
+  }
+  applySideEffects(player, debt.sideEffects);
+  state.pendingDebt = null;
+  state.message = `${player.name} ${debt.label}`;
+  pushLog(state, state.message);
   return afterMoneyChange(state);
 }
+
+/** 尝试用当前现金结清欠款 */
+export function trySettleDebt(state) {
+  const debt = state.pendingDebt;
+  if (!debt || state.phase !== "raise") return state;
+  const player = currentPlayer(state);
+  if (player.money >= debt.amount) {
+    return settlePayment(state, debt);
+  }
+  return state;
+}
+
+function canManageAssets(state, playerId) {
+  if (!state || state.phase === "ended") return false;
+  const p = state.players[playerId];
+  if (!p || p.bankrupt) return false;
+  if (state.phase === "raise") return state.turn === playerId;
+  if (state.phase === "ready") return state.turn === playerId;
+  return false;
+}
+
+/** 卖掉一级建筑给银行（半价） */
+export function sellBuildingToBank(state, cellIndex) {
+  const player = currentPlayer(state);
+  if (!canManageAssets(state, player.id)) return state;
+  const cell = state.cells[cellIndex];
+  if (!cell || cell.owner !== player.id || cell.type !== "property") return state;
+  if ((cell.level || 0) <= 0) return state;
+  const price = buildingSellPrice(cell);
+  cell.level -= 1;
+  player.money += price;
+  const what = cell.level + 1 >= MAX_BUILD_LEVEL ? "酒店" : "1 栋房子";
+  state.message = `${player.name} 向银行卖掉「${cell.name}」的${what}，回收 $${price}`;
+  pushLog(state, state.message);
+  return trySettleDebt(state);
+}
+
+/** 卖掉空地/车站/水电给银行（半价；须无建筑） */
+export function sellLandToBank(state, cellIndex) {
+  const player = currentPlayer(state);
+  if (!canManageAssets(state, player.id)) return state;
+  const cell = state.cells[cellIndex];
+  if (!cell || cell.owner !== player.id || !isDeed(cell)) return state;
+  if ((cell.level || 0) > 0) return state;
+  const price = landSellPrice(cell);
+  cell.owner = null;
+  cell.level = 0;
+  player.money += price;
+  state.message = `${player.name} 向银行卖掉「${cell.name}」，回收 $${price}`;
+  pushLog(state, state.message);
+  return trySettleDebt(state);
+}
+
+export function sellActionToBank(state, action) {
+  if (!action) return state;
+  if (action.kind === "building") return sellBuildingToBank(state, action.cellIndex);
+  if (action.kind === "land") return sellLandToBank(state, action.cellIndex);
+  return state;
+}
+
+/** 欠款时主动宣告破产 */
+export function giveUpAndBankrupt(state) {
+  if (state.phase !== "raise" || !state.pendingDebt) return state;
+  const player = currentPlayer(state);
+  const creditorId = state.pendingDebt.creditorId;
+  state.pendingDebt = null;
+  declareBankrupt(state, player, creditorId);
+  return state.phase === "ended" ? state : finishEvent(state);
+}
+
+/** AI/托管：自动半价变卖直到凑齐或破产 */
+export function autoRaiseFunds(state) {
+  if (!state.pendingDebt) return state;
+  state.phase = "raise";
+  const player = currentPlayer(state);
+  let guard = 0;
+  while (
+    state.pendingDebt &&
+    player.money < state.pendingDebt.amount &&
+    guard++ < 40
+  ) {
+    const actions = listBankSellActions(state, player.id);
+    if (!actions.length) break;
+    // 优先卖建筑，其次卖最便宜的地（少拆家业）
+    const buildings = actions.filter((a) => a.kind === "building");
+    const lands = actions.filter((a) => a.kind === "land");
+    const pick =
+      buildings.sort((a, b) => a.price - b.price)[0] ||
+      lands.sort((a, b) => a.price - b.price)[0];
+    if (!pick) break;
+    state = sellActionToBank(state, pick);
+  }
+  if (state.phase === "ended") return state;
+  if (state.pendingDebt && player.money < state.pendingDebt.amount) {
+    return giveUpAndBankrupt(state);
+  }
+  return trySettleDebt(state);
+}
+
+export { listBankSellActions };
 
 export function confirmDialog(state, yes) {
   const dlg = state.pendingDialog;
@@ -443,11 +599,15 @@ export function shouldAutoAct(state) {
   const p = currentPlayer(state);
   if (!p || p.bankrupt || state.phase === "ended") return false;
   if (state.phase === "dialog") return !p.isHuman || p.auto;
+  if (state.phase === "raise") return !p.isHuman || p.auto;
   if (state.phase === "ready") return !p.isHuman || p.auto;
   return false;
 }
 
 export function autoAct(state) {
+  if (state.phase === "raise") {
+    return autoRaiseFunds(state);
+  }
   if (state.phase === "dialog") {
     const dlg = state.pendingDialog;
     if (!dlg) return finishEvent(state);

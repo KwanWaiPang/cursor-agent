@@ -6,6 +6,8 @@ import {
   buildLevelLabel,
   MAX_BUILD_LEVEL,
   getDeedCard,
+  listBankSellActions,
+  BANK_BUYBACK_RATE,
 } from "./data.js";
 import {
   createInitialState,
@@ -16,6 +18,8 @@ import {
   shouldAutoAct,
   autoAct,
   setAllHumanAuto,
+  sellActionToBank,
+  giveUpAndBankrupt,
 } from "./engine.js";
 
 const clickAudio = document.getElementById("clickAudio");
@@ -57,7 +61,14 @@ const els = {
   btnNew: document.getElementById("btnNew"),
   btnSpeed: document.getElementById("btnSpeed"),
   btnAuto: document.getElementById("btnAuto"),
+  btnSell: document.getElementById("btnSell"),
+  assetOverlay: document.getElementById("assetOverlay"),
+  assetStatus: document.getElementById("assetStatus"),
+  assetList: document.getElementById("assetList"),
+  assetBankrupt: document.getElementById("assetBankrupt"),
+  assetClose: document.getElementById("assetClose"),
 };
+
 
 let state = null;
 let busy = false;
@@ -422,6 +433,7 @@ function render() {
     moving: "行进中",
     event: "结算中",
     dialog: "决策中",
+    raise: "变卖凑钱",
     ended: "已结束",
   };
   els.phaseBadge.textContent = phaseMap[state.phase] || state.phase;
@@ -513,6 +525,15 @@ function render() {
     state.phase !== "ended";
   if (els.dice) els.dice.disabled = !canRoll;
 
+  const canSell =
+    !busy &&
+    p &&
+    p.isHuman &&
+    !p.auto &&
+    !p.bankrupt &&
+    (state.phase === "ready" || state.phase === "raise");
+  if (els.btnSell) els.btnSell.disabled = !canSell;
+
   if (state.phase === "dialog" && state.pendingDialog) {
     els.dialog.hidden = false;
     els.dialogTitle.textContent = state.pendingDialog.title;
@@ -521,6 +542,93 @@ function render() {
   } else {
     els.dialog.hidden = true;
   }
+
+  if (state.phase === "raise" && p?.isHuman && !p.auto) {
+    renderAssetPanel();
+  } else if (!els.assetOverlay.hidden && state.phase !== "raise") {
+    // 自愿变卖面板保持打开时刷新列表
+    renderAssetPanel();
+  }
+  if (state.phase !== "raise" && state.phase !== "ready" && !els.assetOverlay.hidden) {
+    els.assetOverlay.hidden = true;
+  }
+}
+
+function renderAssetPanel() {
+  if (!state || !els.assetOverlay) return;
+  const p = currentPlayer(state);
+  const debt = state.pendingDebt;
+  const actions = listBankSellActions(state, p.id);
+  const rate = Math.round(BANK_BUYBACK_RATE * 100);
+
+  if (debt) {
+    els.assetStatus.innerHTML = `待支付 <strong>$${debt.amount}</strong>：${debt.label}<br/>当前现金 <strong>$${p.money}</strong>，还差 <strong>$${Math.max(0, debt.amount - p.money)}</strong>（银行回收价为 ${rate}%）`;
+  } else {
+    els.assetStatus.innerHTML = `当前现金 <strong>$${p.money}</strong>。可随时半价变卖产业换现金（折旧 ${rate}%）。`;
+  }
+
+  if (!actions.length) {
+    els.assetList.innerHTML = `<li class="asset-empty">没有可变卖的房子或空地（有建筑须先拆房）。</li>`;
+  } else {
+    els.assetList.innerHTML = actions
+      .map(
+        (a, idx) => `<li>
+          <div class="asset-meta">
+            <span class="asset-name">${a.name}</span>
+            <span class="asset-detail">${a.detail} · 回收 <span class="asset-price">$${a.price}</span></span>
+          </div>
+          <button type="button" data-sell-idx="${idx}">${a.label}</button>
+        </li>`
+      )
+      .join("");
+    els.assetList.querySelectorAll("[data-sell-idx]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const i = Number(btn.getAttribute("data-sell-idx"));
+        onSellAction(actions[i]);
+      });
+    });
+  }
+
+  const inDebt = state.phase === "raise";
+  els.assetBankrupt.hidden = !inDebt;
+  els.assetClose.hidden = inDebt;
+  els.assetClose.textContent = "关闭";
+  els.assetOverlay.hidden = false;
+}
+
+function openAssetPanel() {
+  if (!state) return;
+  const p = currentPlayer(state);
+  if (!p?.isHuman || p.auto || p.bankrupt) return;
+  if (state.phase !== "ready" && state.phase !== "raise") return;
+  renderAssetPanel();
+}
+
+function closeAssetPanel() {
+  if (state?.phase === "raise") return; // 欠债时必须变卖或宣告破产
+  els.assetOverlay.hidden = true;
+}
+
+function onSellAction(action) {
+  if (!state || !action || busy) return;
+  play(selectAudio);
+  state = sellActionToBank(state, action);
+  render();
+  if (state.phase !== "raise") {
+    closeAssetPanel();
+    runAutoLoop();
+  } else {
+    renderAssetPanel();
+  }
+}
+
+function onGiveUpBankrupt() {
+  if (!state || state.phase !== "raise") return;
+  play(selectAudio);
+  state = giveUpAndBankrupt(state);
+  els.assetOverlay.hidden = true;
+  render();
+  runAutoLoop();
 }
 
 async function runAutoLoop() {
@@ -578,12 +686,21 @@ function startNew() {
 els.btnNew.addEventListener("click", startNew);
 els.dialogOk.addEventListener("click", () => onDialog(true));
 els.dialogCancel.addEventListener("click", () => onDialog(false));
+els.btnSell?.addEventListener("click", openAssetPanel);
+els.assetClose?.addEventListener("click", closeAssetPanel);
+els.assetBankrupt?.addEventListener("click", onGiveUpBankrupt);
+els.assetOverlay?.addEventListener("click", (ev) => {
+  if (ev.target === els.assetOverlay && state?.phase !== "raise") closeAssetPanel();
+});
 els.deedClose.addEventListener("click", closeDeed);
 els.deedOverlay.addEventListener("click", (ev) => {
   if (ev.target === els.deedOverlay) closeDeed();
 });
 document.addEventListener("keydown", (ev) => {
-  if (ev.key === "Escape") closeDeed();
+  if (ev.key === "Escape") {
+    closeDeed();
+    if (state?.phase !== "raise") closeAssetPanel();
+  }
 });
 els.btnSpeed.addEventListener("click", () => {
   fast = !fast;
