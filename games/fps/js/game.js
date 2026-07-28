@@ -4,11 +4,14 @@ import { Player } from "./player.js";
 import { Sfx } from "./audio.js";
 import { createHud } from "./hud.js";
 import {
-  createLoadout,
+  createArsenal,
   tryReload,
   updateReload,
   canShoot,
   consumeShot,
+  selectWeapon,
+  cycleWeapon,
+  WEAPON_HOTKEYS,
 } from "./weapons.js";
 import { createAssaultMode, createRoyaleMode } from "./modes.js";
 import { createAK47ViewModel, createPistolViewModel, createM4ViewModel, createShotgunViewModel, createSniperViewModel } from "./viewmodel.js";
@@ -53,7 +56,7 @@ export class Game {
 
     this.world = createWorld(this.scene, mode === "royale" ? 210 : 170);
     this.player = new Player(this.camera, this.renderer.domElement, this.world);
-    this.loadout = createLoadout("rifle");
+    this.arsenal = createArsenal("rifle");
 
     // 第一人称武器（五枪）
     this.viewAk = createAK47ViewModel();
@@ -85,26 +88,33 @@ export class Game {
       sfx: this.sfx,
       enemies: this.enemies,
       loot: this.loot,
-      get loadout() {
-        return this._game.loadout;
-      },
-      set loadout(v) {
-        this._game.loadout = v;
-      },
       _game: this,
     };
-    // fix loadout proxy
+    Object.defineProperty(ctx, "arsenal", {
+      get: () => this.arsenal,
+      set: (v) => {
+        this.arsenal = v;
+        this.syncViewModel();
+        this.hud.setArsenal?.(this.arsenal);
+      },
+    });
     Object.defineProperty(ctx, "loadout", {
       get: () => this.loadout,
       set: (v) => {
-        this.loadout = v;
-        this.syncViewModel();
+        // 兼容旧赋值：写入武器库并设为当前
+        if (v?.def?.id) {
+          this.arsenal.owned[v.def.id] = v;
+          this.arsenal.activeId = v.def.id;
+          this.syncViewModel();
+          this.hud.setArsenal?.(this.arsenal);
+        }
       },
     });
 
     this.mode =
       mode === "royale" ? createRoyaleMode(ctx) : createAssaultMode(ctx);
     this.syncViewModel();
+    this.hud.setArsenal?.(this.arsenal);
 
     this._onResize = () => this.onResize();
     this._onMouseDown = (e) => {
@@ -123,6 +133,17 @@ export class Game {
       // 锁定指针时屏蔽浏览器右键菜单
       if (this.player?.controls?.isLocked) e.preventDefault();
     };
+    this._onWheel = (e) => {
+      if (!this.running || this.paused || this._ended) return;
+      if (!this.player.controls.isLocked) return;
+      e.preventDefault();
+      const dir = e.deltaY > 0 ? 1 : -1;
+      if (cycleWeapon(this.arsenal, dir)) {
+        this.syncViewModel();
+        this.hud.setArsenal?.(this.arsenal);
+        this.hud.toast?.(`切换 ${this.loadout.def.name}`);
+      }
+    };
     this._onLock = () => this.onLock();
     this._onUnlock = () => this.onUnlock();
 
@@ -130,6 +151,7 @@ export class Game {
     document.addEventListener("mousedown", this._onMouseDown);
     document.addEventListener("mouseup", this._onMouseUp);
     document.addEventListener("contextmenu", this._onContextMenu);
+    document.addEventListener("wheel", this._onWheel, { passive: false });
     this.player.controls.addEventListener("lock", this._onLock);
     this.player.controls.addEventListener("unlock", this._onUnlock);
 
@@ -140,6 +162,18 @@ export class Game {
 
     // 必须在点击手势同步调用，否则浏览器会拒绝 Pointer Lock
     this.player.lock();
+  }
+
+  get loadout() {
+    return this.arsenal.active;
+  }
+
+  trySelectWeapon(id) {
+    if (!selectWeapon(this.arsenal, id)) return false;
+    this.syncViewModel();
+    this.hud.setArsenal?.(this.arsenal);
+    this.hud.toast?.(`切换 ${this.loadout.def.name}`);
+    return true;
   }
 
   onLock() {
@@ -370,6 +404,10 @@ export class Game {
     const now = performance.now();
 
     if (this.running && !this.paused && !this._ended) {
+      const weaponKey = this.player.consumeWeaponKey?.();
+      if (weaponKey && WEAPON_HOTKEYS[weaponKey]) {
+        this.trySelectWeapon(WEAPON_HOTKEYS[weaponKey]);
+      }
       updateReload(this.loadout, now);
       if (this.player.consumeReloadRequest()) {
         tryReload(this.loadout, now, this.sfx);
@@ -435,11 +473,11 @@ export class Game {
           const victim = shot.targetUnit;
           if (!victim?.alive || victim.gone) return;
           if (victim.team === shot.team) return;
-          const killed = victim.damageBy(shot.damage, {
+          victim.damageBy(shot.damage, {
             headshot: !!shot.headshot,
             from: e.position,
           });
-          if (killed && victim.team === "blue") this.mode.onKill?.();
+          // 击杀统计只计玩家本人，队友击杀不计入
         });
       }
       for (let i = this.enemies.length - 1; i >= 0; i--) {
@@ -506,6 +544,7 @@ export class Game {
     document.removeEventListener("mousedown", this._onMouseDown);
     document.removeEventListener("mouseup", this._onMouseUp);
     document.removeEventListener("contextmenu", this._onContextMenu);
+    document.removeEventListener("wheel", this._onWheel);
     this.hud.hide();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {

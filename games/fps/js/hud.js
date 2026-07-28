@@ -19,6 +19,7 @@ export function createHud() {
     reloadBar: document.getElementById("reloadBar"),
     medkitText: document.getElementById("medkitText"),
     hitDir: document.getElementById("hitDir"),
+    weaponStrip: document.getElementById("weaponStrip"),
   };
 
   let toastTimer = 0;
@@ -26,8 +27,19 @@ export function createHud() {
   let dmgTimer = 0;
   let fireClear = 0;
   let hitDirTimer = 0;
+  let arsenalRef = null;
+  let stripSig = "";
 
-  return {
+  const SLOT_NAMES = {
+    pistol: "手枪",
+    rifle: "AK",
+    m4: "M4",
+    shotgun: "霰弹",
+    sniper: "栓狙",
+  };
+  const SLOT_IDS = ["pistol", "rifle", "m4", "shotgun", "sniper"];
+
+  const api = {
     show() {
       els.root.classList.remove("hidden");
       els.root.setAttribute("aria-hidden", "false");
@@ -48,6 +60,40 @@ export function createHud() {
     setScore(text) {
       els.scoreText.textContent = text;
     },
+    /** 玩家击杀数（仅本人，不含队友） */
+    setKills(n) {
+      const v = Math.max(0, n | 0);
+      els.scoreText.textContent = String(v);
+      els.scoreText.dataset.kills = String(v);
+    },
+    setArsenal(arsenal) {
+      arsenalRef = arsenal;
+      if (!els.weaponStrip || !arsenal) return;
+      const owned = SLOT_IDS.filter((id) => arsenal.owned[id]);
+      const sig = owned.join(",") + "|" + arsenal.activeId;
+      if (sig !== stripSig) {
+        stripSig = sig;
+        els.weaponStrip.innerHTML = "";
+        for (const id of owned) {
+          const lo = arsenal.owned[id];
+          const slot = SLOT_IDS.indexOf(id) + 1;
+          const btn = document.createElement("div");
+          btn.className = "weapon-slot" + (id === arsenal.activeId ? " active" : "");
+          btn.dataset.id = id;
+          btn.innerHTML = `<span class="slot-key">${slot}</span><span class="slot-name">${SLOT_NAMES[id] || lo.def.name}</span><span class="slot-ammo">${lo.mag}/${lo.reserve}</span>`;
+          els.weaponStrip.appendChild(btn);
+        }
+      } else {
+        for (const node of els.weaponStrip.children) {
+          const id = node.dataset.id;
+          const lo = arsenal.owned[id];
+          if (!lo) continue;
+          node.classList.toggle("active", id === arsenal.activeId);
+          const ammo = node.querySelector(".slot-ammo");
+          if (ammo) ammo.textContent = `${lo.mag}/${lo.reserve}`;
+        }
+      }
+    },
     toast(text) {
       els.toast.textContent = text;
       els.toast.classList.add("show");
@@ -60,7 +106,6 @@ export function createHud() {
       }
       els.zoneHint.classList.remove("hidden");
       els.zoneHint.classList.toggle("outside", !!info.outside);
-      // 相对玩家朝向：世界方位 − yaw
       const worldAng = Math.atan2(info.dx || 0, info.dz || 0);
       const yaw = info.yaw || 0;
       let rel = worldAng - yaw;
@@ -119,6 +164,7 @@ export function createHud() {
       els.weaponName.textContent = loadout.def.name;
       els.root.classList.toggle("reloading", !!loadout.reloading);
       els.root.classList.toggle("empty-mag", loadout.mag <= 0);
+      if (arsenalRef) api.setArsenal(arsenalRef);
     },
     flashHit(headshot = false) {
       els.hitMarker.classList.toggle("headshot", !!headshot);
@@ -169,4 +215,6 @@ export function createHud() {
       }
     },
   };
+
+  return api;
 }

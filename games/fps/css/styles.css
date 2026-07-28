@@ -297,6 +297,68 @@ kbd {
   text-align: center;
 }
 
+.stat.kills {
+  text-align: right;
+}
+
+.stat.kills b {
+  font-family: var(--font-mono);
+  font-size: 1.55rem;
+  letter-spacing: 0.04em;
+  color: #e8f5c8;
+}
+
+.weapon-strip {
+  position: absolute;
+  left: 50%;
+  bottom: 5.6rem;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.4rem;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.weapon-slot {
+  min-width: 4.4rem;
+  padding: 0.35rem 0.5rem 0.4rem;
+  background: rgba(10, 14, 9, 0.62);
+  border: 1px solid rgba(183, 213, 154, 0.2);
+  border-radius: 8px;
+  color: rgba(210, 230, 190, 0.72);
+  text-align: center;
+  font-family: var(--font-mono);
+  line-height: 1.15;
+}
+
+.weapon-slot.active {
+  color: #f2f7e6;
+  border-color: rgba(220, 236, 170, 0.7);
+  background: rgba(28, 38, 18, 0.82);
+  box-shadow: 0 0 0 1px rgba(196, 165, 116, 0.25);
+}
+
+.weapon-slot .slot-key {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.weapon-slot .slot-name {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 600;
+  margin: 0.1rem 0;
+  letter-spacing: 0.04em;
+}
+
+.weapon-slot .slot-ammo {
+  display: block;
+  font-size: 0.68rem;
+  opacity: 0.75;
+}
+
 .stat.ammo small {
   display: block;
   margin-top: 0.15rem;

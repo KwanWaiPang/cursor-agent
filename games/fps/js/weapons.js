@@ -85,6 +85,25 @@ export const WEAPONS = {
 
 export const WEAPON_IDS = ["pistol", "rifle", "m4", "shotgun", "sniper"];
 
+/** 数字键 1–5 对应槽位 */
+export const WEAPON_HOTKEYS = {
+  Digit1: "pistol",
+  Digit2: "rifle",
+  Digit3: "m4",
+  Digit4: "shotgun",
+  Digit5: "sniper",
+  Numpad1: "pistol",
+  Numpad2: "rifle",
+  Numpad3: "m4",
+  Numpad4: "shotgun",
+  Numpad5: "sniper",
+};
+
+export function weaponSlotIndex(id) {
+  const i = WEAPON_IDS.indexOf(id);
+  return i >= 0 ? i + 1 : 0;
+}
+
 export function createLoadout(primary = "rifle", opts = {}) {
   const def = WEAPONS[primary] || WEAPONS.rifle;
   const reserve = opts.reserve != null ? opts.reserve : def.reserve;
@@ -97,6 +116,76 @@ export function createLoadout(primary = "rifle", opts = {}) {
     lastShot: 0,
     chamberUntil: 0,
   };
+}
+
+/** 武器库：捡枪入库，不自动切换；按键自选 */
+export function createArsenal(startId = "rifle") {
+  const id = WEAPONS[startId] ? startId : "rifle";
+  const owned = Object.create(null);
+  owned[id] = createLoadout(id);
+  return {
+    owned,
+    activeId: id,
+    get active() {
+      return this.owned[this.activeId] || this.owned.rifle || Object.values(this.owned)[0];
+    },
+  };
+}
+
+/**
+ * 拾取武器：未持有则入库（不切换）；已持有则补该枪备弹。
+ * @returns {{ status: 'stowed'|'ammo', id: string, name: string, slot: number }}
+ */
+export function pickupWeapon(arsenal, kind) {
+  const def = WEAPONS[kind];
+  if (!def || !arsenal) return null;
+  if (arsenal.owned[kind]) {
+    const lo = arsenal.owned[kind];
+    const add = def.magSize * 2;
+    const cap = def.reserve * 2;
+    lo.reserve = Math.min(cap, lo.reserve + add);
+    return { status: "ammo", id: kind, name: def.name, slot: weaponSlotIndex(kind) };
+  }
+  arsenal.owned[kind] = createLoadout(kind);
+  return { status: "stowed", id: kind, name: def.name, slot: weaponSlotIndex(kind) };
+}
+
+/** 切换到已持有武器；中断换弹状态但保留弹匣进度 */
+export function selectWeapon(arsenal, id) {
+  if (!arsenal?.owned?.[id]) return false;
+  if (arsenal.activeId === id) return false;
+  const cur = arsenal.active;
+  if (cur?.reloading) {
+    cur.reloading = false;
+    cur.reloadEnds = 0;
+  }
+  arsenal.activeId = id;
+  return true;
+}
+
+/** 在已持有武器间循环（滚轮） */
+export function cycleWeapon(arsenal, dir = 1) {
+  if (!arsenal) return false;
+  const ownedIds = WEAPON_IDS.filter((id) => arsenal.owned[id]);
+  if (ownedIds.length < 2) return false;
+  const idx = ownedIds.indexOf(arsenal.activeId);
+  const next = ownedIds[(idx + (dir >= 0 ? 1 : -1) + ownedIds.length) % ownedIds.length];
+  return selectWeapon(arsenal, next);
+}
+
+export function listOwnedWeapons(arsenal) {
+  if (!arsenal) return [];
+  return WEAPON_IDS.filter((id) => arsenal.owned[id]).map((id) => {
+    const lo = arsenal.owned[id];
+    return {
+      id,
+      name: lo.def.name,
+      slot: weaponSlotIndex(id),
+      active: id === arsenal.activeId,
+      mag: lo.mag,
+      reserve: lo.reserve,
+    };
+  });
 }
 
 export function tryReload(loadout, now, sfx) {
