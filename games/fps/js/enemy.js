@@ -38,12 +38,16 @@ function makeTeamCharacter(team = "blue") {
   legL.position.set(-0.12, 0.45, 0);
   legR.position.set(0.12, 0.45, 0);
   legL.castShadow = legR.castShadow = true;
+  legL.userData.hitZone = "limb";
+  legR.userData.hitZone = "limb";
   g.add(legL, legR);
 
   const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.28), boot);
   const bootR = bootL.clone();
   bootL.position.set(-0.12, 0.06, 0.04);
   bootR.position.set(0.12, 0.06, 0.04);
+  bootL.userData.hitZone = "limb";
+  bootR.userData.hitZone = "limb";
   g.add(bootL, bootR);
 
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.55, 0.28), shirt);
@@ -73,8 +77,8 @@ function makeTeamCharacter(team = "blue") {
   armL.rotation.z = 0.15;
   armR.rotation.z = -0.15;
   armL.castShadow = armR.castShadow = true;
-  armL.userData.hitZone = "body";
-  armR.userData.hitZone = "body";
+  armL.userData.hitZone = "limb";
+  armR.userData.hitZone = "limb";
   g.add(armL, armR);
 
   const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), headCover);
@@ -223,13 +227,23 @@ export class Enemy {
 
   damageBy(amount, opts = {}) {
     if (!this.alive) return false;
-    const headshot = !!opts.headshot;
-    const dmg = headshot ? amount * 2 : amount;
+    const zone = opts.hitZone || (opts.headshot ? "head" : "body");
+    const mul =
+      opts.zoneMul != null
+        ? opts.zoneMul
+        : zone === "head"
+          ? 2
+          : zone === "limb"
+            ? 0.72
+            : 1;
+    const dmg = amount * mul;
+    const headshot = zone === "head";
     this.hp -= dmg;
     const flashTarget = headshot ? this.mesh.userData.head : this.mesh.userData.body;
     if (flashTarget?.material) {
-      flashTarget.material.emissive = new THREE.Color(headshot ? 0xffcc66 : 0xddc27a);
-      flashTarget.material.emissiveIntensity = headshot ? 0.85 : 0.55;
+      const tint = headshot ? 0xffcc66 : zone === "limb" ? 0xc9b896 : 0xddc27a;
+      flashTarget.material.emissive = new THREE.Color(tint);
+      flashTarget.material.emissiveIntensity = headshot ? 0.85 : zone === "limb" ? 0.4 : 0.55;
       const tid = setTimeout(() => {
         if (flashTarget.material) flashTarget.material.emissiveIntensity = 0;
       }, 80);

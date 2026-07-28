@@ -1,9 +1,14 @@
-/** 五武器：手枪 / AK-47 / M4 / 霰弹 / 栓狙 */
+/** 五武器：手枪 / AK-47 / M4 / 霰弹 / 栓狙
+ * 伤害按「职责」拉开：AK 重、M4 快而稳、霰弹近战爆发、栓狙一击、手枪补枪。
+ * 默认敌人约 58–90 HP（波次/模式不同）。
+ */
+export const DEFAULT_ZONE_MUL = { head: 2, body: 1, limb: 0.72 };
+
 export const WEAPONS = {
   pistol: {
     id: "pistol",
     name: "手枪",
-    damage: 22,
+    damage: 26,
     rpm: 220,
     magSize: 12,
     reserve: 48,
@@ -14,11 +19,13 @@ export const WEAPONS = {
     view: "pistol",
     adsSpreadMul: 0.35,
     kick: 0.018,
+    // 爆头略低于步枪，鼓励近距点射而非远距离爆头狙
+    zoneMul: { head: 1.85, body: 1, limb: 0.75 },
   },
   rifle: {
     id: "rifle",
     name: "AK-47",
-    damage: 20,
+    damage: 24,
     rpm: 600,
     magSize: 30,
     reserve: 200,
@@ -29,27 +36,29 @@ export const WEAPONS = {
     view: "ak",
     adsSpreadMul: 0.28,
     kick: 0.028,
+    zoneMul: { head: 2, body: 1, limb: 0.72 },
   },
   m4: {
     id: "m4",
     name: "M4",
-    damage: 17,
+    damage: 18,
     rpm: 720,
     magSize: 30,
     reserve: 200,
     reloadMs: 2800,
-    // 比 AK 更稳：腰射散布更小，开镜更准
+    // 比 AK 更稳：腰射散布更小，开镜更准；单发略低、射速补齐
     spread: 0.009,
     range: 90,
     heavy: true,
     view: "m4",
     adsSpreadMul: 0.22,
     kick: 0.018,
+    zoneMul: { head: 2, body: 1, limb: 0.72 },
   },
   shotgun: {
     id: "shotgun",
     name: "霰弹枪",
-    damage: 11, // 每颗弹丸；近距离多发命中爆发高
+    damage: 10, // 每颗弹丸；近距多发命中爆发，远距乏力
     rpm: 75,
     magSize: 6,
     reserve: 36,
@@ -59,15 +68,17 @@ export const WEAPONS = {
     heavy: true,
     view: "shotgun",
     pellets: 8,
-    adsSpreadMul: 0.72, // 开镜略收，但仍是近战武器
+    adsSpreadMul: 0.72,
     hipSpreadMul: 1.15,
     kick: 0.055,
+    // 弹丸爆头倍率压低，避免一发多弹丸全爆头秒全图
+    zoneMul: { head: 1.35, body: 1, limb: 0.8 },
   },
   sniper: {
     id: "sniper",
     name: "栓狙",
-    damage: 78,
-    rpm: 42, // 与 chamberMs 配合，实际受栓动限制
+    damage: 92, // 躯干可秒杀多数 AI；高血量波次仍一击
+    rpm: 42,
     magSize: 5,
     reserve: 25,
     reloadMs: 3400,
@@ -75,15 +86,24 @@ export const WEAPONS = {
     range: 160,
     heavy: true,
     view: "sniper",
-    chamberMs: 1450, // 开火后拉栓
+    chamberMs: 1450,
     adsSpreadMul: 0.15,
-    hipSpreadMul: 18, // 腰射几乎不可用
+    hipSpreadMul: 18,
     adsFov: 28,
     kick: 0.07,
+    zoneMul: { head: 2.4, body: 1, limb: 0.85 },
   },
 };
 
 export const WEAPON_IDS = ["pistol", "rifle", "m4", "shotgun", "sniper"];
+
+/** 命中部位倍率（可被单枪 zoneMul 覆盖） */
+export function zoneMultiplier(def, hitZone = "body") {
+  const table = def?.zoneMul || DEFAULT_ZONE_MUL;
+  if (hitZone === "head") return table.head ?? DEFAULT_ZONE_MUL.head;
+  if (hitZone === "limb") return table.limb ?? DEFAULT_ZONE_MUL.limb;
+  return table.body ?? DEFAULT_ZONE_MUL.body;
+}
 
 /** 数字键 1–5 对应槽位 */
 export const WEAPON_HOTKEYS = {

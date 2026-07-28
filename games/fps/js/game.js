@@ -14,6 +14,7 @@ import {
   cycleWeapon,
   WEAPON_HOTKEYS,
   WEAPONS,
+  zoneMultiplier,
 } from "./weapons.js";
 import { createAssaultMode, createRoyaleMode } from "./modes.js";
 import { createAK47ViewModel, createPistolViewModel, createM4ViewModel, createShotgunViewModel, createSniperViewModel } from "./viewmodel.js";
@@ -299,10 +300,14 @@ export class Game {
 
     let hitSomething = false;
     if (enemyHit && !blocked) {
-      const { enemy, hitZone } = this.resolvePlayerHit(enemyHit);
+      const { enemy, hitZone: rawZone } = this.resolvePlayerHit(enemyHit);
       if (enemy && enemy.alive && enemy.team === "blue") {
+        const hitZone = rawZone === "head" || rawZone === "limb" ? rawZone : "body";
+        const zoneMul = zoneMultiplier(this.loadout.def, hitZone);
         const headshot = hitZone === "head";
         const killed = enemy.damageBy(damage, {
+          hitZone,
+          zoneMul,
           headshot,
           from: this.player.position,
         });
@@ -515,8 +520,10 @@ export class Game {
           const victim = shot.targetUnit;
           if (!victim?.alive || victim.gone) return;
           if (victim.team === shot.team) return;
+          const hitZone = shot.headshot ? "head" : "body";
           victim.damageBy(shot.damage, {
-            headshot: !!shot.headshot,
+            hitZone,
+            headshot: hitZone === "head",
             from: e.position,
           });
           // 击杀统计只计玩家本人，队友击杀不计入
