@@ -80,7 +80,7 @@ export const GROUP_COLORS = {
 
 export const CARDS = [
   { text: "扶老奶奶过马路，村委会奖励 $1000", money: 1000, jail: 0 },
-  { text: "中了彩票头奖，获得 $5000", money: 5000, jail: 0 },
+  { text: "中了彩票，获得 $2000", money: 2000, jail: 0 },
   { text: "被劫匪抢走 $3000", money: -3000, jail: 0 },
   { text: "路边捡到 $500", money: 500, jail: 0 },
   { text: "医院账单 $800", money: -800, jail: 0 },
@@ -91,8 +91,8 @@ export const CARDS = [
   { text: "什么也没发生", money: 0, jail: 0 },
   { text: "偷税漏税：罚款 $1000，暂停 1 天", money: -1000, jail: 1 },
   { text: "超速行驶：罚款 $2000，暂停 2 天", money: -2000, jail: 2 },
-  { text: "违建查处：罚款 $1000，暂停 3 天", money: -1000, jail: 3 },
-  { text: "证件过期被勒令暂停 5 天", money: 0, jail: 5 },
+  { text: "违建查处：罚款 $1000，暂停 2 天", money: -1000, jail: 2 },
+  { text: "证件过期被勒令暂停 2 天", money: 0, jail: 2 },
   { text: "卖闲置赚了 $100", money: 100, jail: 0 },
   { text: "看电影花了 $100", money: -100, jail: 0 },
   { text: "导游小费收入 $500", money: 500, jail: 0 },
@@ -101,15 +101,32 @@ export const CARDS = [
 
 export const MAX_BUILD_LEVEL = 4; // 1–3 栋房子，第 4 级为酒店
 
-/** 国家地产租金系数：空地 / 1栋 / 2栋 / 3栋 / 酒店 */
-export const PROPERTY_RENT_FACTORS = [0.2, 0.45, 0.75, 1.2, 2.2];
+/** 国家地产租金系数：空地 / 1栋 / 2栋 / 3栋 / 酒店（略加强以缩短残局） */
+export const PROPERTY_RENT_FACTORS = [0.25, 0.55, 0.95, 1.5, 2.8];
 
 export function isDeed(cell) {
   return cell && (cell.type === "property" || cell.type === "station" || cell.type === "utility");
 }
 
-export function canUpgrade(cell) {
-  return cell && cell.type === "property";
+/** 同色组全部地产 */
+export function groupProperties(state, group) {
+  if (!state || !group) return [];
+  return state.cells.filter((c) => c.type === "property" && c.group === group);
+}
+
+/** 是否集齐某一色组（才能盖房；空地租金翻倍） */
+export function ownsFullGroup(state, playerId, group) {
+  const cells = groupProperties(state, group);
+  return (
+    cells.length > 0 &&
+    playerId != null &&
+    cells.every((c) => c.owner === playerId)
+  );
+}
+
+export function canUpgrade(cell, _state = null) {
+  // 本游戏暂无玩家间交易，不强制集齐同色才能盖房（否则残局极难结束）
+  return !!(cell && cell.type === "property");
 }
 
 export function stationRentByCount(count) {
@@ -121,9 +138,18 @@ export function rentOf(cell, state) {
   if (!cell) return 0;
   if (cell.type === "property") {
     const level = cell.level || 0;
-    return Math.round(
+    let rent = Math.round(
       cell.value * PROPERTY_RENT_FACTORS[Math.min(level, MAX_BUILD_LEVEL)]
     );
+    // 集齐同色且尚未盖房：空地租金 ×2（经典大富翁）
+    if (
+      level === 0 &&
+      state &&
+      ownsFullGroup(state, cell.owner, cell.group)
+    ) {
+      rent *= 2;
+    }
+    return rent;
   }
   if (cell.type === "station" && state) {
     const owned = state.cells.filter(
@@ -230,7 +256,7 @@ export function getDeedCard(cell, state) {
         { label: "卖房给银行", value: buildingSellPrice(cell) },
         { label: "卖地给银行", value: landSellPrice(cell) },
       ],
-      note: "停在自己的地产上可再建一级；满级为酒店。卖给银行按半价折旧回收，须先拆房再卖地。",
+      note: "停在自己的地产上可盖房；集齐同色时空地租金×2。满级为酒店。卖给银行按半价折旧回收，须先拆房再卖地。",
     };
   }
 
