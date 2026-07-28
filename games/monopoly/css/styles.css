@@ -647,7 +647,32 @@ body.monopoly-cartoon {
 .side-left:not(.cell-property) .cell-body { /* covered above */ }
 .side-right:not(.cell-property) .cell-body { /* covered above */ }
 
-.cell-go { background: linear-gradient(145deg, #ffab91, #ffe082); }
+.side-left .cell-name,
+.side-right .cell-name {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.1;
+  font-size: clamp(0.56rem, 1.2vw, 0.8rem);
+}
+.side-left .cell-price,
+.side-right .cell-price {
+  font-size: clamp(0.48rem, 1.05vw, 0.7rem);
+}
+
+.cell-corner {
+  overflow: visible;
+  z-index: 2;
+}
+.cell-go .cell-price,
+.cell-jail .cell-price,
+.cell-park .cell-price,
+.cell-gotojail .cell-price {
+  white-space: normal;
+  font-size: clamp(0.48rem, 1.05vw, 0.7rem);
+  line-height: 1.1;
+}
 .cell-go .cell-name { color: #c62828; font-size: clamp(0.75rem, 1.55vw, 1.15rem); }
 .cell-jail { background: linear-gradient(145deg, #fff59d, #fffde7); }
 .cell-gotojail { background: linear-gradient(145deg, #ef9a9a, #ffcdd2); }
