@@ -493,6 +493,7 @@ export class Game {
       this.refreshEnemyMeshCache(true);
 
       for (const e of this.enemies) {
+        e._lootList = this.loot;
         e.update(dt, this.player, this.enemies, (shot) => {
           if (!shot) return;
           this.sfx.enemyShoot(shot.dist);
