@@ -6,9 +6,22 @@ export const WEAPONS = {
     rpm: 220,
     magSize: 12,
     reserve: 48,
-    reloadMs: 3000,
+    reloadMs: 2800,
     spread: 0.018,
     range: 55,
+    heavy: false,
+    view: "pistol",
+  },
+  smg: {
+    id: "smg",
+    name: "冲锋枪",
+    damage: 14,
+    rpm: 780,
+    magSize: 35,
+    reserve: 105,
+    reloadMs: 2600,
+    spread: 0.02,
+    range: 60,
     heavy: false,
     view: "pistol",
   },
@@ -18,7 +31,7 @@ export const WEAPONS = {
     damage: 20,
     rpm: 600,
     magSize: 30,
-    reserve: 200,
+    reserve: 90,
     reloadMs: 3000,
     spread: 0.014,
     range: 85,
@@ -27,12 +40,14 @@ export const WEAPONS = {
   },
 };
 
-export function createLoadout(primary = "rifle") {
+export function createLoadout(primary = "rifle", opts = {}) {
   const def = WEAPONS[primary] || WEAPONS.rifle;
+  const reserve =
+    opts.reserve != null ? opts.reserve : def.reserve;
   return {
     def,
     mag: def.magSize,
-    reserve: def.reserve,
+    reserve,
     reloading: false,
     reloadEnds: 0,
     lastShot: 0,

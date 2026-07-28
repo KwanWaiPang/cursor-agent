@@ -106,10 +106,16 @@ export class Sfx {
     this.tone(880, 0.04, "square", 0.03, -200);
   }
 
+  headshot() {
+    this.tone(1200, 0.05, "square", 0.04, -280);
+    this.tone(660, 0.07, "sine", 0.025, 80);
+  }
+
   reload() {
     if (!this.playBuffer("reload", { gain: 0.55 })) {
       this.tone(320, 0.06, "triangle", 0.025);
-      setTimeout(() => this.tone(240, 0.08, "triangle", 0.02), 80);
+      // 无 setTimeout：由第二次短音近似
+      this.tone(240, 0.05, "triangle", 0.015);
     }
   }
 

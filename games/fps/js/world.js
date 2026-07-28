@@ -488,16 +488,16 @@ export function createWorld(scene, size = 170) {
     });
   }
 
-  const fogFar = Math.min(260, size * 1.15);
-  scene.fog = new THREE.Fog(0xd0e0ec, size * 0.35, fogFar);
-  scene.background = new THREE.Color(0xb8cde0);
+  const fogFar = Math.min(280, size * 1.25);
+  scene.fog = new THREE.Fog(0xc5d8e8, size * 0.42, fogFar);
+  scene.background = new THREE.Color(0xa8c4dc);
 
-  const hemi = new THREE.HemisphereLight(0xf2f6ff, 0xb8a888, 1.05);
+  const hemi = new THREE.HemisphereLight(0xf7fafc, 0xc4b49a, 1.25);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff6e0, 1.35);
+  const sun = new THREE.DirectionalLight(0xfff6e0, 1.55);
   sun.position.set(55, 90, 40);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = size + 40;
   const shadowSpan = half + 10;
@@ -505,7 +505,11 @@ export function createWorld(scene, size = 170) {
   sun.shadow.camera.right = shadowSpan;
   sun.shadow.camera.top = shadowSpan;
   sun.shadow.camera.bottom = -shadowSpan;
+  sun.shadow.bias = -0.00025;
   scene.add(sun);
+  const fillSun = new THREE.DirectionalLight(0xb8d4ff, 0.35);
+  fillSun.position.set(-40, 30, -20);
+  scene.add(fillSun);
 
   // 边界墙（四面开口）
   const wallH = 5.5;
@@ -1034,7 +1038,7 @@ export function createWorld(scene, size = 170) {
     coverPoints.push(new THREE.Vector3(c.x, 0, c.z));
   }
 
-  // 灯柱（点光）
+  // 灯柱（点光减半，靠主光补亮度）
   const lamps = [
     [-14, -14],
     [14, -14],
@@ -1042,14 +1046,8 @@ export function createWorld(scene, size = 170) {
     [14, 14],
     [0, -28],
     [0, 28],
-    [-38, -38],
-    [38, -38],
-    [-38, 38],
-    [38, 38],
     [-38, 0],
     [38, 0],
-    [0, -38],
-    [0, 38],
   ];
   for (const [lx, lz] of lamps) {
     if (Math.abs(lx) > half - 6 || Math.abs(lz) > half - 6) continue;
@@ -1068,13 +1066,13 @@ export function createWorld(scene, size = 170) {
       new THREE.MeshStandardMaterial({
         color: 0xffe8b0,
         emissive: 0xaa7744,
-        emissiveIntensity: 0.55,
+        emissiveIntensity: 0.7,
       })
     );
     bulb.position.set(lx, 5.4, lz);
     scene.add(bulb);
     meshes.push(bulb);
-    const pl = new THREE.PointLight(0xffcc88, 0.4, 24);
+    const pl = new THREE.PointLight(0xffcc88, 0.28, 20);
     pl.position.set(lx, 5.2, lz);
     scene.add(pl);
   }
@@ -1117,8 +1115,24 @@ export function createWorld(scene, size = 170) {
     /** 子弹挡墙：返回最近实体碰撞距离，无遮挡则为 Infinity */
     raycastSolid(origin, dir, maxDist = 200) {
       let best = Infinity;
+      const ox = origin.x;
+      const oy = origin.y;
+      const oz = origin.z;
+      const dx = dir.x;
+      const dy = dir.y;
+      const dz = dir.z;
       for (let i = 0; i < colliders.length; i++) {
-        const t = colliders[i].raycast(origin, dir, maxDist);
+        const c = colliders[i];
+        // 粗筛：以包围球略估，远射线跳过精确检测
+        const cx = c.min.x * 0.5 + c.max.x * 0.5;
+        const cy = c.min.y * 0.5 + c.max.y * 0.5;
+        const cz = c.min.z * 0.5 + c.max.z * 0.5;
+        const vx = cx - ox;
+        const vy = cy - oy;
+        const vz = cz - oz;
+        const tApprox = vx * dx + vy * dy + vz * dz;
+        if (tApprox < -8 || tApprox > maxDist + 8) continue;
+        const t = c.raycast(origin, dir, maxDist);
         if (t < best) best = t;
       }
       return best;
@@ -1129,12 +1143,25 @@ export function createWorld(scene, size = 170) {
       pos.z = THREE.MathUtils.clamp(pos.z, -lim, lim);
       for (const c of colliders) c.resolveXZ(pos, radius);
     },
+    dispose() {
+      for (const m of meshes) {
+        scene.remove(m);
+        m.geometry?.dispose?.();
+        if (m.material) {
+          if (Array.isArray(m.material)) m.material.forEach((x) => x.dispose?.());
+          else m.material.dispose?.();
+        }
+      }
+      meshes.length = 0;
+      colliders.length = 0;
+    },
   };
 }
 
 export function createSafeZoneVisual(scene) {
+  const BASE = 20;
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(19.5, 20.5, 64),
+    new THREE.RingGeometry(BASE - 0.5, BASE + 0.2, 64),
     new THREE.MeshBasicMaterial({
       color: 0x7ec8e3,
       transparent: true,
@@ -1147,7 +1174,7 @@ export function createSafeZoneVisual(scene) {
   scene.add(ring);
 
   const fill = new THREE.Mesh(
-    new THREE.CircleGeometry(20, 64),
+    new THREE.CircleGeometry(BASE, 64),
     new THREE.MeshBasicMaterial({
       color: 0x3a6a7a,
       transparent: true,
@@ -1159,20 +1186,30 @@ export function createSafeZoneVisual(scene) {
   fill.position.y = 0.06;
   scene.add(fill);
 
+  let currentR = BASE;
+
   return {
     ring,
     fill,
     setRadius(r) {
-      ring.geometry.dispose();
-      fill.geometry.dispose();
-      ring.geometry = new THREE.RingGeometry(Math.max(0.2, r - 0.6), r + 0.2, 64);
-      fill.geometry = new THREE.CircleGeometry(Math.max(0.2, r), 64);
+      currentR = Math.max(0.2, r);
+      const s = currentR / BASE;
+      ring.scale.set(s, s, s);
+      fill.scale.set(s, s, s);
     },
     setCenter(x, z) {
       ring.position.x = x;
       ring.position.z = z;
       fill.position.x = x;
       fill.position.z = z;
+    },
+    dispose() {
+      scene.remove(ring);
+      scene.remove(fill);
+      ring.geometry.dispose();
+      fill.geometry.dispose();
+      ring.material.dispose();
+      fill.material.dispose();
     },
   };
 }
