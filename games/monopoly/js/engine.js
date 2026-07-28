@@ -305,6 +305,15 @@ function resolveProperty(state, cell) {
     return finishEvent(state);
   }
   const rent = rentOf(cell, state);
+  if (player.money < rent) {
+    const paid = Math.max(0, player.money);
+    player.money = 0;
+    owner.money += paid;
+    state.message = `${player.name} 无力支付「${cell.name}」租金 $${rent}（实付 $${paid}），破产`;
+    pushLog(state, state.message);
+    declareBankrupt(state, player, owner.id);
+    return state.phase === "ended" ? state : finishEvent(state);
+  }
   player.money -= rent;
   owner.money += rent;
   state.message = `${player.name} 在「${cell.name}」付给 ${owner.name} 租金 $${rent}`;
@@ -380,21 +389,43 @@ function finishEvent(state) {
   return advanceTurn(state);
 }
 
+/** 现金为负时破产；税费/卡牌等无债权人则地产充公 */
 function checkBankrupt(state) {
   const player = currentPlayer(state);
   if (!player || player.bankrupt) return;
   if (player.money >= 0) return;
+  declareBankrupt(state, player, null);
+}
 
+/**
+ * 宣告破产。
+ * @param {number|null} creditorId 债权人（付不起租金时地产过户给对方）；null 则充公
+ */
+function declareBankrupt(state, player, creditorId) {
+  if (!player || player.bankrupt) return;
   player.bankrupt = true;
   player.stop = 0;
   player.money = 0;
+
+  const creditor =
+    creditorId != null && !state.players[creditorId]?.bankrupt
+      ? state.players[creditorId]
+      : null;
+  let transferred = 0;
   state.cells.forEach((c) => {
-    if (c.owner === player.id) {
+    if (c.owner !== player.id) return;
+    if (creditor) {
+      c.owner = creditor.id;
+      transferred += 1;
+    } else {
       c.owner = null;
       c.level = 0;
     }
   });
-  state.message = `${player.name} 破产，地产充公`;
+
+  state.message = creditor
+    ? `${player.name} 破产，${transferred} 处地产归 ${creditor.name}`
+    : `${player.name} 破产，地产充公`;
   pushLog(state, state.message);
 
   const alive = activePlayers(state);
