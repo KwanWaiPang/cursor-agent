@@ -31,6 +31,8 @@ export class Player {
     this.regenDelay = 4;
     this.regenRate = 14;
     this._timeSinceDamage = 999;
+    /** 开局无敌截止时间（performance.now） */
+    this.spawnProtectUntil = 0;
     this.yawObject = this.controls.getObject();
     this.yawObject.position.set(0, this.eyeHeight, 16);
 
@@ -99,8 +101,17 @@ export class Player {
     return this.yawObject;
   }
 
+  grantSpawnProtect(seconds = 4) {
+    this.spawnProtectUntil = performance.now() + seconds * 1000;
+  }
+
+  get isSpawnProtected() {
+    return performance.now() < this.spawnProtectUntil;
+  }
+
   damage(amount) {
     if (!this.alive) return;
+    if (this.isSpawnProtected) return;
     this.hp = Math.max(0, this.hp - amount);
     this._timeSinceDamage = 0;
     if (this.hp <= 0) {

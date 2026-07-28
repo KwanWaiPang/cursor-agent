@@ -63,6 +63,10 @@ export class Game {
 
     this.raycaster = new THREE.Raycaster();
     this.tracers = [];
+    this.tracerPool = [];
+    this.kickRecover = 0;
+    this._enemyMeshCache = [];
+    this._enemyMeshCacheAt = 0;
 
     const ctx = {
       scene: this.scene,
@@ -85,11 +89,13 @@ export class Game {
       get: () => this.loadout,
       set: (v) => {
         this.loadout = v;
+        this.syncViewModel();
       },
     });
 
     this.mode =
       mode === "royale" ? createRoyaleMode(ctx) : createAssaultMode(ctx);
+    this.syncViewModel();
 
     this._onResize = () => this.onResize();
     this._onMouseDown = (e) => {
@@ -157,6 +163,21 @@ export class Game {
     this.activeView = useAk ? this.viewAk : this.viewPistol;
   }
 
+  refreshEnemyMeshCache(force = false) {
+    const now = performance.now();
+    if (!force && now - this._enemyMeshCacheAt < 80) return this._enemyMeshCache;
+    this._enemyMeshCache = [];
+    for (const e of this.enemies) {
+      if (!e.alive || e.gone || e.team !== "blue") continue;
+      e.mesh.updateMatrixWorld(true);
+      e.mesh.traverse((o) => {
+        if (o.isMesh) this._enemyMeshCache.push(o);
+      });
+    }
+    this._enemyMeshCacheAt = now;
+    return this._enemyMeshCache;
+  }
+
   shoot(now) {
     if (!this.player.alive) return;
     if (!this.player.controls.isLocked) return;
@@ -166,17 +187,22 @@ export class Game {
       return;
     }
     consumeShot(this.loadout, now);
-    // 打空自动换弹（3 秒）
     if (this.loadout.mag <= 0) tryReload(this.loadout, now, this.sfx);
     this.sfx.shoot(this.loadout.def.heavy);
     this.activeView?.kick();
     this.hud.flashFire();
+    // 镜头后坐（一次性压低，随后回弹）
+    const ads = this.aiming && !this.loadout.reloading;
+    const kick = ads ? 0.012 : 0.028;
+    this.camera.rotation.x -= kick;
+    this.kickRecover += kick;
+    const lim = Math.PI / 2 - 0.05;
+    this.camera.rotation.x = THREE.MathUtils.clamp(this.camera.rotation.x, -lim, lim);
 
     const origin = this.camera.getWorldPosition(new THREE.Vector3());
     const dir = new THREE.Vector3();
     this.camera.getWorldDirection(dir);
-    // 开镜大幅收紧散布
-    const adsMul = this.aiming ? 0.28 : 1;
+    const adsMul = ads ? 0.28 : 1;
     const spread = this.loadout.def.spread * adsMul;
     dir.x += (Math.random() - 0.5) * spread;
     dir.y += (Math.random() - 0.5) * spread;
@@ -187,19 +213,9 @@ export class Game {
     this.raycaster.set(origin, dir);
     this.raycaster.far = range;
 
-    // 只锁定蓝方敌对单位（无友军伤害）
-    const targets = [];
-    for (const e of this.enemies) {
-      if (!e.alive || e.gone || e.team !== "blue") continue;
-      e.mesh.updateMatrixWorld(true);
-      e.mesh.traverse((o) => {
-        if (o.isMesh) targets.push(o);
-      });
-    }
-
+    const targets = this.refreshEnemyMeshCache();
     const hitsEnemy = this.raycaster.intersectObjects(targets, false);
     const enemyHit = hitsEnemy[0];
-    // 实体墙挡弹（碰撞盒射线，无法穿墙）
     const wallDist = this.world.raycastSolid(origin, dir, range);
     const blocked =
       Number.isFinite(wallDist) &&
@@ -217,9 +233,13 @@ export class Game {
       }
       if (enemy && enemy.alive && enemy.team === "blue") {
         const headshot = hitZone === "head";
-        const killed = enemy.damageBy(this.loadout.def.damage, { headshot });
-        this.sfx.hit();
-        this.hud.flashHit();
+        const killed = enemy.damageBy(this.loadout.def.damage, {
+          headshot,
+          from: this.player.position,
+        });
+        if (headshot) this.sfx.headshot();
+        else this.sfx.hit();
+        this.hud.flashHit(headshot);
         if (killed) this.mode.onKill?.();
       }
     }
@@ -230,25 +250,38 @@ export class Game {
     this.spawnTracer(origin, dir, traceDist, { team: "player" });
   }
 
-  /** 多条弹道可并存：玩家黄、我方红、敌方蓝；长度止于墙/目标 */
+  /** 多条弹道可并存：玩家黄、我方红、敌方蓝；对象池复用 */
   spawnTracer(origin, dir, dist, opts = {}) {
     const team = opts.team || (opts.enemy ? "blue" : "player");
     const cap = team === "player" ? 55 : 70;
     const len = Math.min(Math.max(dist, 0.05), cap);
     const end = origin.clone().addScaledVector(dir, len);
-    const geo = new THREE.BufferGeometry().setFromPoints([origin, end]);
     const color = team === "blue" ? 0x4fc3f7 : team === "red" ? 0xff6655 : 0xe8d48a;
     const opacity = team === "player" ? 0.85 : 0.95;
-    const mat = new THREE.LineBasicMaterial({
-      color,
-      transparent: true,
-      opacity,
-      depthTest: true,
-    });
-    const line = new THREE.Line(geo, mat);
-    this.scene.add(line);
+
+    let entry = this.tracerPool.pop();
+    if (!entry) {
+      const geo = new THREE.BufferGeometry().setFromPoints([origin, end]);
+      const mat = new THREE.LineBasicMaterial({
+        color,
+        transparent: true,
+        opacity,
+        depthTest: true,
+      });
+      const line = new THREE.Line(geo, mat);
+      entry = { line, geo, mat };
+    } else {
+      const pos = entry.geo.attributes.position;
+      pos.setXYZ(0, origin.x, origin.y, origin.z);
+      pos.setXYZ(1, end.x, end.y, end.z);
+      pos.needsUpdate = true;
+      entry.mat.color.setHex(color);
+      entry.mat.opacity = opacity;
+      entry.line.visible = true;
+    }
+    this.scene.add(entry.line);
     this.tracers.push({
-      line,
+      ...entry,
       life: team === "player" ? 0.05 : 0.16,
       fade: opacity,
     });
@@ -258,13 +291,11 @@ export class Game {
     for (let i = this.tracers.length - 1; i >= 0; i--) {
       const t = this.tracers[i];
       t.life -= dt;
-      if (t.line.material) {
-        t.line.material.opacity = Math.max(0, t.fade * (t.life > 0 ? 1 : 0));
-      }
+      if (t.mat) t.mat.opacity = Math.max(0, t.fade * (t.life > 0 ? 1 : 0));
       if (t.life <= 0) {
         this.scene.remove(t.line);
-        t.line.geometry.dispose();
-        t.line.material.dispose();
+        t.line.visible = false;
+        this.tracerPool.push({ line: t.line, geo: t.geo || t.line.geometry, mat: t.mat || t.line.material });
         this.tracers.splice(i, 1);
       }
     }
@@ -283,10 +314,17 @@ export class Game {
       }
       this.player.update(dt);
 
-      // 开镜 FOV
       const wantFov = this.aiming && !this.loadout.reloading ? this.adsFov : this.baseFov;
       this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, wantFov, 1 - Math.pow(0.0008, dt));
       this.camera.updateProjectionMatrix();
+
+      if (this.kickRecover > 0.0001) {
+        const step = Math.min(this.kickRecover, this.kickRecover * 10 * dt + 0.002);
+        this.camera.rotation.x += step;
+        this.kickRecover -= step;
+        const lim = Math.PI / 2 - 0.05;
+        this.camera.rotation.x = THREE.MathUtils.clamp(this.camera.rotation.x, -lim, lim);
+      }
 
       if (this.shooting) this.shoot(now);
 
@@ -301,18 +339,19 @@ export class Game {
         crouching: this.player.crouching,
       });
 
+      this.refreshEnemyMeshCache(true);
+
       for (const e of this.enemies) {
         e.update(dt, this.player, this.enemies, (shot) => {
           if (!shot) return;
           this.sfx.enemyShoot(shot.dist);
           const wantDist = shot.traceDist ?? shot.dist ?? 40;
           const wallDist = this.world.raycastSolid(shot.origin, shot.dir, wantDist + 1);
-          const blocked = Number.isFinite(wallDist) && wallDist + 0.08 < shot.dist;
+          const blocked = Number.isFinite(wallDist) && wallDist + 0.08 < (shot.hit ? shot.traceDist : shot.dist);
           const traceDist = blocked ? wallDist : wantDist;
           this.spawnTracer(shot.origin, shot.dir, traceDist, {
             team: shot.team || e.team,
           });
-          // 穿墙无效：墙在目标前则不结算伤害
           if (blocked || !shot.hit) return;
           if (shot.targetKind === "player") {
             if (shot.team === "blue" && this.player.alive) {
@@ -325,11 +364,13 @@ export class Game {
           const victim = shot.targetUnit;
           if (!victim?.alive || victim.gone) return;
           if (victim.team === shot.team) return;
-          const killed = victim.damageBy(shot.damage);
+          const killed = victim.damageBy(shot.damage, {
+            headshot: !!shot.headshot,
+            from: e.position,
+          });
           if (killed && victim.team === "blue") this.mode.onKill?.();
         });
       }
-      // 原地移除，保持与 mode 共用的同一数组引用
       for (let i = this.enemies.length - 1; i >= 0; i--) {
         if (this.enemies[i].gone) this.enemies.splice(i, 1);
       }
@@ -358,6 +399,35 @@ export class Game {
     this._disposed = true;
     this.running = false;
     this.player.unlock();
+    this.mode?.dispose?.();
+    for (const e of this.enemies) {
+      try {
+        e.remove?.();
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    this.enemies.length = 0;
+    for (const l of this.loot) {
+      try {
+        l.dispose?.();
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    this.loot.length = 0;
+    for (const t of this.tracers) {
+      this.scene.remove(t.line);
+      t.line.geometry?.dispose?.();
+      t.line.material?.dispose?.();
+    }
+    this.tracers.length = 0;
+    for (const t of this.tracerPool) {
+      t.geo?.dispose?.();
+      t.mat?.dispose?.();
+    }
+    this.tracerPool.length = 0;
+    this.world?.dispose?.();
     this.player.dispose();
     this.player.controls.removeEventListener("lock", this._onLock);
     this.player.controls.removeEventListener("unlock", this._onUnlock);

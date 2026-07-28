@@ -6,6 +6,7 @@ const _side = new THREE.Vector3();
 const _move = new THREE.Vector3();
 const _shotDir = new THREE.Vector3();
 const _aim = new THREE.Vector3();
+const _closest = new THREE.Vector3();
 
 function mat(color, opts = {}) {
   return new THREE.MeshStandardMaterial({
@@ -76,7 +77,6 @@ function makeTeamCharacter(team = "blue") {
   armR.userData.hitZone = "body";
   g.add(armL, armR);
 
-  // 头盔统一造型，颜色跟阵营
   const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), headCover);
   helmet.position.y = 1.58;
   helmet.castShadow = true;
@@ -94,7 +94,6 @@ function makeTeamCharacter(team = "blue") {
   visor.userData.hitZone = "head";
   g.add(visor);
 
-  // 肩章色块，远处也好辨认
   const pauldron = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.18), vest);
   pauldron.position.set(0, 1.38, 0);
   pauldron.userData.hitZone = "body";
@@ -129,6 +128,35 @@ function makeTeamCharacter(team = "blue") {
   return g;
 }
 
+/** 射线是否打中站立角色（胸/头球体），与弹道一致 */
+export function rayHitsStandingTarget(origin, dir, pos, maxDist) {
+  const points = [
+    { y: 1.28, r: 0.48, head: false },
+    { y: 1.72, r: 0.32, head: true },
+  ];
+  let best = null;
+  for (const p of points) {
+    _aim.set(pos.x, p.y, pos.z);
+    _tmp.copy(_aim).sub(origin);
+    const t = _tmp.dot(dir);
+    if (t < 0.05 || t > maxDist) continue;
+    _closest.copy(origin).addScaledVector(dir, t);
+    if (_closest.distanceTo(_aim) <= p.r) {
+      if (!best || t < best.dist) best = { dist: t, headshot: p.head };
+    }
+  }
+  return best;
+}
+
+function hasLineOfSight(world, origin, targetPos, maxDist) {
+  _shotDir.copy(targetPos).sub(origin);
+  const dist = _shotDir.length();
+  if (dist < 0.2) return true;
+  _shotDir.multiplyScalar(1 / dist);
+  const wall = world.raycastSolid(origin, _shotDir, Math.min(dist, maxDist));
+  return !(Number.isFinite(wall) && wall + 0.12 < dist);
+}
+
 export class Enemy {
   constructor(scene, world, position, opts = {}) {
     this.scene = scene;
@@ -141,10 +169,10 @@ export class Enemy {
     this.hp = opts.hp ?? 70;
     this.maxHp = this.hp;
     this.speed = opts.speed ?? 3.6;
-    this.damage = opts.damage ?? 8;
+    this.damage = opts.damage ?? 6;
     this.alive = true;
     this.radius = 0.4;
-    this.fireCd = 0.2 + Math.random() * 0.4;
+    this.fireCd = 0.35 + Math.random() * 0.5;
     this.state = "patrol";
     this.patrolTarget = position.clone();
     this.reactRange = opts.reactRange ?? 42;
@@ -152,6 +180,7 @@ export class Enemy {
     this.fade = 1;
     this.scoreValue = opts.scoreValue ?? 1;
     this.walkPhase = Math.random() * Math.PI * 2;
+    this._flashTimers = [];
 
     this.strafeSign = Math.random() < 0.5 ? 1 : -1;
     this.tacticCd = Math.random() * 0.6;
@@ -161,6 +190,8 @@ export class Enemy {
     this.stuckTimer = 0;
     this.sprintBoost = 1;
     this.currentTarget = null;
+    this.seekCoverUntil = 0;
+    this.coverTarget = null;
   }
 
   get position() {
@@ -180,9 +211,10 @@ export class Enemy {
     if (flashTarget?.material) {
       flashTarget.material.emissive = new THREE.Color(headshot ? 0xffcc66 : 0xddc27a);
       flashTarget.material.emissiveIntensity = headshot ? 0.85 : 0.55;
-      setTimeout(() => {
+      const tid = setTimeout(() => {
         if (flashTarget.material) flashTarget.material.emissiveIntensity = 0;
       }, 80);
+      this._flashTimers.push(tid);
     }
     if (this.hp <= 0) {
       this.alive = false;
@@ -194,7 +226,31 @@ export class Enemy {
     this.strafeSign *= -1;
     this.tacticCd = 0;
     this.sprintBoost = 1.35;
+    // 受伤后优先找掩体
+    this.seekCoverUntil = performance.now() + 2200 + Math.random() * 1200;
+    this.pickCoverAwayFrom(opts.from || null);
     return false;
+  }
+
+  pickCoverAwayFrom(threatPos) {
+    const cover = this.world.coverPoints;
+    if (!cover?.length) return;
+    let best = null;
+    let bestScore = -Infinity;
+    for (const c of cover) {
+      const away = threatPos
+        ? c.distanceTo(threatPos) - this.position.distanceTo(c) * 0.35
+        : -this.position.distanceTo(c);
+      if (away > bestScore) {
+        bestScore = away;
+        best = c;
+      }
+    }
+    if (best) {
+      this.coverTarget = best.clone();
+      this.coverTarget.x += (Math.random() - 0.5) * 1.5;
+      this.coverTarget.z += (Math.random() - 0.5) * 1.5;
+    }
   }
 
   pickPatrol() {
@@ -230,7 +286,6 @@ export class Enemy {
     this.tacticCd = 0.55 + Math.random() * 1.1;
   }
 
-  /** 选最近敌对目标：蓝打玩家/红方，红打蓝方 */
   pickTarget(player, units) {
     let best = null;
     let bestDist = Infinity;
@@ -270,16 +325,33 @@ export class Enemy {
       return;
     }
 
+    const now = performance.now();
+    const seekingCover = now < this.seekCoverUntil && this.coverTarget;
+
     const target = this.pickTarget(player, units || []);
     this.currentTarget = target;
 
     let toTarget = null;
     let dist = Infinity;
+    let los = false;
+    const originProbe = _tmp2.set(this.position.x, 1.48, this.position.z);
+
     if (target) {
-      const tp = target.kind === "player" ? target.ref.position : target.ref.position;
+      const tp = target.ref.position;
       toTarget = _tmp.copy(tp).sub(this.position);
       toTarget.y = 0;
       dist = toTarget.length();
+      const aimY = target.kind === "player" ? target.ref.eyeHeight ?? 1.7 : 1.45;
+      los = hasLineOfSight(
+        this.world,
+        originProbe,
+        _aim.set(tp.x, aimY, tp.z),
+        this.fireRange + 4
+      );
+      if (!los && !seekingCover) {
+        this.seekCoverUntil = now + 1600;
+        this.pickCoverAwayFrom(tp);
+      }
       this.state = dist < this.fireRange * 0.4 ? "attack" : "chase";
     } else if (this.state !== "patrol") {
       this.state = "patrol";
@@ -290,8 +362,18 @@ export class Enemy {
     this.sprintBoost = THREE.MathUtils.lerp(this.sprintBoost, 1, dt * 1.8);
     let moving = false;
 
-    // 我方略向玩家靠拢巡逻
-    if (this.state === "patrol") {
+    if (seekingCover && this.coverTarget) {
+      const to = _tmp2.copy(this.coverTarget).sub(this.position);
+      to.y = 0;
+      if (to.length() < 1.2) {
+        this.seekCoverUntil = 0;
+      } else {
+        to.normalize();
+        this.position.addScaledVector(to, this.speed * 1.15 * dt);
+        this.mesh.lookAt(this.position.x + to.x, this.position.y, this.position.z + to.z);
+        moving = true;
+      }
+    } else if (this.state === "patrol") {
       if (this.isAlly && player?.position) {
         const toP = _tmp2.copy(player.position).sub(this.position);
         toP.y = 0;
@@ -335,7 +417,6 @@ export class Enemy {
         if (this.stuckTimer > 0.35) {
           this.strafeSign *= -1;
           this.replanCombat(toTarget, dist);
-          this.position.x += this.strafeSign * 0.6;
           this.stuckTimer = 0;
         }
       } else {
@@ -343,31 +424,40 @@ export class Enemy {
       }
       this.lastPos.copy(this.position);
 
-      if (dist < this.fireRange && this.fireCd <= 0) {
-        const burst = Math.random() < 0.42;
-        this.fireCd = burst ? 0.1 + Math.random() * 0.07 : 0.4 + Math.random() * 0.35;
+      // 有视线才开火；命中由真实射线判定（与弹道一致）
+      if (los && dist < this.fireRange && this.fireCd <= 0) {
+        const burst = Math.random() < 0.38;
+        this.fireCd = burst ? 0.12 + Math.random() * 0.08 : 0.48 + Math.random() * 0.4;
 
         const origin = new THREE.Vector3(this.position.x, 1.48, this.position.z);
         const aimPos =
           target.kind === "player"
             ? _aim.set(player.position.x, player.eyeHeight ?? 1.7, player.position.z)
             : _aim.set(target.ref.position.x, 1.45, target.ref.position.z);
-        aimPos.y += (Math.random() - 0.5) * 0.25;
         _shotDir.subVectors(aimPos, origin);
-        const spread = 0.03 + dist * 0.0018;
+        const spread = 0.022 + dist * 0.0022;
         _shotDir.x += (Math.random() - 0.5) * spread;
         _shotDir.y += (Math.random() - 0.5) * spread * 0.7;
         _shotDir.z += (Math.random() - 0.5) * spread;
         _shotDir.normalize();
 
-        const hitChance = THREE.MathUtils.clamp(1.05 - dist / this.fireRange, 0.18, 0.78);
+        const wallDist = this.world.raycastSolid(origin, _shotDir, this.fireRange + 2);
+        const maxShot = Number.isFinite(wallDist) ? wallDist : this.fireRange + 2;
+        const hitInfo = rayHitsStandingTarget(origin, _shotDir, target.ref.position, maxShot);
+        const hit =
+          !!hitInfo &&
+          (!Number.isFinite(wallDist) || hitInfo.dist + 0.05 <= wallDist);
+
         onFire?.({
           damage: this.damage,
-          hit: Math.random() < hitChance,
+          hit,
+          headshot: !!(hit && hitInfo.headshot),
           origin,
           dir: _shotDir.clone(),
           dist,
-          traceDist: Math.min(dist + 2, this.fireRange + 4),
+          traceDist: hit
+            ? hitInfo.dist
+            : Math.min(Number.isFinite(wallDist) ? wallDist : dist + 2, this.fireRange + 4),
           team: this.team,
           targetKind: target.kind,
           targetUnit: target.kind === "unit" ? target.ref : null,
@@ -386,20 +476,35 @@ export class Enemy {
   }
 
   remove() {
+    for (const tid of this._flashTimers) clearTimeout(tid);
+    this._flashTimers.length = 0;
     this.scene.remove(this.mesh);
     this.mesh.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose?.());
+        else o.material.dispose?.();
+      }
     });
     this.gone = true;
   }
 }
+
+const LOOT_COLORS = {
+  ammo: 0x7ec8e3,
+  health: 0x6fae6a,
+  rifle: 0xc4a574,
+  smg: 0xd4a017,
+  pistol: 0xb0bec5,
+};
 
 export class LootCrate {
   constructor(scene, position, kind = "ammo") {
     this.scene = scene;
     this.kind = kind;
     this.alive = true;
-    const color = kind === "health" ? 0x6fae6a : kind === "rifle" ? 0xc4a574 : 0x7ec8e3;
+    this.taken = false;
+    const color = LOOT_COLORS[kind] ?? 0x7ec8e3;
     this.mesh = new THREE.Mesh(
       new THREE.BoxGeometry(1.1, 0.7, 1.1),
       new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.2 })
@@ -424,10 +529,21 @@ export class LootCrate {
     const dz = playerPos.z - this.mesh.position.z;
     if (dx * dx + dz * dz <= radius * radius) {
       this.alive = false;
+      this.taken = true;
       this.scene.remove(this.mesh);
       this.mesh.geometry.dispose();
+      this.mesh.material?.dispose?.();
       return this.kind;
     }
     return null;
+  }
+
+  dispose() {
+    if (!this.taken && this.mesh.parent) this.scene.remove(this.mesh);
+    this.mesh.geometry?.dispose?.();
+    this.mesh.material?.dispose?.();
+    this.alive = false;
+    this.taken = true;
+    this.gone = true;
   }
 }
