@@ -301,25 +301,32 @@ function randFace() {
 }
 
 async function animateDice(a, b) {
-  if (els.diceTray) {
-    els.diceTray.classList.remove("is-landed");
-    els.diceTray.classList.add("is-rolling");
-  }
-  setDiceSumText("骰子滚动中…");
-  const spins = fast ? 10 : 18;
-  for (let i = 0; i < spins; i++) {
-    paintDie(els.dieA, randFace());
-    paintDie(els.dieB, randFace());
-    await delay(fast ? 40 : 70);
-  }
-  paintDie(els.dieA, a);
-  paintDie(els.dieB, b);
-  setDiceSumText(`${a} + ${b} = ${a + b}`);
-  if (els.diceTray) {
-    els.diceTray.classList.remove("is-rolling");
-    els.diceTray.classList.add("is-landed");
-    await delay(fast ? 220 : 420);
-    els.diceTray.classList.remove("is-landed");
+  try {
+    if (els.diceTray) {
+      els.diceTray.classList.remove("is-landed");
+      els.diceTray.classList.add("is-rolling");
+    }
+    setDiceSumText("骰子滚动中…");
+    const spins = fast ? 10 : 18;
+    for (let i = 0; i < spins; i++) {
+      paintDie(els.dieA, randFace());
+      paintDie(els.dieB, randFace());
+      await delay(fast ? 40 : 70);
+    }
+    paintDie(els.dieA, a);
+    paintDie(els.dieB, b);
+    setDiceSumText(`${a} + ${b} = ${a + b}`);
+    if (els.diceTray) {
+      els.diceTray.classList.remove("is-rolling");
+      els.diceTray.classList.add("is-landed");
+      await delay(fast ? 220 : 420);
+    }
+  } finally {
+    if (els.diceTray) {
+      els.diceTray.classList.remove("is-rolling");
+      els.diceTray.classList.remove("is-landed");
+    }
+    setDiceSumText(`${a} + ${b} = ${a + b}`);
   }
 }
 
@@ -468,15 +475,16 @@ function render() {
     tokens.innerHTML = here.map((pl) => meepleHTML(pl)).join("");
   });
 
-  if (state.lastDiceA && state.lastDiceB) {
+  if (state.lastDiceA > 0 && state.lastDiceB > 0) {
     paintDie(els.dieA, state.lastDiceA);
     paintDie(els.dieB, state.lastDiceB);
+    // 滚动动画进行中保留「滚动中」文案；其余时候始终回显上次点数
     if (!els.diceTray?.classList.contains("is-rolling")) {
       setDiceSumText(
         `${state.lastDiceA} + ${state.lastDiceB} = ${state.lastDiceA + state.lastDiceB}`
       );
     }
-  } else {
+  } else if (!els.diceTray?.classList.contains("is-rolling")) {
     setDiceSumText("点击下方掷骰");
   }
 
@@ -540,8 +548,8 @@ function onDialog(yes) {
 
 function startNew() {
   const startMoney = Number(els.startMoney.value) || 15000;
-  const humanCount = Number(els.humanCount.value) || 1;
-  const aiCount = Number(els.aiCount.value) || 1;
+  const humanCount = Math.max(1, Number(els.humanCount.value) || 1);
+  const aiCount = Math.max(0, Number(els.aiCount.value) || 0);
   state = createInitialState({ startMoney, humanCount, aiCount });
   if (autoHumans) setAllHumanAuto(state, true);
   busy = false;

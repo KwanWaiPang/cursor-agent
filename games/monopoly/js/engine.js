@@ -24,7 +24,8 @@ export function createInitialState(opts) {
   } = opts;
 
   const total = Math.min(4, Math.max(2, humanCount + aiCount));
-  const humans = Math.min(humanCount, total - 1) || 1;
+  // 允许全人类对局（aiCount=0）；否则尽量尊重人数配置
+  const humans = Math.min(Math.max(0, humanCount), total);
   const ais = total - humans;
 
   const players = [];
@@ -145,7 +146,7 @@ export function applyMove(state, steps) {
   passGoBonus(state, player, crossed);
 
   const diceText =
-    state.lastDiceA && state.lastDiceB
+    state.lastDiceA > 0 && state.lastDiceB > 0
       ? `${state.lastDiceA}+${state.lastDiceB}=${steps}`
       : String(steps);
   state.message = `${player.name} 掷出 ${diceText}，前往「${state.cells[to].name}」`;
@@ -248,19 +249,19 @@ function resolveProperty(state, cell) {
 
   if (cell.owner == null) {
     const canBuy = player.money >= cell.value;
+    state.pendingDialog = {
+      kind: "buy",
+      title: "购买地产",
+      text: `是否花费 $${cell.value} 购买「${cell.name}」？`,
+      canConfirm: canBuy,
+      cellIndex: cell.index,
+    };
     if (player.isHuman && !player.auto) {
       state.phase = "dialog";
-      state.pendingDialog = {
-        kind: "buy",
-        title: "购买地产",
-        text: `是否花费 $${cell.value} 购买「${cell.name}」？`,
-        canConfirm: canBuy,
-        cellIndex: cell.index,
-      };
       state.message = state.pendingDialog.text;
       return state;
     }
-    // AI / 托管：保留约 3000 才买
+    // AI / 托管：保留约 3000 才买（须先写入 pendingDialog，否则 confirmDialog 会空操作）
     const buy = canBuy && player.money - cell.value >= 3000;
     return confirmDialog(state, buy);
   }
@@ -275,15 +276,15 @@ function resolveProperty(state, cell) {
     }
     const cost = upgradeCost(cell);
     const canUp = player.money >= cost;
+    state.pendingDialog = {
+      kind: "upgrade",
+      title: "升级地产",
+      text: `是否花费 $${cost} 在「${cell.name}」再建一级？（当前 ${buildLevelLabel(cell.level)}，满级为酒店）`,
+      canConfirm: canUp,
+      cellIndex: cell.index,
+    };
     if (player.isHuman && !player.auto) {
       state.phase = "dialog";
-      state.pendingDialog = {
-        kind: "upgrade",
-        title: "升级地产",
-        text: `是否花费 $${cost} 在「${cell.name}」再建一级？（当前 ${buildLevelLabel(cell.level)}，满级为酒店）`,
-        canConfirm: canUp,
-        cellIndex: cell.index,
-      };
       state.message = state.pendingDialog.text;
       return state;
     }
