@@ -522,13 +522,13 @@ function populateOuterBlocks(ctx, half, assaultTheme = false) {
 /** 据点清剿：军事杂物、残骸与细节，压低卡通感 */
 function addAssaultMilitaryDressing(ctx, coverPoints) {
   const { scene, colliders, meshes } = ctx;
-  const hesco = makeMat(0x6e6a58, 0.95, 0.02, texConcrete());
-  const metal = makeMat(0x3a3e42, 0.55, 0.55, texMetal());
-  const rust = makeMat(0x5a4034, 0.85, 0.25);
-  const od = makeMat(0x3d4538, 0.9, 0.08);
-  const canvas = makeMat(0x6b6548, 0.98, 0.02);
-  const tire = makeMat(0x1a1c1e, 0.95, 0.05);
-  const dirtPatch = makeMat(0x4a4e44, 1, 0.02, texDirt());
+  const hesco = makeMat(0x8a8674, 0.95, 0.02, texConcrete());
+  const metal = makeMat(0x4a4e52, 0.55, 0.55, texMetal());
+  const rust = makeMat(0x6a5044, 0.85, 0.25);
+  const od = makeMat(0x4d5548, 0.9, 0.08);
+  const canvas = makeMat(0x7b7558, 0.98, 0.02);
+  const tire = makeMat(0x2a2c2e, 0.95, 0.05);
+  const dirtPatch = makeMat(0x5a5e54, 1, 0.02, texDirt());
 
   function box(opts) {
     return addBox(scene, colliders, meshes, opts);
