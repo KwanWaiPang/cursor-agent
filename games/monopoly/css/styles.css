@@ -339,59 +339,35 @@ body.monopoly-cartoon {
   box-sizing: border-box;
 }
 
-/* 房子/酒店颜色跟随地主玩家；整体含屋顶，避免被色带裁切 */
+/* 房子/酒店：玩家同色小房屋剪影 */
 .house {
   --house: var(--owner, #43a047);
   --house-light: var(--owner-light, #a5d6a7);
-  --roof: color-mix(in srgb, var(--house) 62%, #1a120c);
-  width: 1.05rem;
-  height: 1.05rem;
+  width: 1.2rem;
+  height: 1.15rem;
   position: relative;
   flex: 0 0 auto;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-}
-
-.house::before {
-  content: "";
-  position: absolute;
-  left: 0; right: 0; top: 0;
-  height: 42%;
-  background: var(--roof);
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
-  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25));
-}
-
-.house::after {
-  content: "";
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  top: 38%;
-  bottom: 4%;
-  background: linear-gradient(180deg, var(--house-light) 0%, var(--house) 100%);
+  background:
+    linear-gradient(180deg, var(--house-light) 0%, var(--house) 100%);
   border: 2px solid #2b1d14;
-  border-radius: 2px 2px 1px 1px;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.35) inset,
-    0 2px 2px rgba(0, 0, 0, 0.22);
+  border-bottom-width: 2px;
+  /* 房屋剪影：尖顶 + 房身 */
+  clip-path: polygon(50% 0%, 100% 38%, 100% 100%, 0% 100%, 0% 38%);
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.28);
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.2));
 }
+
+.house::before,
+.house::after { content: none; }
 
 .house.hotel {
-  width: 1.55rem;
-  height: 1.25rem;
-}
-.house.hotel::before {
-  background: color-mix(in srgb, var(--house) 45%, #111);
-}
-.house.hotel::after {
-  left: 8%;
-  right: 8%;
+  width: 1.7rem;
+  height: 1.35rem;
+  clip-path: polygon(8% 42%, 50% 0%, 92% 42%, 92% 100%, 8% 100%);
   background:
-    linear-gradient(90deg, transparent 22%, rgba(255, 255, 255, 0.45) 23% 40%, transparent 41%),
+    linear-gradient(90deg, transparent 28%, rgba(255, 255, 255, 0.45) 29% 45%, transparent 46%),
     linear-gradient(180deg, var(--house-light), var(--house));
-  border-radius: 3px;
+  border-width: 2.5px;
 }
 
 /* 棋子叠在格子上、不随 cell-body 旋转，始终正立 */
