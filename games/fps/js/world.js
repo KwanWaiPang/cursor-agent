@@ -82,8 +82,93 @@ export class BoxCollider {
   }
 }
 
-function makeMat(color, roughness = 0.9, metalness = 0.05) {
-  return new THREE.MeshStandardMaterial({ color, roughness, metalness });
+function makeMat(color, roughness = 0.9, metalness = 0.05, map = null) {
+  const m = new THREE.MeshStandardMaterial({
+    color,
+    roughness,
+    metalness,
+    map: map || null,
+  });
+  if (map) m.map.colorSpace = THREE.SRGBColorSpace;
+  return m;
+}
+
+const _texCache = Object.create(null);
+function makeNoiseTexture(key, size, paint) {
+  if (_texCache[key]) return _texCache[key];
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  paint(ctx, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  _texCache[key] = tex;
+  return tex;
+}
+
+function texAsphalt() {
+  return makeNoiseTexture("asphalt", 256, (ctx, n) => {
+    ctx.fillStyle = "#2a2e32";
+    ctx.fillRect(0, 0, n, n);
+    for (let i = 0; i < 5000; i++) {
+      const g = 28 + ((Math.random() * 50) | 0);
+      ctx.fillStyle = `rgba(${g},${g},${g + 4},${0.12 + Math.random() * 0.28})`;
+      ctx.fillRect(Math.random() * n, Math.random() * n, 1 + Math.random() * 2.5, 1 + Math.random() * 2);
+    }
+    ctx.strokeStyle = "rgba(12,12,14,0.5)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 14; i++) {
+      ctx.beginPath();
+      ctx.moveTo(Math.random() * n, Math.random() * n);
+      ctx.quadraticCurveTo(Math.random() * n, Math.random() * n, Math.random() * n, Math.random() * n);
+      ctx.stroke();
+    }
+  });
+}
+
+function texConcrete() {
+  return makeNoiseTexture("concrete", 256, (ctx, n) => {
+    ctx.fillStyle = "#6d6a62";
+    ctx.fillRect(0, 0, n, n);
+    for (let i = 0; i < 4200; i++) {
+      const g = 70 + ((Math.random() * 55) | 0);
+      ctx.fillStyle = `rgba(${g},${g - 2},${g - 6},${0.1 + Math.random() * 0.22})`;
+      ctx.fillRect(Math.random() * n, Math.random() * n, 1 + Math.random() * 3, 1 + Math.random() * 3);
+    }
+    ctx.strokeStyle = "rgba(40,38,34,0.28)";
+    for (let i = 0; i < 10; i++) {
+      ctx.strokeRect(Math.random() * n, Math.random() * n, 20 + Math.random() * 60, 20 + Math.random() * 40);
+    }
+  });
+}
+
+function texDirt() {
+  return makeNoiseTexture("dirt", 256, (ctx, n) => {
+    ctx.fillStyle = "#4f5348";
+    ctx.fillRect(0, 0, n, n);
+    for (let i = 0; i < 6000; i++) {
+      const r = 55 + ((Math.random() * 45) | 0);
+      const g = 58 + ((Math.random() * 40) | 0);
+      const b = 42 + ((Math.random() * 30) | 0);
+      ctx.fillStyle = `rgba(${r},${g},${b},${0.12 + Math.random() * 0.3})`;
+      ctx.fillRect(Math.random() * n, Math.random() * n, 1 + Math.random() * 3, 1 + Math.random() * 3);
+    }
+  });
+}
+
+function texMetal() {
+  return makeNoiseTexture("metal", 128, (ctx, n) => {
+    ctx.fillStyle = "#3a3f44";
+    ctx.fillRect(0, 0, n, n);
+    for (let i = 0; i < 800; i++) {
+      const g = 50 + ((Math.random() * 70) | 0);
+      ctx.fillStyle = `rgba(${g},${g + 2},${g + 4},${0.15 + Math.random() * 0.35})`;
+      ctx.fillRect(Math.random() * n, Math.random() * n, 1, 2 + Math.random() * 6);
+    }
+  });
 }
 
 function addBox(scene, colliders, meshes, opts) {
@@ -99,9 +184,10 @@ function addBox(scene, colliders, meshes, opts) {
     roughness = 0.9,
     metalness = 0.05,
     mat = null,
+    map = null,
   } = opts;
   const geo = new THREE.BoxGeometry(w, h, d);
-  const mesh = new THREE.Mesh(geo, mat || makeMat(color, roughness, metalness));
+  const mesh = new THREE.Mesh(geo, mat || makeMat(color, roughness, metalness, map));
   mesh.position.set(x, y, z);
   mesh.castShadow = collidable;
   mesh.receiveShadow = true;
@@ -363,9 +449,14 @@ function rectBuilding(ctx, opts) {
 }
 
 /** 外围街区：沿次干道排布可穿行楼块，形成街道枪战空间 */
-function populateOuterBlocks(ctx, half) {
-  const colors = [0xc9c2b4, 0x8a5a42, 0x5a6570, 0x4a6a58, 0xb0aea2, 0x6e4634];
-  const roofs = [0x4a5560, 0x6b3a32, 0x3a424a, 0x5a5048];
+function populateOuterBlocks(ctx, half, assaultTheme = false) {
+  const colors = assaultTheme
+    ? [0x8a8680, 0x6a5648, 0x4a5258, 0x455248, 0x7a7870, 0x5a4838]
+    : [0xc9c2b4, 0x8a5a42, 0x5a6570, 0x4a6a58, 0xb0aea2, 0x6e4634];
+  const roofs = assaultTheme
+    ? [0x3a4248, 0x4a4038, 0x343a40, 0x4a4640]
+    : [0x4a5560, 0x6b3a32, 0x3a424a, 0x5a5048];
+  const sandbag = assaultTheme ? 0x6b6548 : 0xc4a86a;
   const doors = ["n", "s", "e", "w"];
   let n = 0;
   // 街区中心点（避开中央开阔区与主干道）
@@ -414,7 +505,7 @@ function populateOuterBlocks(ctx, half) {
       x: cx + 14,
       y: 0.55,
       z: cz,
-      color: 0xc4a86a,
+      color: sandbag,
     });
     addBox(ctx.scene, ctx.colliders, ctx.meshes, {
       w: 1.1,
@@ -423,7 +514,257 @@ function populateOuterBlocks(ctx, half) {
       x: cx,
       y: 0.55,
       z: cz + 14,
-      color: 0xc4a86a,
+      color: sandbag,
+    });
+  }
+}
+
+/** 据点清剿：军事杂物、残骸与细节，压低卡通感 */
+function addAssaultMilitaryDressing(ctx, coverPoints) {
+  const { scene, colliders, meshes } = ctx;
+  const hesco = makeMat(0x6e6a58, 0.95, 0.02, texConcrete());
+  const metal = makeMat(0x3a3e42, 0.55, 0.55, texMetal());
+  const rust = makeMat(0x5a4034, 0.85, 0.25);
+  const od = makeMat(0x3d4538, 0.9, 0.08);
+  const canvas = makeMat(0x6b6548, 0.98, 0.02);
+  const tire = makeMat(0x1a1c1e, 0.95, 0.05);
+  const dirtPatch = makeMat(0x4a4e44, 1, 0.02, texDirt());
+
+  function box(opts) {
+    return addBox(scene, colliders, meshes, opts);
+  }
+
+  // HESCO / 土袋墙（中央据点外圈）
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + 0.12;
+    if (i % 5 === 2) continue; // 留出通道
+    const r = 9.4;
+    const x = Math.cos(a) * r;
+    const z = Math.sin(a) * r;
+    const alongX = Math.abs(Math.cos(a)) > Math.abs(Math.sin(a));
+    box({
+      w: alongX ? 1.1 : 2.4,
+      h: 1.55,
+      d: alongX ? 2.4 : 1.1,
+      x,
+      y: 0.78,
+      z,
+      mat: hesco,
+    });
+    coverPoints.push(new THREE.Vector3(x, 0, z));
+  }
+
+  // Jersey 路障
+  const jerseySpots = [
+    [-12, -4, true],
+    [-12, -1.2, true],
+    [12, 3, true],
+    [12, 5.8, true],
+    [-4, 14, false],
+    [-1.2, 14, false],
+    [5, -15, false],
+    [7.8, -15, false],
+  ];
+  for (const [x, z, alongZ] of jerseySpots) {
+    box({
+      w: alongZ ? 0.55 : 2.6,
+      h: 1.05,
+      d: alongZ ? 2.6 : 0.55,
+      x,
+      y: 0.52,
+      z,
+      mat: hesco,
+    });
+  }
+
+  // 油桶堆
+  const drums = [
+    [-9.5, 6.5],
+    [-8.4, 6.8],
+    [-8.9, 7.7],
+    [10.2, -7],
+    [11.3, -6.6],
+    [21, 10],
+    [-22, -12],
+  ];
+  for (const [x, z] of drums) {
+    box({
+      w: 0.72,
+      h: 1.05,
+      d: 0.72,
+      x,
+      y: 0.52,
+      z,
+      mat: Math.abs(x) > 15 ? rust : od,
+    });
+  }
+
+  // 轮胎堆
+  for (const [bx, bz] of [
+    [7.5, 11],
+    [-15, 8],
+    [20, -4],
+  ]) {
+    for (let i = 0; i < 3; i++) {
+      box({
+        w: 0.95,
+        h: 0.28,
+        d: 0.95,
+        x: bx + (i % 2) * 0.15,
+        y: 0.14 + i * 0.28,
+        z: bz + (i % 2) * 0.1,
+        mat: tire,
+        collidable: i === 0,
+      });
+    }
+  }
+
+  // 废弃装甲残骸 / 集装箱碎片
+  box({ w: 4.2, h: 1.6, d: 2.1, x: -28, y: 0.8, z: 8, mat: rust });
+  box({ w: 1.8, h: 0.9, d: 2.4, x: -26.2, y: 0.45, z: 9.5, mat: metal, collidable: false });
+  box({ w: 3.6, h: 1.2, d: 1.8, x: 30, y: 0.6, z: -10, mat: metal });
+  box({ w: 2.2, h: 0.7, d: 1.4, x: 31.2, y: 1.35, z: -10.4, mat: rust, collidable: false });
+  coverPoints.push(new THREE.Vector3(-28, 0, 8), new THREE.Vector3(30, 0, -10));
+
+  // 沙袋掩体墙（军绿帆布色，避免亮黄）
+  const sandRows = [
+    { x: -6, z: -14, alongX: true, n: 4 },
+    { x: 14, z: 12, alongX: false, n: 3 },
+    { x: -20, z: 14, alongX: true, n: 3 },
+    { x: 8, z: -22, alongX: true, n: 3 },
+  ];
+  for (const row of sandRows) {
+    for (let i = 0; i < row.n; i++) {
+      for (let tier = 0; tier < 2; tier++) {
+        box({
+          w: row.alongX ? 1.15 : 0.85,
+          h: 0.55,
+          d: row.alongX ? 0.85 : 1.15,
+          x: row.x + (row.alongX ? i * 1.2 : 0),
+          y: 0.28 + tier * 0.55,
+          z: row.z + (row.alongX ? 0 : i * 1.2),
+          mat: canvas,
+        });
+      }
+    }
+    coverPoints.push(new THREE.Vector3(row.x, 0, row.z));
+  }
+
+  // 铁丝网矮柱 + 横杆（视觉）
+  for (const [x0, z0, dx, dz, len] of [
+    [-16, -16, 1, 0, 5],
+    [16, 16, 0, 1, 4],
+    [-32, 18, 1, 0, 4],
+  ]) {
+    for (let i = 0; i <= len; i++) {
+      box({
+        w: 0.12,
+        h: 1.35,
+        d: 0.12,
+        x: x0 + dx * i * 1.1,
+        y: 0.68,
+        z: z0 + dz * i * 1.1,
+        mat: metal,
+        collidable: false,
+      });
+    }
+    box({
+      w: dx ? len * 1.1 + 0.2 : 0.06,
+      h: 0.06,
+      d: dz ? len * 1.1 + 0.2 : 0.06,
+      x: x0 + (dx * len * 1.1) / 2,
+      y: 1.2,
+      z: z0 + (dz * len * 1.1) / 2,
+      mat: metal,
+      collidable: false,
+    });
+  }
+
+  // 路面油污 / 泥斑
+  for (const [x, z, w, d] of [
+    [3, 8, 4.5, 2.2],
+    [-5, -6, 3.2, 2.8],
+    [18, 2, 5, 2],
+    [-20, -2, 3.5, 3],
+    [0, 18, 6, 2.5],
+  ]) {
+    box({
+      w,
+      h: 0.02,
+      d,
+      x,
+      y: 0.045,
+      z,
+      mat: dirtPatch,
+      collidable: false,
+    });
+  }
+
+  // 建筑女儿墙 / 破墙碎块
+  for (const [x, z, w, d, y] of [
+    [-26, -24 + 6.1, 16.4, 0.35, 8.9],
+    [-26, -24 - 6.1, 16.4, 0.35, 8.9],
+    [26, -22 + 7.1, 18.4, 0.4, 10.35],
+    [-24, 24 - 4.6, 20.4, 0.35, 6.55],
+  ]) {
+    box({ w, h: 0.55, d, x, y, z, mat: hesco, collidable: false });
+  }
+  // 残垣碎块
+  for (const [x, z] of [
+    [34, 4],
+    [35.5, 8],
+    [33, 9],
+    [-34, 0],
+    [-37, 4],
+  ]) {
+    box({
+      w: 0.7 + Math.abs(x % 3) * 0.2,
+      h: 0.45 + Math.abs(z % 2) * 0.2,
+      d: 0.6,
+      x,
+      y: 0.3,
+      z,
+      mat: hesco,
+      collidable: false,
+    });
+  }
+
+  // 迷彩网支架（低调）
+  for (const [x, z] of [
+    [-10, 18],
+    [22, -14],
+  ]) {
+    box({ w: 0.15, h: 3.2, d: 0.15, x: x - 1.5, y: 1.6, z, mat: metal, collidable: false });
+    box({ w: 0.15, h: 3.2, d: 0.15, x: x + 1.5, y: 1.6, z, mat: metal, collidable: false });
+    box({
+      w: 3.4,
+      h: 0.08,
+      d: 2.2,
+      x,
+      y: 3.25,
+      z,
+      color: 0x3a4538,
+      roughness: 0.95,
+      metalness: 0.05,
+      collidable: false,
+    });
+  }
+
+  // 补给点附近弹药箱堆（无标签，纯几何）
+  for (const [x, z] of [
+    [-3.5, 4.5],
+    [-2.2, 4.8],
+    [4.2, -3.5],
+  ]) {
+    box({
+      w: 0.9,
+      h: 0.55,
+      d: 0.7,
+      x,
+      y: 0.28,
+      z,
+      mat: od,
+      collidable: false,
     });
   }
 }
@@ -434,23 +775,31 @@ export function createWorld(scene, size = 170) {
   const coverPoints = [];
   const half = size / 2;
   const ctx = { scene, colliders, meshes };
+  const assaultTheme = size <= 180; // 据点清剿：更压抑写实
 
-  // 地面
+  // 地面（泥土地纹理）
+  const dirtMap = texDirt().clone();
+  dirtMap.repeat.set(size / 12, size / 12);
+  dirtMap.needsUpdate = true;
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(size + 12, size + 12, 1, 1),
-    makeMat(0x6e7568, 1)
+    makeMat(assaultTheme ? 0x5a5e52 : 0x6e7568, 1, 0.02, dirtMap)
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
   meshes.push(ground);
 
-  // 街道网：主干十字 + 次干道
-  const roadMat = makeMat(0x3a3e44, 0.95, 0.05);
+  // 街道网：主干十字 + 次干道（沥青纹理）
+  const asphaltMap = texAsphalt().clone();
+  asphaltMap.repeat.set(8, size / 8);
+  asphaltMap.needsUpdate = true;
+  const roadMat = makeMat(assaultTheme ? 0x2c3034 : 0x3a3e44, 0.97, 0.04, asphaltMap);
   function addRoad(w, d, x, z, y = 0.03) {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), roadMat);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(x, y, z);
+    mesh.receiveShadow = true;
     scene.add(mesh);
     meshes.push(mesh);
   }
@@ -463,41 +812,70 @@ export function createWorld(scene, size = 170) {
     addRoad(size - 10, 10, 0, o, 0.029);
   }
 
-  // 道牙线（主干）
-  for (let i = -half + 10; i <= half - 10; i += 4) {
-    if (Math.abs(i) < 16) continue;
+  // 路缘石
+  const curbMat = makeMat(0x5c5a54, 0.92, 0.05, texConcrete());
+  for (const side of [-7.2, 7.2]) {
     addBox(scene, colliders, meshes, {
       w: 0.35,
-      h: 0.04,
-      d: 1.5,
-      x: 0,
-      y: 0.06,
-      z: i,
-      color: 0xd8d0b8,
+      h: 0.22,
+      d: size - 16,
+      x: side,
+      y: 0.12,
+      z: 0,
+      mat: curbMat,
       collidable: false,
     });
     addBox(scene, colliders, meshes, {
-      w: 1.5,
-      h: 0.04,
+      w: size - 16,
+      h: 0.22,
       d: 0.35,
-      x: i,
-      y: 0.06,
-      z: 0,
-      color: 0xd8d0b8,
+      x: 0,
+      y: 0.12,
+      z: side,
+      mat: curbMat,
       collidable: false,
     });
   }
 
-  const fogFar = Math.min(300, size * 1.28);
-  scene.fog = new THREE.Fog(0xb9d0e4, size * 0.48, fogFar);
-  scene.background = new THREE.Color(0x9ebbd4);
+  // 道牙线（主干，褪色）
+  for (let i = -half + 10; i <= half - 10; i += 4) {
+    if (Math.abs(i) < 16) continue;
+    addBox(scene, colliders, meshes, {
+      w: 0.28,
+      h: 0.03,
+      d: 1.35,
+      x: 0,
+      y: 0.055,
+      z: i,
+      color: assaultTheme ? 0x8a8570 : 0xd8d0b8,
+      collidable: false,
+    });
+    addBox(scene, colliders, meshes, {
+      w: 1.35,
+      h: 0.03,
+      d: 0.28,
+      x: i,
+      y: 0.055,
+      z: 0,
+      color: assaultTheme ? 0x8a8570 : 0xd8d0b8,
+      collidable: false,
+    });
+  }
 
-  const hemi = new THREE.HemisphereLight(0xf8fbff, 0xc8b8a0, 1.32);
+  const fogFar = Math.min(assaultTheme ? 185 : 300, size * (assaultTheme ? 0.95 : 1.28));
+  scene.fog = new THREE.Fog(assaultTheme ? 0x6a7368 : 0xb9d0e4, size * (assaultTheme ? 0.22 : 0.48), fogFar);
+  scene.background = new THREE.Color(assaultTheme ? 0x5a6358 : 0x9ebbd4);
+
+  const hemi = new THREE.HemisphereLight(
+    assaultTheme ? 0xb8c0a8 : 0xf8fbff,
+    assaultTheme ? 0x2e2c26 : 0xc8b8a0,
+    assaultTheme ? 0.62 : 1.32
+  );
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff4dc, 1.65);
-  sun.position.set(55, 90, 40);
+  const sun = new THREE.DirectionalLight(assaultTheme ? 0xd8c8a0 : 0xfff4dc, assaultTheme ? 0.92 : 1.65);
+  sun.position.set(assaultTheme ? 36 : 55, assaultTheme ? 58 : 90, assaultTheme ? 22 : 40);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(assaultTheme ? 2048 : 1024, assaultTheme ? 2048 : 1024);
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = size + 40;
   const shadowSpan = half + 10;
@@ -506,10 +884,48 @@ export function createWorld(scene, size = 170) {
   sun.shadow.camera.top = shadowSpan;
   sun.shadow.camera.bottom = -shadowSpan;
   sun.shadow.bias = -0.00025;
+  if (assaultTheme) sun.shadow.normalBias = 0.035;
   scene.add(sun);
-  const fillSun = new THREE.DirectionalLight(0xb8d4ff, 0.42);
+  const fillSun = new THREE.DirectionalLight(assaultTheme ? 0x7a8890 : 0xb8d4ff, assaultTheme ? 0.18 : 0.42);
   fillSun.position.set(-40, 30, -20);
   scene.add(fillSun);
+
+  // 据点色板：去饱和军用灰绿 / 水泥 / OD
+  const pal = assaultTheme
+    ? {
+        plaster: 0x8a8680,
+        brick: 0x6a5648,
+        warehouse: 0x4a5258,
+        barrack: 0x455248,
+        garage: 0x7a7870,
+        wood: 0x5a4838,
+        roof: 0x3a4248,
+        roofWood: 0x4a4038,
+        sandbag: 0x6b6548,
+        concrete: 0x7a7870,
+        wall: 0x6e6c64,
+        gate: 0x3a4048,
+        vehicle: [0x3d4538, 0x4a4e48, 0x5a5248, 0x3a3e42],
+        crate: 0x5a5040,
+        glass: 0x4a5a62,
+      }
+    : {
+        plaster: 0xc9c2b4,
+        brick: 0x8a5a42,
+        warehouse: 0x5a6570,
+        barrack: 0x4a6a58,
+        garage: 0xb0aea2,
+        wood: 0x6e4634,
+        roof: 0x4a5560,
+        roofWood: 0x6b3a32,
+        sandbag: 0xc4a86a,
+        concrete: 0x9a9688,
+        wall: 0x8a8678,
+        gate: 0x3d4650,
+        vehicle: [0x3d6a8a, 0x8a5a2a, 0x2f6b4a, 0x7a3a3a],
+        crate: 0x6b5344,
+        glass: 0x6a8aaa,
+      };
 
   // 地面接缝阴影环：减轻“浮空方块”感
   const groundShade = new THREE.Mesh(
@@ -517,7 +933,7 @@ export function createWorld(scene, size = 170) {
     new THREE.MeshBasicMaterial({
       color: 0x000000,
       transparent: true,
-      opacity: 0.07,
+      opacity: assaultTheme ? 0.12 : 0.07,
       depthWrite: false,
     })
   );
@@ -529,7 +945,8 @@ export function createWorld(scene, size = 170) {
   // 边界墙（四面开口）
   const wallH = 5.5;
   const wallT = 1.2;
-  const wallColor = 0x8a8678;
+  const wallColor = pal.wall;
+  const wallMap = assaultTheme ? texConcrete() : null;
   const gate = 9;
   const seg = half - gate / 2;
   // 北
@@ -541,6 +958,7 @@ export function createWorld(scene, size = 170) {
     y: wallH / 2,
     z: -half,
     color: wallColor,
+    map: wallMap,
   });
   addBox(scene, colliders, meshes, {
     w: seg,
@@ -550,6 +968,7 @@ export function createWorld(scene, size = 170) {
     y: wallH / 2,
     z: -half,
     color: wallColor,
+    map: wallMap,
   });
   // 南
   addBox(scene, colliders, meshes, {
@@ -560,6 +979,7 @@ export function createWorld(scene, size = 170) {
     y: wallH / 2,
     z: half,
     color: wallColor,
+    map: wallMap,
   });
   addBox(scene, colliders, meshes, {
     w: seg,
@@ -569,6 +989,7 @@ export function createWorld(scene, size = 170) {
     y: wallH / 2,
     z: half,
     color: wallColor,
+    map: wallMap,
   });
   // 西
   addBox(scene, colliders, meshes, {
@@ -579,6 +1000,7 @@ export function createWorld(scene, size = 170) {
     y: wallH / 2,
     z: -half / 2 - gate / 4,
     color: wallColor,
+    map: wallMap,
   });
   addBox(scene, colliders, meshes, {
     w: wallT,
@@ -588,6 +1010,7 @@ export function createWorld(scene, size = 170) {
     y: wallH / 2,
     z: half / 2 + gate / 4,
     color: wallColor,
+    map: wallMap,
   });
   // 东
   addBox(scene, colliders, meshes, {
@@ -598,6 +1021,7 @@ export function createWorld(scene, size = 170) {
     y: wallH / 2,
     z: -half / 2 - gate / 4,
     color: wallColor,
+    map: wallMap,
   });
   addBox(scene, colliders, meshes, {
     w: wallT,
@@ -607,6 +1031,7 @@ export function createWorld(scene, size = 170) {
     y: wallH / 2,
     z: half / 2 + gate / 4,
     color: wallColor,
+    map: wallMap,
   });
   // 门柱
   for (const [x, z] of [
@@ -626,7 +1051,10 @@ export function createWorld(scene, size = 170) {
       x,
       y: (wallH + 1.4) / 2,
       z,
-      color: 0x3d4650,
+      color: pal.gate,
+      map: assaultTheme ? texMetal() : null,
+      metalness: assaultTheme ? 0.35 : 0.05,
+      roughness: assaultTheme ? 0.65 : 0.9,
     });
   }
 
@@ -637,12 +1065,12 @@ export function createWorld(scene, size = 170) {
     w: 16,
     d: 12,
     h: 8.5,
-    color: 0xc9c2b4,
-    roofColor: 0x4a5560,
+    color: pal.plaster,
+    roofColor: pal.roof,
     door: "s",
     doorW: 3.0,
     doorH: 3.2,
-    floorColor: 0xa8a090,
+    floorColor: assaultTheme ? 0x6a6658 : 0xa8a090,
   });
   // 侧翼
   rectBuilding(ctx, {
@@ -651,12 +1079,12 @@ export function createWorld(scene, size = 170) {
     w: 10,
     d: 8,
     h: 7,
-    color: 0x8a5a42,
-    roofColor: 0x6b3a32,
+    color: pal.brick,
+    roofColor: pal.roofWood,
     door: "e",
     doorW: 2.6,
     doorH: 3.0,
-    floorColor: 0x7a6a58,
+    floorColor: assaultTheme ? 0x5a5048 : 0x7a6a58,
   });
   // 屋顶设备
   addBox(scene, colliders, meshes, {
@@ -666,7 +1094,7 @@ export function createWorld(scene, size = 170) {
     x: -28,
     y: 9.2,
     z: -26,
-    color: 0x5a6570,
+    color: pal.warehouse,
     collidable: false,
     metalness: 0.5,
   });
@@ -677,7 +1105,7 @@ export function createWorld(scene, size = 170) {
     x: -26,
     y: 0.18,
     z: -17.2,
-    color: 0x9a9688,
+    color: pal.concrete,
     collidable: false,
   });
 
@@ -689,13 +1117,13 @@ export function createWorld(scene, size = 170) {
     d: 14,
     h: 10,
     t: 0.85,
-    color: 0x5a6570,
-    roofColor: 0x3a424a,
+    color: pal.warehouse,
+    roofColor: pal.roof,
     door: "s",
     doorW: 6.2,
     doorH: 5.2,
     windows: false,
-    floorColor: 0x6a6860,
+    floorColor: assaultTheme ? 0x525048 : 0x6a6860,
   });
   // 高窗条
   for (let i = -2; i <= 2; i++) {
@@ -706,7 +1134,7 @@ export function createWorld(scene, size = 170) {
       x: 26 + i * 3.2,
       y: 7.2,
       z: -22 + 7.1,
-      color: 0x6a8aaa,
+      color: pal.glass,
       collidable: false,
       roughness: 0.2,
       metalness: 0.4,
@@ -720,7 +1148,8 @@ export function createWorld(scene, size = 170) {
     x: 26,
     y: 0.5,
     z: -22 + 7 + 2.2,
-    color: 0x9a9688,
+    color: pal.concrete,
+    map: assaultTheme ? texConcrete() : null,
   });
   // 附棚
   rectBuilding(ctx, {
@@ -729,8 +1158,8 @@ export function createWorld(scene, size = 170) {
     w: 8,
     d: 7,
     h: 5,
-    color: 0x6e4634,
-    roofColor: 0x6b3a32,
+    color: pal.wood,
+    roofColor: pal.roofWood,
     door: "s",
     doorW: 2.4,
     doorH: 2.8,
@@ -743,12 +1172,12 @@ export function createWorld(scene, size = 170) {
     w: 20,
     d: 9,
     h: 6.2,
-    color: 0x4a6a58,
-    roofColor: 0x6b3a32,
+    color: pal.barrack,
+    roofColor: pal.roofWood,
     door: "n",
     doorW: 2.6,
     doorH: 2.9,
-    floorColor: 0x6b5344,
+    floorColor: assaultTheme ? 0x524838 : 0x6b5344,
   });
   // 第二道门视觉：西侧再开一扇（在北墙补一段开口旁的柱廊）
   for (let i = -3; i <= 3; i++) {
@@ -759,7 +1188,7 @@ export function createWorld(scene, size = 170) {
       x: -24 + i * 2.6,
       y: 1.5,
       z: 24 - 4.5 - 1.1,
-      color: 0x6b5344,
+      color: assaultTheme ? 0x524838 : 0x6b5344,
       collidable: false,
     });
   }
@@ -770,7 +1199,7 @@ export function createWorld(scene, size = 170) {
     x: -24,
     y: 3.15,
     z: 24 - 4.5 - 1.1,
-    color: 0x6b5344,
+    color: assaultTheme ? 0x524838 : 0x6b5344,
     collidable: false,
   });
 
@@ -782,7 +1211,7 @@ export function createWorld(scene, size = 170) {
     const d = 12;
     const h = 7;
     const t = 0.7;
-    const color = 0xb0aea2;
+    const color = pal.garage;
     // 南、西、东满墙；北墙两侧留开口
     wallX(ctx, x, z + d / 2, w, h, t, 0, 0, color);
     wallZ(ctx, x - w / 2, z, d, h, t, 0, 0, color);
@@ -815,7 +1244,7 @@ export function createWorld(scene, size = 170) {
       color,
       collidable: false,
     });
-    addRoof(ctx, x, z, w, d, h + 0.15, 0x4a5560);
+    addRoof(ctx, x, z, w, d, h + 0.15, pal.roof);
     addBox(scene, colliders, meshes, {
       w: w - 1,
       h: 0.06,
@@ -823,7 +1252,7 @@ export function createWorld(scene, size = 170) {
       x,
       y: 0.04,
       z,
-      color: 0x3a3e44,
+      color: assaultTheme ? 0x2c3034 : 0x3a3e44,
       collidable: false,
     });
   }
@@ -834,7 +1263,7 @@ export function createWorld(scene, size = 170) {
     w: 7,
     d: 8,
     h: 5.5,
-    color: 0xc9c2b4,
+    color: pal.plaster,
     door: "w",
     doorW: 2.2,
     doorH: 2.8,
@@ -848,8 +1277,8 @@ export function createWorld(scene, size = 170) {
     d: 8,
     h: 5,
     t: 0.9,
-    color: 0x9a9688,
-    roofColor: 0x8a8678,
+    color: pal.concrete,
+    roofColor: pal.wall,
     door: "s",
     doorW: 2.4,
     doorH: 2.6,
@@ -862,7 +1291,7 @@ export function createWorld(scene, size = 170) {
     x: 0,
     y: 5.6,
     z: -34 - 4,
-    color: 0x9a9688,
+    color: pal.concrete,
     collidable: false,
   });
   addBox(scene, colliders, meshes, {
@@ -872,7 +1301,7 @@ export function createWorld(scene, size = 170) {
     x: 0,
     y: 5.6,
     z: -34 + 4,
-    color: 0x9a9688,
+    color: pal.concrete,
     collidable: false,
   });
 
@@ -884,7 +1313,8 @@ export function createWorld(scene, size = 170) {
     x: -36,
     y: 5.5,
     z: 2,
-    color: 0x8a5a42,
+    color: pal.brick,
+    map: assaultTheme ? texConcrete() : null,
   });
   addBox(scene, colliders, meshes, {
     w: 6.4,
@@ -893,7 +1323,7 @@ export function createWorld(scene, size = 170) {
     x: -36,
     y: 11.3,
     z: 2,
-    color: 0x4a5560,
+    color: pal.roof,
     collidable: false,
   });
   for (const [dx, dz] of [
@@ -909,7 +1339,7 @@ export function createWorld(scene, size = 170) {
       x: -36 + dx,
       y: 8.5,
       z: 2 + dz,
-      color: 0x6a8aaa,
+      color: pal.glass,
       collidable: false,
       roughness: 0.2,
       metalness: 0.4,
@@ -917,7 +1347,7 @@ export function createWorld(scene, size = 170) {
   }
 
   // —— 东侧残垣小铺 ——
-  wallX(ctx, 36, 6 - 3.5, 9, 6, 0.65, 0, 0, 0x8a5a42);
+  wallX(ctx, 36, 6 - 3.5, 9, 6, 0.65, 0, 0, pal.brick);
   addBox(scene, colliders, meshes, {
     w: 3.0,
     h: 6,
@@ -925,7 +1355,7 @@ export function createWorld(scene, size = 170) {
     x: 36 - 2.5,
     y: 3,
     z: 6 + 3.5,
-    color: 0x8a5a42,
+    color: pal.brick,
   });
   addBox(scene, colliders, meshes, {
     w: 2.2,
@@ -934,9 +1364,9 @@ export function createWorld(scene, size = 170) {
     x: 36 + 2.8,
     y: 1.6,
     z: 6 + 3.5,
-    color: 0x6e4634,
+    color: pal.wood,
   });
-  wallZ(ctx, 36 - 4.5, 6, 7, 6, 0.65, 0, 0, 0x8a5a42);
+  wallZ(ctx, 36 - 4.5, 6, 7, 6, 0.65, 0, 0, pal.brick);
   addBox(scene, colliders, meshes, {
     w: 0.65,
     h: 3.8,
@@ -944,7 +1374,7 @@ export function createWorld(scene, size = 170) {
     x: 36 + 4.5,
     y: 1.9,
     z: 6,
-    color: 0x6e4634,
+    color: pal.wood,
   });
   addBox(scene, colliders, meshes, {
     w: 10,
@@ -953,7 +1383,7 @@ export function createWorld(scene, size = 170) {
     x: 36,
     y: 6.2,
     z: 6,
-    color: 0x6b3a32,
+    color: pal.roofWood,
     collidable: false,
   });
   addBox(scene, colliders, meshes, {
@@ -963,7 +1393,7 @@ export function createWorld(scene, size = 170) {
     x: 37,
     y: 0.7,
     z: 7,
-    color: 0x9a9688,
+    color: pal.concrete,
     collidable: false,
   });
 
@@ -983,16 +1413,17 @@ export function createWorld(scene, size = 170) {
       x,
       y: 0.62,
       z,
-      color: 0x9a9688,
+      color: pal.concrete,
+      map: assaultTheme ? texConcrete() : null,
     });
   }
 
   const zoneRing = new THREE.Mesh(
     new THREE.RingGeometry(5.2, 6.2, 48),
     new THREE.MeshBasicMaterial({
-      color: 0xb7d59a,
+      color: assaultTheme ? 0x5a6848 : 0xb7d59a,
       transparent: true,
-      opacity: 0.35,
+      opacity: assaultTheme ? 0.22 : 0.35,
       side: THREE.DoubleSide,
     })
   );
@@ -1004,9 +1435,9 @@ export function createWorld(scene, size = 170) {
   const zoneFill = new THREE.Mesh(
     new THREE.CircleGeometry(5.2, 48),
     new THREE.MeshBasicMaterial({
-      color: 0x5a6b3a,
+      color: assaultTheme ? 0x3a4230 : 0x5a6b3a,
       transparent: true,
-      opacity: 0.12,
+      opacity: assaultTheme ? 0.08 : 0.12,
       side: THREE.DoubleSide,
     })
   );
@@ -1016,36 +1447,36 @@ export function createWorld(scene, size = 170) {
   meshes.push(zoneFill);
 
   // 外围街区（大地图街道战）
-  if (half >= 70) populateOuterBlocks(ctx, half);
+  if (half >= 70) populateOuterBlocks(ctx, half, assaultTheme);
 
   // —— 街道掩体 ——
   const covers = [
-    { w: 3.5, h: 1.15, d: 1.15, x: -8, y: 0.58, z: -10, color: 0xc4a86a },
-    { w: 3.5, h: 1.15, d: 1.15, x: -5, y: 0.58, z: -10, color: 0xc4a86a },
-    { w: 3.5, h: 1.15, d: 1.15, x: 8, y: 0.58, z: 9, color: 0xc4a86a },
-    { w: 3.5, h: 1.15, d: 1.15, x: 11, y: 0.58, z: 9, color: 0xc4a86a },
-    { w: 1.2, h: 1.15, d: 4.2, x: -10, y: 0.58, z: 12, color: 0xc4a86a },
-    { w: 6.0, h: 2.5, d: 2.4, x: -18, y: 1.25, z: -6, color: 0x3d6a8a },
-    { w: 6.0, h: 2.5, d: 2.4, x: -18, y: 1.25, z: -3.3, color: 0x8a5a2a },
-    { w: 2.4, h: 2.5, d: 6.0, x: 16, y: 1.25, z: 6, color: 0x2f6b4a },
-    { w: 6.0, h: 2.5, d: 2.4, x: 18, y: 1.25, z: -8, color: 0x7a3a3a },
-    { w: 2.4, h: 1.1, d: 0.55, x: -7, y: 0.55, z: 8, color: 0x9a9688 },
-    { w: 2.4, h: 1.1, d: 0.55, x: 9, y: 0.55, z: -11, color: 0x9a9688 },
-    { w: 0.55, h: 1.1, d: 2.4, x: 11, y: 0.55, z: -12.5, color: 0x9a9688 },
-    { w: 1.1, h: 1.1, d: 1.1, x: -8, y: 0.55, z: 20, color: 0x6b5344 },
-    { w: 1.1, h: 1.1, d: 1.1, x: -6.8, y: 0.55, z: 20, color: 0x6b5344 },
-    { w: 1.1, h: 1.1, d: 1.1, x: -7.4, y: 1.65, z: 20, color: 0x6b5344 },
-    { w: 1.1, h: 1.1, d: 1.1, x: 22, y: 0.55, z: -16, color: 0x6b5344 },
-    { w: 1.1, h: 1.1, d: 1.1, x: 23.2, y: 0.55, z: -16, color: 0x6b5344 },
-    { w: 1.1, h: 1.1, d: 1.1, x: 22.6, y: 1.65, z: -16, color: 0x6b5344 },
+    { w: 3.5, h: 1.15, d: 1.15, x: -8, y: 0.58, z: -10, color: pal.sandbag },
+    { w: 3.5, h: 1.15, d: 1.15, x: -5, y: 0.58, z: -10, color: pal.sandbag },
+    { w: 3.5, h: 1.15, d: 1.15, x: 8, y: 0.58, z: 9, color: pal.sandbag },
+    { w: 3.5, h: 1.15, d: 1.15, x: 11, y: 0.58, z: 9, color: pal.sandbag },
+    { w: 1.2, h: 1.15, d: 4.2, x: -10, y: 0.58, z: 12, color: pal.sandbag },
+    { w: 6.0, h: 2.5, d: 2.4, x: -18, y: 1.25, z: -6, color: pal.vehicle[0] },
+    { w: 6.0, h: 2.5, d: 2.4, x: -18, y: 1.25, z: -3.3, color: pal.vehicle[1] },
+    { w: 2.4, h: 2.5, d: 6.0, x: 16, y: 1.25, z: 6, color: pal.vehicle[2] },
+    { w: 6.0, h: 2.5, d: 2.4, x: 18, y: 1.25, z: -8, color: pal.vehicle[3] },
+    { w: 2.4, h: 1.1, d: 0.55, x: -7, y: 0.55, z: 8, color: pal.concrete },
+    { w: 2.4, h: 1.1, d: 0.55, x: 9, y: 0.55, z: -11, color: pal.concrete },
+    { w: 0.55, h: 1.1, d: 2.4, x: 11, y: 0.55, z: -12.5, color: pal.concrete },
+    { w: 1.1, h: 1.1, d: 1.1, x: -8, y: 0.55, z: 20, color: pal.crate },
+    { w: 1.1, h: 1.1, d: 1.1, x: -6.8, y: 0.55, z: 20, color: pal.crate },
+    { w: 1.1, h: 1.1, d: 1.1, x: -7.4, y: 1.65, z: 20, color: pal.crate },
+    { w: 1.1, h: 1.1, d: 1.1, x: 22, y: 0.55, z: -16, color: pal.crate },
+    { w: 1.1, h: 1.1, d: 1.1, x: 23.2, y: 0.55, z: -16, color: pal.crate },
+    { w: 1.1, h: 1.1, d: 1.1, x: 22.6, y: 1.65, z: -16, color: pal.crate },
     // 外环掩体
-    { w: 6.0, h: 2.5, d: 2.4, x: -48, y: 1.25, z: 20, color: 0x3d6a8a },
-    { w: 2.4, h: 2.5, d: 6.0, x: 48, y: 1.25, z: -18, color: 0x7a3a3a },
-    { w: 3.5, h: 1.15, d: 1.15, x: -40, y: 0.58, z: -40, color: 0xc4a86a },
-    { w: 3.5, h: 1.15, d: 1.15, x: -37, y: 0.58, z: -40, color: 0xc4a86a },
-    { w: 3.5, h: 1.15, d: 1.15, x: 40, y: 0.58, z: 42, color: 0xc4a86a },
-    { w: 6.0, h: 2.5, d: 2.4, x: 0, y: 1.25, z: 55, color: 0x2f6b4a },
-    { w: 6.0, h: 2.5, d: 2.4, x: -55, y: 1.25, z: 0, color: 0x8a5a2a },
+    { w: 6.0, h: 2.5, d: 2.4, x: -48, y: 1.25, z: 20, color: pal.vehicle[0] },
+    { w: 2.4, h: 2.5, d: 6.0, x: 48, y: 1.25, z: -18, color: pal.vehicle[3] },
+    { w: 3.5, h: 1.15, d: 1.15, x: -40, y: 0.58, z: -40, color: pal.sandbag },
+    { w: 3.5, h: 1.15, d: 1.15, x: -37, y: 0.58, z: -40, color: pal.sandbag },
+    { w: 3.5, h: 1.15, d: 1.15, x: 40, y: 0.58, z: 42, color: pal.sandbag },
+    { w: 6.0, h: 2.5, d: 2.4, x: 0, y: 1.25, z: 55, color: pal.vehicle[2] },
+    { w: 6.0, h: 2.5, d: 2.4, x: -55, y: 1.25, z: 0, color: pal.vehicle[1] },
   ];
   for (const c of covers) {
     if (Math.abs(c.x) > half - 3 || Math.abs(c.z) > half - 3) continue;
@@ -1053,17 +1484,28 @@ export function createWorld(scene, size = 170) {
     coverPoints.push(new THREE.Vector3(c.x, 0, c.z));
   }
 
-  // 灯柱（点光减半，靠主光补亮度）
-  const lamps = [
-    [-14, -14],
-    [14, -14],
-    [-14, 14],
-    [14, 14],
-    [0, -28],
-    [0, 28],
-    [-38, 0],
-    [38, 0],
-  ];
+  if (assaultTheme) addAssaultMilitaryDressing(ctx, coverPoints);
+
+  // 灯柱（据点模式更暗、更少）
+  const lamps = assaultTheme
+    ? [
+        [-14, -14],
+        [14, -14],
+        [-14, 14],
+        [14, 14],
+        [0, -28],
+        [0, 28],
+      ]
+    : [
+        [-14, -14],
+        [14, -14],
+        [-14, 14],
+        [14, 14],
+        [0, -28],
+        [0, 28],
+        [-38, 0],
+        [38, 0],
+      ];
   for (const [lx, lz] of lamps) {
     if (Math.abs(lx) > half - 6 || Math.abs(lz) > half - 6) continue;
     addBox(scene, colliders, meshes, {
@@ -1073,21 +1515,21 @@ export function createWorld(scene, size = 170) {
       x: lx,
       y: 2.6,
       z: lz,
-      color: 0x3d4650,
+      color: pal.gate,
       collidable: false,
     });
     const bulb = new THREE.Mesh(
       new THREE.SphereGeometry(0.4, 10, 10),
       new THREE.MeshStandardMaterial({
-        color: 0xffe8b0,
-        emissive: 0xaa7744,
-        emissiveIntensity: 0.7,
+        color: assaultTheme ? 0xe8d0a0 : 0xffe8b0,
+        emissive: assaultTheme ? 0x664422 : 0xaa7744,
+        emissiveIntensity: assaultTheme ? 0.35 : 0.7,
       })
     );
     bulb.position.set(lx, 5.4, lz);
     scene.add(bulb);
     meshes.push(bulb);
-    const pl = new THREE.PointLight(0xffcc88, 0.28, 20);
+    const pl = new THREE.PointLight(0xffcc88, assaultTheme ? 0.14 : 0.28, assaultTheme ? 14 : 20);
     pl.position.set(lx, 5.2, lz);
     scene.add(pl);
   }
