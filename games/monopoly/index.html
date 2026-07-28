@@ -65,6 +65,7 @@
             <div class="controls">
               <button id="btnSpeed" class="secondary" type="button">加快速度</button>
               <button id="btnAuto" class="secondary" type="button">开启托管</button>
+              <button id="btnSell" class="secondary" type="button">变卖产业</button>
             </div>
           </section>
 
@@ -116,6 +117,8 @@
               <li>点击地产 / 车站 / 水电可查看地契卡。</li>
               <li>盖房最多 4 级：1–3 栋房子，第 4 级升级为酒店（地图上可见）。</li>
               <li>踩到他人产业付租金；机会/命运随机奖惩；「强制暂停」停走数日。</li>
+              <li>可随时（己方回合）向银行变卖：房子/酒店按造价 <b>50%</b> 回收，空地按地价 <b>50%</b>；有建筑须先拆房再卖地。</li>
+              <li>现金不足付租金/税款时，进入变卖凑钱，可自选卖掉哪些产业；实在凑不齐才破产。</li>
               <li>最后一名未破产者获胜。视觉参考实体环线棋，城市配置为原创。</li>
             </ul>
           </section>
@@ -131,6 +134,21 @@
       <div class="dialog-actions">
         <button type="button" id="dialogOk">确定</button>
         <button type="button" id="dialogCancel" class="secondary">取消</button>
+      </div>
+    </div>
+
+    <div id="assetOverlay" class="asset-overlay" hidden>
+      <div class="asset-panel" role="dialog" aria-modal="true" aria-labelledby="assetTitle">
+        <h3 id="assetTitle">向银行变卖产业</h3>
+        <p id="assetHint" class="asset-hint">
+          银行半价回收（折旧 50%）：拆一级建筑=造价一半，卖空地=地价一半。有房子/酒店时须先拆完再卖地。原价卖回不合理，避免无风险套现。
+        </p>
+        <p id="assetStatus" class="asset-status"></p>
+        <ul id="assetList" class="asset-list"></ul>
+        <div class="asset-actions">
+          <button type="button" id="assetBankrupt" class="secondary" hidden>凑不齐，宣告破产</button>
+          <button type="button" id="assetClose" class="secondary">关闭</button>
+        </div>
       </div>
     </div>
 
