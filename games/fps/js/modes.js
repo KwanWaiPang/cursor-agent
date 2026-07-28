@@ -17,7 +17,7 @@ const LOOT_WEIGHTS = [
   { kind: "rifle", w: 12 },
   { kind: "shotgun", w: 10 },
   { kind: "pistol", w: 6 },
-  { kind: "sniper", w: 2 },
+  { kind: "sniper", w: 1 },
 ];
 
 function rollLootKind() {
@@ -175,10 +175,10 @@ export function createAssaultMode(ctx) {
   hud.setCapture?.(0, "");
   player.getObject().position.set(0, player.eyeHeight, 26);
 
-  // 多数补给靠近战术区；栓狙整场最多 1
+  // 多数补给靠近战术区；栓狙约 25% 场次才可能出现 1 把
   spawnLootField(
     ctx,
-    makeLootKinds(9, { maxSniper: 1 }),
+    makeLootKinds(9, { maxSniper: Math.random() < 0.25 ? 1 : 0 }),
     world.size * 0.5,
     { center: world.zoneCenter, radius: world.zoneRadius + 14, preferInside: true }
   );
@@ -417,7 +417,8 @@ export function createRoyaleMode(ctx) {
     });
   }
 
-  const kinds = makeLootKinds(12, { maxSniper: 1 });
+  // 大逃杀地图更大：最多 1 把栓狙，且权重本就很低
+  const kinds = makeLootKinds(12, { maxSniper: Math.random() < 0.4 ? 1 : 0 });
   spawnLootField(ctx, kinds, world.size - 24, {
     center,
     radius,
