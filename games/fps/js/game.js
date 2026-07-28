@@ -11,7 +11,7 @@ import {
   consumeShot,
 } from "./weapons.js";
 import { createAssaultMode, createRoyaleMode } from "./modes.js";
-import { createAK47ViewModel, createPistolViewModel, createSMGViewModel } from "./viewmodel.js";
+import { createAK47ViewModel, createPistolViewModel, createM4ViewModel, createShotgunViewModel, createSniperViewModel } from "./viewmodel.js";
 
 export class Game {
   constructor({ mode, onEnd, onQuit }) {
@@ -52,12 +52,16 @@ export class Game {
     this.player = new Player(this.camera, this.renderer.domElement, this.world);
     this.loadout = createLoadout("rifle");
 
-    // 第一人称武器（AK / 冲锋枪 / 手枪）
+    // 第一人称武器（五枪）
     this.viewAk = createAK47ViewModel();
-    this.viewSmg = createSMGViewModel();
+    this.viewM4 = createM4ViewModel();
+    this.viewShotgun = createShotgunViewModel();
+    this.viewSniper = createSniperViewModel();
     this.viewPistol = createPistolViewModel();
     this.camera.add(this.viewAk.root);
-    this.camera.add(this.viewSmg.root);
+    this.camera.add(this.viewM4.root);
+    this.camera.add(this.viewShotgun.root);
+    this.camera.add(this.viewSniper.root);
     this.camera.add(this.viewPistol.root);
     this.scene.add(this.camera);
     this.activeView = this.viewAk;
@@ -160,11 +164,17 @@ export class Game {
 
   syncViewModel() {
     const view = this.loadout?.def?.view || "ak";
-    this.viewAk.setVisible(view === "ak");
-    this.viewSmg.setVisible(view === "smg");
-    this.viewPistol.setVisible(view === "pistol");
-    this.activeView =
-      view === "smg" ? this.viewSmg : view === "pistol" ? this.viewPistol : this.viewAk;
+    const map = {
+      ak: this.viewAk,
+      m4: this.viewM4,
+      shotgun: this.viewShotgun,
+      sniper: this.viewSniper,
+      pistol: this.viewPistol,
+    };
+    for (const [key, vm] of Object.entries(map)) {
+      vm.setVisible(key === view);
+    }
+    this.activeView = map[view] || this.viewAk;
   }
 
   refreshEnemyMeshCache(force = false) {
@@ -182,41 +192,28 @@ export class Game {
     return this._enemyMeshCache;
   }
 
-  shoot(now) {
-    if (!this.player.alive) return;
-    if (!this.player.controls.isLocked) return;
-    updateReload(this.loadout, now);
-    if (!canShoot(this.loadout, now)) {
-      if (this.loadout.mag <= 0) tryReload(this.loadout, now, this.sfx);
-      return;
+  resolvePlayerHit(enemyHit) {
+    let enemy = null;
+    let obj = enemyHit.object;
+    let hitZone = obj.userData?.hitZone || null;
+    while (obj) {
+      if (!enemy) enemy = this.enemies.find((en) => en.mesh === obj);
+      if (!hitZone && obj.userData?.hitZone) hitZone = obj.userData.hitZone;
+      if (enemy && hitZone) break;
+      obj = obj.parent;
     }
-    consumeShot(this.loadout, now);
-    if (this.loadout.mag <= 0) tryReload(this.loadout, now, this.sfx);
-    this.sfx.shoot(this.loadout.def.heavy);
-    this.activeView?.kick();
-    this.hud.flashFire();
-    // 镜头后坐（一次性压低，随后回弹）
-    const ads = this.aiming && !this.loadout.reloading;
-    const kick = ads ? 0.012 : 0.028;
-    this.camera.rotation.x -= kick;
-    this.kickRecover += kick;
-    const lim = Math.PI / 2 - 0.05;
-    this.camera.rotation.x = THREE.MathUtils.clamp(this.camera.rotation.x, -lim, lim);
+    return { enemy, hitZone };
+  }
 
-    const origin = this.camera.getWorldPosition(new THREE.Vector3());
-    const dir = new THREE.Vector3();
-    this.camera.getWorldDirection(dir);
-    const adsMul = ads ? 0.28 : 1;
-    const spread = this.loadout.def.spread * adsMul;
+  fireRay(origin, baseDir, spread, range, damage) {
+    const dir = baseDir.clone();
     dir.x += (Math.random() - 0.5) * spread;
     dir.y += (Math.random() - 0.5) * spread;
     dir.z += (Math.random() - 0.5) * spread;
     dir.normalize();
 
-    const range = this.loadout.def.range;
     this.raycaster.set(origin, dir);
     this.raycaster.far = range;
-
     const targets = this.refreshEnemyMeshCache();
     const hitsEnemy = this.raycaster.intersectObjects(targets, false);
     const enemyHit = hitsEnemy[0];
@@ -225,22 +222,16 @@ export class Game {
       Number.isFinite(wallDist) &&
       (!enemyHit || wallDist + 0.05 < enemyHit.distance);
 
+    let hitSomething = false;
     if (enemyHit && !blocked) {
-      let enemy = null;
-      let obj = enemyHit.object;
-      let hitZone = obj.userData?.hitZone || null;
-      while (obj) {
-        if (!enemy) enemy = this.enemies.find((en) => en.mesh === obj);
-        if (!hitZone && obj.userData?.hitZone) hitZone = obj.userData.hitZone;
-        if (enemy && hitZone) break;
-        obj = obj.parent;
-      }
+      const { enemy, hitZone } = this.resolvePlayerHit(enemyHit);
       if (enemy && enemy.alive && enemy.team === "blue") {
         const headshot = hitZone === "head";
-        const killed = enemy.damageBy(this.loadout.def.damage, {
+        const killed = enemy.damageBy(damage, {
           headshot,
           from: this.player.position,
         });
+        hitSomething = true;
         if (headshot) this.sfx.headshot();
         else this.sfx.hit();
         this.hud.flashHit(headshot);
@@ -252,6 +243,45 @@ export class Game {
       ? wallDist
       : enemyHit?.distance ?? Math.min(55, range);
     this.spawnTracer(origin, dir, traceDist, { team: "player" });
+    return hitSomething;
+  }
+
+  shoot(now) {
+    if (!this.player.alive) return;
+    if (!this.player.controls.isLocked) return;
+    updateReload(this.loadout, now);
+    if (!canShoot(this.loadout, now)) {
+      if (this.loadout.mag <= 0) tryReload(this.loadout, now, this.sfx);
+      return;
+    }
+    consumeShot(this.loadout, now);
+    if (this.loadout.mag <= 0) tryReload(this.loadout, now, this.sfx);
+
+    const def = this.loadout.def;
+    this.sfx.shoot(def.heavy, def.id);
+    this.activeView?.kick();
+    this.hud.flashFire();
+
+    const ads = this.aiming && !this.loadout.reloading;
+    const kick = (def.kick ?? 0.024) * (ads ? 0.55 : 1);
+    this.camera.rotation.x -= kick;
+    this.kickRecover += kick;
+    const lim = Math.PI / 2 - 0.05;
+    this.camera.rotation.x = THREE.MathUtils.clamp(this.camera.rotation.x, -lim, lim);
+
+    const origin = this.camera.getWorldPosition(new THREE.Vector3());
+    const baseDir = new THREE.Vector3();
+    this.camera.getWorldDirection(baseDir);
+
+    let spread = def.spread;
+    if (ads) spread *= def.adsSpreadMul ?? 0.28;
+    else spread *= def.hipSpreadMul ?? 1;
+
+    const pellets = def.pellets || 1;
+    const range = def.range;
+    for (let i = 0; i < pellets; i++) {
+      this.fireRay(origin, baseDir, spread, range, def.damage);
+    }
   }
 
   /** 多条弹道可并存：玩家黄、我方红、敌方蓝；对象池复用 */
@@ -318,7 +348,8 @@ export class Game {
       }
       this.player.update(dt);
 
-      const wantFov = this.aiming && !this.loadout.reloading ? this.adsFov : this.baseFov;
+      const adsFov = this.loadout?.def?.adsFov ?? this.adsFov;
+      const wantFov = this.aiming && !this.loadout.reloading ? adsFov : this.baseFov;
       this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, wantFov, 1 - Math.pow(0.0008, dt));
       this.camera.updateProjectionMatrix();
 

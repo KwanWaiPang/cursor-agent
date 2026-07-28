@@ -538,7 +538,9 @@ const LOOT_COLORS = {
   ammo: 0x7ec8e3,
   health: 0x6fae6a,
   rifle: 0xc4a574,
-  smg: 0xd4a017,
+  m4: 0x90a4ae,
+  shotgun: 0x8d6e63,
+  sniper: 0x546e7a,
   pistol: 0xb0bec5,
 };
 

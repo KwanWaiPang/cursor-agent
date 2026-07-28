@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { Enemy, LootCrate } from "./enemy.js";
 import { createSafeZoneVisual } from "./world.js";
-import { createLoadout } from "./weapons.js";
+import { createLoadout, isWeaponLoot } from "./weapons.js";
 
 function pruneGone(list) {
   for (let i = list.length - 1; i >= 0; i--) {
@@ -70,11 +70,21 @@ function applyLoot(ctx, kind, hud, sfx) {
     }
     return;
   }
-  if (kind === "rifle" || kind === "smg" || kind === "pistol") {
+  if (isWeaponLoot(kind)) {
     const keepReserve = ctx.loadout.reserve;
     ctx.loadout = createLoadout(kind);
-    ctx.loadout.reserve = Math.max(ctx.loadout.reserve, keepReserve);
-    const names = { rifle: "AK-47", smg: "冲锋枪", pistol: "手枪" };
+    // 换枪时保留一部分备弹手感，但不无限叠
+    ctx.loadout.reserve = Math.max(
+      ctx.loadout.reserve,
+      Math.min(keepReserve, ctx.loadout.def.reserve)
+    );
+    const names = {
+      rifle: "AK-47",
+      m4: "M4",
+      shotgun: "霰弹枪",
+      sniper: "栓狙",
+      pistol: "手枪",
+    };
     hud.toast(`拾取 ${names[kind] || kind}`);
     ctx._game?.syncViewModel?.();
   }
@@ -108,7 +118,7 @@ export function createAssaultMode(ctx) {
   // 多数补给靠近战术区
   spawnLootField(
     ctx,
-    ["ammo", "health", "ammo", "smg", "health", "ammo", "ammo"],
+    ["ammo", "health", "ammo", "m4", "shotgun", "health", "sniper", "ammo"],
     world.size * 0.5,
     { center: world.zoneCenter, radius: world.zoneRadius + 14, preferInside: true }
   );
@@ -324,7 +334,7 @@ export function createRoyaleMode(ctx) {
     });
   }
 
-  const kinds = ["ammo", "ammo", "health", "smg", "ammo", "health", "rifle", "pistol", "ammo"];
+  const kinds = ["ammo", "ammo", "health", "m4", "shotgun", "health", "rifle", "sniper", "pistol", "ammo"];
   spawnLootField(ctx, kinds, world.size - 24, {
     center,
     radius,
