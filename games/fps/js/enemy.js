@@ -125,6 +125,23 @@ function makeTeamCharacter(team = "blue") {
   g.userData.head = helmet;
   g.userData.headHit = headHit;
   g.userData.team = team;
+
+  // 红方描边：远处也好认，减少挡枪口误伤感
+  if (isRed) {
+    const outlineMat = new THREE.MeshBasicMaterial({
+      color: 0xff6b6b,
+      transparent: true,
+      opacity: 0.35,
+      depthWrite: false,
+    });
+    const outline = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 0.9, 4, 8), outlineMat);
+    outline.position.y = 1.05;
+    outline.scale.set(1.15, 1.05, 1.15);
+    outline.renderOrder = 1;
+    g.add(outline);
+    g.userData.outline = outline;
+  }
+
   return g;
 }
 
@@ -192,6 +209,8 @@ export class Enemy {
     this.currentTarget = null;
     this.seekCoverUntil = 0;
     this.coverTarget = null;
+    /** 据点模式：优先靠近战术区 */
+    this.holdZone = opts.holdZone || null;
   }
 
   get position() {
@@ -256,6 +275,12 @@ export class Enemy {
   pickPatrol() {
     const sp = this.world.spawnPoints;
     const cover = this.world.coverPoints;
+    if (this.holdZone && Math.random() < 0.7) {
+      this.patrolTarget = this.holdZone.clone();
+      this.patrolTarget.x += (Math.random() - 0.5) * 5;
+      this.patrolTarget.z += (Math.random() - 0.5) * 5;
+      return;
+    }
     if (cover?.length && Math.random() < 0.55) {
       this.patrolTarget = cover[Math.floor(Math.random() * cover.length)].clone();
     } else {
@@ -377,22 +402,41 @@ export class Enemy {
       if (this.isAlly && player?.position) {
         const toP = _tmp2.copy(player.position).sub(this.position);
         toP.y = 0;
-        if (toP.length() > 22) {
+        const nearPlayer = toP.length();
+        // 太近则侧移，减少挡在玩家准星前
+        if (nearPlayer < 3.2 && nearPlayer > 0.05) {
+          toP.normalize();
+          _side.set(-toP.z, 0, toP.x).multiplyScalar(this.strafeSign);
+          this.position.addScaledVector(_side, this.speed * 1.1 * dt);
+          this.position.addScaledVector(toP, -0.35 * this.speed * dt);
+          this.mesh.lookAt(this.position.x + toP.x, this.position.y, this.position.z + toP.z);
+          moving = true;
+        } else if (this.holdZone) {
+          const toZ = _tmp2.copy(this.holdZone).sub(this.position);
+          toZ.y = 0;
+          if (toZ.length() > 6) {
+            this.patrolTarget.copy(this.holdZone);
+            this.patrolTarget.x += (Math.random() - 0.5) * 4;
+            this.patrolTarget.z += (Math.random() - 0.5) * 4;
+          }
+        } else if (toP.length() > 22) {
           this.patrolTarget.copy(player.position);
           this.patrolTarget.x += (Math.random() - 0.5) * 8;
           this.patrolTarget.z += (Math.random() - 0.5) * 8;
         }
       }
-      const to = _tmp2.copy(this.patrolTarget).sub(this.position);
-      to.y = 0;
-      if (to.length() < 1.4) this.pickPatrol();
-      else {
-        to.normalize();
-        _side.set(-to.z, 0, to.x).multiplyScalar(Math.sin(this.walkPhase * 0.35) * 0.35);
-        _move.copy(to).add(_side).normalize();
-        this.position.addScaledVector(_move, this.speed * 0.7 * dt);
-        this.mesh.lookAt(this.position.x + to.x, this.position.y, this.position.z + to.z);
-        moving = true;
+      if (!moving) {
+        const to = _tmp2.copy(this.patrolTarget).sub(this.position);
+        to.y = 0;
+        if (to.length() < 1.4) this.pickPatrol();
+        else {
+          to.normalize();
+          _side.set(-to.z, 0, to.x).multiplyScalar(Math.sin(this.walkPhase * 0.35) * 0.35);
+          _move.copy(to).add(_side).normalize();
+          this.position.addScaledVector(_move, this.speed * 0.7 * dt);
+          this.mesh.lookAt(this.position.x + to.x, this.position.y, this.position.z + to.z);
+          moving = true;
+        }
       }
     } else if (toTarget) {
       if (dist > 0.01) {

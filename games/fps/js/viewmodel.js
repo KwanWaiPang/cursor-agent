@@ -236,3 +236,85 @@ export function createPistolViewModel() {
     },
   };
 }
+
+/** 冲锋枪：短护木 + 直弹匣，区别于 AK / 手枪 */
+export function createSMGViewModel() {
+  const root = new THREE.Group();
+  root.name = "smgView";
+  const metal = new THREE.MeshStandardMaterial({
+    color: 0x2c3034,
+    roughness: 0.42,
+    metalness: 0.78,
+  });
+  const dark = new THREE.MeshStandardMaterial({
+    color: 0x15181c,
+    roughness: 0.4,
+    metalness: 0.85,
+  });
+  const polymer = new THREE.MeshStandardMaterial({
+    color: 0x1e2420,
+    roughness: 0.75,
+    metalness: 0.15,
+  });
+
+  const gun = new THREE.Group();
+  const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.28), metal);
+  gun.add(receiver);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.22, 8), dark);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0, 0.01, -0.24);
+  gun.add(barrel);
+  const shroud = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.14), polymer);
+  shroud.position.set(0, -0.01, -0.14);
+  gun.add(shroud);
+  const mag = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.16, 0.05), dark);
+  mag.position.set(0, -0.12, 0.02);
+  gun.add(mag);
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.05, 0.14), polymer);
+  stock.position.set(0, 0.01, 0.18);
+  gun.add(stock);
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.1, 0.05), polymer);
+  grip.position.set(0, -0.08, 0.08);
+  grip.rotation.x = 0.2;
+  gun.add(grip);
+  gun.position.set(0.2, -0.24, -0.48);
+  root.add(gun);
+
+  const flash = new THREE.Mesh(
+    new THREE.SphereGeometry(0.035, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffe088, transparent: true, opacity: 0 })
+  );
+  flash.position.set(0.2, -0.22, -0.72);
+  root.add(flash);
+
+  const state = { recoil: 0, bob: 0, flashTimer: 0 };
+  return {
+    root,
+    gun,
+    flash,
+    state,
+    setVisible(v) {
+      root.visible = v;
+    },
+    kick() {
+      state.recoil = 1;
+      state.flashTimer = 0.035;
+      flash.material.opacity = 0.8;
+    },
+    update(dt, moving, reloading, opts = {}) {
+      state.recoil = Math.max(0, state.recoil - dt * 11);
+      if (state.flashTimer > 0) {
+        state.flashTimer -= dt;
+        if (state.flashTimer <= 0) flash.material.opacity = 0;
+      }
+      if (moving) state.bob += dt * 11;
+      const aiming = !!opts.aiming;
+      const bobY = Math.sin(state.bob) * (moving ? 0.011 : 0.003) * (aiming ? 0.28 : 1);
+      const x = aiming ? 0.02 : 0.2;
+      const y = aiming ? -0.16 : -0.24;
+      const z = aiming ? -0.36 : -0.48;
+      gun.position.set(x, y + bobY - (reloading ? 0.13 : 0), z + state.recoil * 0.035);
+      gun.rotation.set(0.03 + state.recoil * 0.09, aiming ? 0.015 : 0.08, 0.02);
+    },
+  };
+}

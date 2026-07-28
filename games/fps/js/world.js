@@ -488,13 +488,13 @@ export function createWorld(scene, size = 170) {
     });
   }
 
-  const fogFar = Math.min(280, size * 1.25);
-  scene.fog = new THREE.Fog(0xc5d8e8, size * 0.42, fogFar);
-  scene.background = new THREE.Color(0xa8c4dc);
+  const fogFar = Math.min(300, size * 1.28);
+  scene.fog = new THREE.Fog(0xb9d0e4, size * 0.48, fogFar);
+  scene.background = new THREE.Color(0x9ebbd4);
 
-  const hemi = new THREE.HemisphereLight(0xf7fafc, 0xc4b49a, 1.25);
+  const hemi = new THREE.HemisphereLight(0xf8fbff, 0xc8b8a0, 1.32);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff6e0, 1.55);
+  const sun = new THREE.DirectionalLight(0xfff4dc, 1.65);
   sun.position.set(55, 90, 40);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
@@ -507,9 +507,24 @@ export function createWorld(scene, size = 170) {
   sun.shadow.camera.bottom = -shadowSpan;
   sun.shadow.bias = -0.00025;
   scene.add(sun);
-  const fillSun = new THREE.DirectionalLight(0xb8d4ff, 0.35);
+  const fillSun = new THREE.DirectionalLight(0xb8d4ff, 0.42);
   fillSun.position.set(-40, 30, -20);
   scene.add(fillSun);
+
+  // 地面接缝阴影环：减轻“浮空方块”感
+  const groundShade = new THREE.Mesh(
+    new THREE.RingGeometry(half * 0.15, half * 0.98, 64),
+    new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.07,
+      depthWrite: false,
+    })
+  );
+  groundShade.rotation.x = -Math.PI / 2;
+  groundShade.position.y = 0.02;
+  scene.add(groundShade);
+  meshes.push(groundShade);
 
   // 边界墙（四面开口）
   const wallH = 5.5;

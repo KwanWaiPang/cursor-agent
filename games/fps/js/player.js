@@ -33,6 +33,9 @@ export class Player {
     this._timeSinceDamage = 999;
     /** 开局无敌截止时间（performance.now） */
     this.spawnProtectUntil = 0;
+    /** 收纳的急救包数量（满血拾取不浪费） */
+    this.medkits = 0;
+    this._lastHitFrom = null;
     this.yawObject = this.controls.getObject();
     this.yawObject.position.set(0, this.eyeHeight, 16);
 
@@ -109,11 +112,12 @@ export class Player {
     return performance.now() < this.spawnProtectUntil;
   }
 
-  damage(amount) {
+  damage(amount, fromPos = null) {
     if (!this.alive) return;
     if (this.isSpawnProtected) return;
     this.hp = Math.max(0, this.hp - amount);
     this._timeSinceDamage = 0;
+    if (fromPos) this._lastHitFrom = { x: fromPos.x, z: fromPos.z, at: performance.now() };
     if (this.hp <= 0) {
       this.alive = false;
       this.hp = 0;
@@ -124,10 +128,31 @@ export class Player {
     this.hp = Math.min(this.maxHp, this.hp + amount);
   }
 
+  /** 满血则收纳；否则立即使用 */
+  takeMedkit(healAmount = 40) {
+    if (this.hp >= this.maxHp - 0.5) {
+      this.medkits += 1;
+      return "stored";
+    }
+    this.heal(healAmount);
+    return "used";
+  }
+
+  /** 掉血后自动消耗收纳的急救包 */
+  tryAutoMedkit(dt) {
+    if (!this.alive || this.medkits <= 0) return false;
+    if (this.hp >= this.maxHp * 0.72) return false;
+    if (this._timeSinceDamage < 0.6) return false;
+    this.medkits -= 1;
+    this.heal(40);
+    return true;
+  }
+
   /** 脱战后自动回血 */
   applyRegen(dt) {
     if (!this.alive || this.hp >= this.maxHp) return;
     this._timeSinceDamage += dt;
+    if (this.tryAutoMedkit(dt)) return;
     if (this._timeSinceDamage < this.regenDelay) return;
     this.hp = Math.min(this.maxHp, this.hp + this.regenRate * dt);
   }
