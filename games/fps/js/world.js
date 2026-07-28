@@ -109,16 +109,16 @@ function makeNoiseTexture(key, size, paint) {
   return tex;
 }
 
-function texAsphalt() {
-  return makeNoiseTexture("asphalt", 256, (ctx, n) => {
-    ctx.fillStyle = "#2a2e32";
+function texAsphalt(bright = false) {
+  return makeNoiseTexture(bright ? "asphaltBright" : "asphalt", 256, (ctx, n) => {
+    ctx.fillStyle = bright ? "#5a5e62" : "#2a2e32";
     ctx.fillRect(0, 0, n, n);
     for (let i = 0; i < 5000; i++) {
-      const g = 28 + ((Math.random() * 50) | 0);
+      const g = (bright ? 70 : 28) + ((Math.random() * 50) | 0);
       ctx.fillStyle = `rgba(${g},${g},${g + 4},${0.12 + Math.random() * 0.28})`;
       ctx.fillRect(Math.random() * n, Math.random() * n, 1 + Math.random() * 2.5, 1 + Math.random() * 2);
     }
-    ctx.strokeStyle = "rgba(12,12,14,0.5)";
+    ctx.strokeStyle = bright ? "rgba(30,30,34,0.35)" : "rgba(12,12,14,0.5)";
     ctx.lineWidth = 1;
     for (let i = 0; i < 14; i++) {
       ctx.beginPath();
@@ -129,12 +129,12 @@ function texAsphalt() {
   });
 }
 
-function texConcrete() {
-  return makeNoiseTexture("concrete", 256, (ctx, n) => {
-    ctx.fillStyle = "#6d6a62";
+function texConcrete(bright = false) {
+  return makeNoiseTexture(bright ? "concreteBright" : "concrete", 256, (ctx, n) => {
+    ctx.fillStyle = bright ? "#8a8780" : "#6d6a62";
     ctx.fillRect(0, 0, n, n);
     for (let i = 0; i < 4200; i++) {
-      const g = 70 + ((Math.random() * 55) | 0);
+      const g = (bright ? 95 : 70) + ((Math.random() * 55) | 0);
       ctx.fillStyle = `rgba(${g},${g - 2},${g - 6},${0.1 + Math.random() * 0.22})`;
       ctx.fillRect(Math.random() * n, Math.random() * n, 1 + Math.random() * 3, 1 + Math.random() * 3);
     }
@@ -145,14 +145,14 @@ function texConcrete() {
   });
 }
 
-function texDirt() {
-  return makeNoiseTexture("dirt", 256, (ctx, n) => {
-    ctx.fillStyle = "#4f5348";
+function texDirt(bright = false) {
+  return makeNoiseTexture(bright ? "dirtBright" : "dirt", 256, (ctx, n) => {
+    ctx.fillStyle = bright ? "#6a6e62" : "#4f5348";
     ctx.fillRect(0, 0, n, n);
     for (let i = 0; i < 6000; i++) {
-      const r = 55 + ((Math.random() * 45) | 0);
-      const g = 58 + ((Math.random() * 40) | 0);
-      const b = 42 + ((Math.random() * 30) | 0);
+      const r = (bright ? 75 : 55) + ((Math.random() * 45) | 0);
+      const g = (bright ? 78 : 58) + ((Math.random() * 40) | 0);
+      const b = (bright ? 58 : 42) + ((Math.random() * 30) | 0);
       ctx.fillStyle = `rgba(${r},${g},${b},${0.12 + Math.random() * 0.3})`;
       ctx.fillRect(Math.random() * n, Math.random() * n, 1 + Math.random() * 3, 1 + Math.random() * 3);
     }
@@ -522,13 +522,13 @@ function populateOuterBlocks(ctx, half, assaultTheme = false) {
 /** 据点清剿：军事杂物、残骸与细节，压低卡通感 */
 function addAssaultMilitaryDressing(ctx, coverPoints) {
   const { scene, colliders, meshes } = ctx;
-  const hesco = makeMat(0x8a8674, 0.95, 0.02, texConcrete());
-  const metal = makeMat(0x4a4e52, 0.55, 0.55, texMetal());
-  const rust = makeMat(0x6a5044, 0.85, 0.25);
-  const od = makeMat(0x4d5548, 0.9, 0.08);
-  const canvas = makeMat(0x7b7558, 0.98, 0.02);
-  const tire = makeMat(0x2a2c2e, 0.95, 0.05);
-  const dirtPatch = makeMat(0x5a5e54, 1, 0.02, texDirt());
+  const hesco = makeMat(0x9a9684, 0.95, 0.02, texConcrete(true));
+  const metal = makeMat(0x5a5e62, 0.55, 0.55, texMetal());
+  const rust = makeMat(0x7a6054, 0.85, 0.25);
+  const od = makeMat(0x5d6558, 0.9, 0.08);
+  const canvas = makeMat(0x8b8568, 0.98, 0.02);
+  const tire = makeMat(0x3a3c3e, 0.95, 0.05);
+  const dirtPatch = makeMat(0x6a6e64, 1, 0.02, texDirt(true));
 
   function box(opts) {
     return addBox(scene, colliders, meshes, opts);
@@ -778,12 +778,12 @@ export function createWorld(scene, size = 170) {
   const assaultTheme = size <= 180; // 据点清剿：更压抑写实
 
   // 地面（泥土地纹理）
-  const dirtMap = texDirt().clone();
+  const dirtMap = texDirt(assaultTheme).clone();
   dirtMap.repeat.set(size / 12, size / 12);
   dirtMap.needsUpdate = true;
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(size + 12, size + 12, 1, 1),
-    makeMat(assaultTheme ? 0x7a7e72 : 0x6e7568, 1, 0.02, dirtMap)
+    makeMat(assaultTheme ? 0x8a8e82 : 0x6e7568, 1, 0.02, dirtMap)
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
@@ -791,10 +791,10 @@ export function createWorld(scene, size = 170) {
   meshes.push(ground);
 
   // 街道网：主干十字 + 次干道（沥青纹理）
-  const asphaltMap = texAsphalt().clone();
+  const asphaltMap = texAsphalt(assaultTheme).clone();
   asphaltMap.repeat.set(8, size / 8);
   asphaltMap.needsUpdate = true;
-  const roadMat = makeMat(assaultTheme ? 0x484c50 : 0x3a3e44, 0.97, 0.04, asphaltMap);
+  const roadMat = makeMat(assaultTheme ? 0x7a7e82 : 0x3a3e44, 0.97, 0.04, asphaltMap);
   function addRoad(w, d, x, z, y = 0.03) {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), roadMat);
     mesh.rotation.x = -Math.PI / 2;
@@ -813,7 +813,7 @@ export function createWorld(scene, size = 170) {
   }
 
   // 路缘石
-  const curbMat = makeMat(0x5c5a54, 0.92, 0.05, texConcrete());
+  const curbMat = makeMat(assaultTheme ? 0x7c7a74 : 0x5c5a54, 0.92, 0.05, texConcrete(assaultTheme));
   for (const side of [-7.2, 7.2]) {
     addBox(scene, colliders, meshes, {
       w: 0.35,
@@ -863,18 +863,18 @@ export function createWorld(scene, size = 170) {
   }
 
   // 据点：写实灰绿但保持日间可读亮度（避免过暗）
-  const fogFar = Math.min(assaultTheme ? 280 : 300, size * (assaultTheme ? 1.25 : 1.28));
-  scene.fog = new THREE.Fog(assaultTheme ? 0xa8b2a4 : 0xb9d0e4, size * (assaultTheme ? 0.48 : 0.48), fogFar);
-  scene.background = new THREE.Color(assaultTheme ? 0x9aa896 : 0x9ebbd4);
+  const fogFar = Math.min(assaultTheme ? 300 : 300, size * (assaultTheme ? 1.3 : 1.28));
+  scene.fog = new THREE.Fog(assaultTheme ? 0xb4bca8 : 0xb9d0e4, size * (assaultTheme ? 0.55 : 0.48), fogFar);
+  scene.background = new THREE.Color(assaultTheme ? 0xa8b09c : 0x9ebbd4);
 
   const hemi = new THREE.HemisphereLight(
-    assaultTheme ? 0xe8edd8 : 0xf8fbff,
-    assaultTheme ? 0x6a6558 : 0xc8b8a0,
-    assaultTheme ? 1.22 : 1.32
+    assaultTheme ? 0xf2f6e8 : 0xf8fbff,
+    assaultTheme ? 0x7a7568 : 0xc8b8a0,
+    assaultTheme ? 1.4 : 1.32
   );
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(assaultTheme ? 0xfff0d4 : 0xfff4dc, assaultTheme ? 1.55 : 1.65);
-  sun.position.set(assaultTheme ? 48 : 55, assaultTheme ? 82 : 90, assaultTheme ? 34 : 40);
+  const sun = new THREE.DirectionalLight(assaultTheme ? 0xfff4dc : 0xfff4dc, assaultTheme ? 1.75 : 1.65);
+  sun.position.set(assaultTheme ? 50 : 55, assaultTheme ? 88 : 90, assaultTheme ? 36 : 40);
   sun.castShadow = true;
   sun.shadow.mapSize.set(assaultTheme ? 2048 : 1024, assaultTheme ? 2048 : 1024);
   sun.shadow.camera.near = 1;
@@ -885,9 +885,9 @@ export function createWorld(scene, size = 170) {
   sun.shadow.camera.top = shadowSpan;
   sun.shadow.camera.bottom = -shadowSpan;
   sun.shadow.bias = -0.00025;
-  if (assaultTheme) sun.shadow.normalBias = 0.035;
+  if (assaultTheme) sun.shadow.normalBias = 0.04;
   scene.add(sun);
-  const fillSun = new THREE.DirectionalLight(assaultTheme ? 0xb0c0c8 : 0xb8d4ff, assaultTheme ? 0.48 : 0.42);
+  const fillSun = new THREE.DirectionalLight(assaultTheme ? 0xc0d0d8 : 0xb8d4ff, assaultTheme ? 0.55 : 0.42);
   fillSun.position.set(-40, 30, -20);
   scene.add(fillSun);
 
@@ -947,7 +947,7 @@ export function createWorld(scene, size = 170) {
   const wallH = 5.5;
   const wallT = 1.2;
   const wallColor = pal.wall;
-  const wallMap = assaultTheme ? texConcrete() : null;
+  const wallMap = assaultTheme ? texConcrete(true) : null;
   const gate = 9;
   const seg = half - gate / 2;
   // 北
