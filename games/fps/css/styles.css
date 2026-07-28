@@ -297,6 +297,17 @@ kbd {
   text-align: center;
 }
 
+.stat.kills {
+  text-align: right;
+}
+
+.stat.kills b {
+  font-family: var(--font-mono);
+  font-size: 1.55rem;
+  letter-spacing: 0.04em;
+  color: #e8f5c8;
+}
+
 .stat.ammo small {
   display: block;
   margin-top: 0.15rem;

@@ -535,8 +535,8 @@ export class Enemy {
 }
 
 const LOOT_COLORS = {
-  ammo: 0x7ec8e3,
-  health: 0x6fae6a,
+  ammo: 0xc4a574,
+  health: 0x6bbf7a,
   rifle: 0xc4a574,
   m4: 0x90a4ae,
   shotgun: 0x8d6e63,
@@ -544,50 +544,189 @@ const LOOT_COLORS = {
   pistol: 0xb0bec5,
 };
 
+const LOOT_LABEL = {
+  ammo: "AMMO",
+  health: "MED",
+  rifle: "AK",
+  m4: "M4",
+  shotgun: "SG",
+  sniper: "SR",
+  pistol: "P",
+};
+
+function makeCrateMat(color, opts = {}) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: opts.roughness ?? 0.55,
+    metalness: opts.metalness ?? 0.35,
+    emissive: opts.emissive ?? 0x000000,
+    emissiveIntensity: opts.emissiveIntensity ?? 0,
+  });
+}
+
+function buildLootCrateMesh(kind) {
+  const accent = LOOT_COLORS[kind] ?? 0x7ec8e3;
+  const root = new THREE.Group();
+
+  const bodyMat = makeCrateMat(0x4a5340, { roughness: 0.62, metalness: 0.28 });
+  const lidMat = makeCrateMat(0x3d4536, { roughness: 0.58, metalness: 0.32 });
+  const trimMat = makeCrateMat(0x2a2e28, { roughness: 0.45, metalness: 0.55 });
+  const accentMat = makeCrateMat(accent, {
+    roughness: 0.4,
+    metalness: 0.25,
+    emissive: accent,
+    emissiveIntensity: 0.22,
+  });
+  const latchMat = makeCrateMat(0xb8a06a, { roughness: 0.35, metalness: 0.7 });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.62, 0.78), bodyMat);
+  body.position.y = 0.31;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  root.add(body);
+
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.1, 0.82), lidMat);
+  lid.position.y = 0.67;
+  lid.castShadow = true;
+  root.add(lid);
+
+  const cornerGeo = new THREE.BoxGeometry(0.08, 0.64, 0.08);
+  for (const [x, y, z] of [
+    [-0.48, 0.32, -0.35],
+    [0.48, 0.32, -0.35],
+    [-0.48, 0.32, 0.35],
+    [0.48, 0.32, 0.35],
+  ]) {
+    const c = new THREE.Mesh(cornerGeo, trimMat);
+    c.position.set(x, y, z);
+    c.castShadow = true;
+    root.add(c);
+  }
+
+  const bandGeo = new THREE.BoxGeometry(1.07, 0.06, 0.8);
+  for (const y of [0.18, 0.48]) {
+    const band = new THREE.Mesh(bandGeo, trimMat);
+    band.position.y = y;
+    root.add(band);
+  }
+
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.22, 0.04), accentMat);
+  stripe.position.set(0, 0.34, 0.4);
+  root.add(stripe);
+
+  const latch = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.12), latchMat);
+  latch.position.set(0, 0.74, 0.28);
+  root.add(latch);
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.04, 0.06), latchMat);
+  handle.position.set(0, 0.74, -0.05);
+  root.add(handle);
+
+  const bead = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 10, 10),
+    makeCrateMat(accent, {
+      roughness: 0.25,
+      metalness: 0.4,
+      emissive: accent,
+      emissiveIntensity: 0.65,
+    })
+  );
+  bead.position.set(0.36, 0.78, 0);
+  root.add(bead);
+
+  const footGeo = new THREE.BoxGeometry(0.14, 0.06, 0.14);
+  for (const [x, z] of [
+    [-0.4, -0.28],
+    [0.4, -0.28],
+    [-0.4, 0.28],
+    [0.4, 0.28],
+  ]) {
+    const foot = new THREE.Mesh(footGeo, trimMat);
+    foot.position.set(x, 0.03, z);
+    root.add(foot);
+  }
+
+  const halo = new THREE.Mesh(
+    new THREE.RingGeometry(0.55, 0.85, 28),
+    new THREE.MeshBasicMaterial({
+      color: accent,
+      transparent: true,
+      opacity: 0.35,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+  );
+  halo.rotation.x = -Math.PI / 2;
+  halo.position.y = 0.03;
+  root.add(halo);
+
+  const light = new THREE.PointLight(accent, 0.55, 6, 2);
+  light.position.set(0, 0.9, 0);
+  root.add(light);
+
+  root.userData = { bead, halo, light, accent, label: LOOT_LABEL[kind] || "LOOT" };
+  return root;
+}
+
 export class LootCrate {
   constructor(scene, position, kind = "ammo") {
     this.scene = scene;
     this.kind = kind;
     this.alive = true;
     this.taken = false;
-    const color = LOOT_COLORS[kind] ?? 0x7ec8e3;
-    this.mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(1.1, 0.7, 1.1),
-      new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.2 })
-    );
+    this.mesh = buildLootCrateMesh(kind);
     this.mesh.position.copy(position);
-    this.mesh.position.y = 0.35;
-    this.mesh.castShadow = true;
+    this.mesh.position.y = 0;
     scene.add(this.mesh);
-    this.pulse = Math.random() * Math.PI;
+    this.pulse = Math.random() * Math.PI * 2;
+    this.baseY = 0;
   }
 
   update(dt) {
     if (!this.alive) return;
-    this.pulse += dt * 2;
-    this.mesh.position.y = 0.35 + Math.sin(this.pulse) * 0.08;
-    this.mesh.rotation.y += dt * 0.8;
+    this.pulse += dt * 1.6;
+    const bob = 0.04 + Math.sin(this.pulse) * 0.05;
+    this.mesh.position.y = this.baseY + bob;
+    this.mesh.rotation.y += dt * 0.45;
+    const u = this.mesh.userData;
+    if (u?.halo?.material) {
+      u.halo.material.opacity = 0.22 + Math.sin(this.pulse * 1.4) * 0.16;
+      u.halo.scale.setScalar(1 + Math.sin(this.pulse) * 0.06);
+    }
+    if (u?.light) {
+      u.light.intensity = 0.4 + Math.sin(this.pulse * 1.7) * 0.2;
+    }
+    if (u?.bead?.material) {
+      u.bead.material.emissiveIntensity = 0.45 + Math.sin(this.pulse * 2) * 0.35;
+    }
   }
 
-  tryPickup(playerPos, radius = 1.6) {
+  tryPickup(playerPos, radius = 1.75) {
     if (!this.alive) return null;
     const dx = playerPos.x - this.mesh.position.x;
     const dz = playerPos.z - this.mesh.position.z;
     if (dx * dx + dz * dz <= radius * radius) {
       this.alive = false;
       this.taken = true;
-      this.scene.remove(this.mesh);
-      this.mesh.geometry.dispose();
-      this.mesh.material?.dispose?.();
+      this.disposeMesh();
       return this.kind;
     }
     return null;
   }
 
+  disposeMesh() {
+    if (!this.mesh) return;
+    if (this.mesh.parent) this.scene.remove(this.mesh);
+    this.mesh.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose?.());
+        else o.material.dispose?.();
+      }
+    });
+  }
+
   dispose() {
-    if (!this.taken && this.mesh.parent) this.scene.remove(this.mesh);
-    this.mesh.geometry?.dispose?.();
-    this.mesh.material?.dispose?.();
+    if (!this.taken) this.disposeMesh();
     this.alive = false;
     this.taken = true;
     this.gone = true;

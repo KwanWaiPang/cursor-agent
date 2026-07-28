@@ -435,11 +435,11 @@ export class Game {
           const victim = shot.targetUnit;
           if (!victim?.alive || victim.gone) return;
           if (victim.team === shot.team) return;
-          const killed = victim.damageBy(shot.damage, {
+          victim.damageBy(shot.damage, {
             headshot: !!shot.headshot,
             from: e.position,
           });
-          if (killed && victim.team === "blue") this.mode.onKill?.();
+          // 击杀统计只计玩家本人，队友击杀不计入
         });
       }
       for (let i = this.enemies.length - 1; i >= 0; i--) {

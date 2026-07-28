@@ -105,14 +105,17 @@ export function createAssaultMode(ctx) {
   let enemiesAlive = 0;
   let leaveZoneTimer = 0;
   const maxWave = 5;
-  const allyCount = 3;
+  /** 红方 AI 数；玩家本人另计，合计每队 10 人 */
+  const allyCount = 9;
+  const teamSize = 10;
 
   ctx.loadout = createLoadout("rifle"); // 备弹 200
   player.grantSpawnProtect?.(4.5);
   player.medkits = 0;
+  hud.setKills?.(0);
 
   hud.setMode("据点清剿 · 红方");
-  hud.toast("站桩占领中央战术区即可胜利 · 波次为压力 · 开局短暂无敌");
+  hud.toast("站桩占领中央战术区即可胜利 · 红蓝各 10 人 · 开局短暂无敌");
   player.getObject().position.set(0, player.eyeHeight, 26);
 
   // 多数补给靠近战术区
@@ -127,14 +130,15 @@ export function createAssaultMode(ctx) {
     const alive = ctx.enemies.filter((e) => e.alive && e.team === "red").length;
     const need = allyCount - alive;
     for (let i = 0; i < need; i++) {
+      const ang = ((alive + i) / allyCount) * Math.PI * 2;
       const sp = player.position.clone();
-      sp.x += (i - 1) * 3.5;
-      sp.z += 4 + i;
+      sp.x += Math.cos(ang) * (5 + (i % 3));
+      sp.z += Math.sin(ang) * (5 + (i % 3)) + 2;
       spawnUnit(ctx, "red", sp, {
         hp: 80,
         speed: 3.5,
         damage: 7,
-        jitter: 2.5,
+        jitter: 1.8,
         holdZone: world.zoneCenter.clone(),
       });
     }
@@ -143,7 +147,7 @@ export function createAssaultMode(ctx) {
   function spawnWave() {
     pruneGone(ctx.enemies);
     spawnAllies();
-    const count = 2 + wave;
+    const count = teamSize;
     for (let i = 0; i < count; i++) {
       const sp = world.spawnPoints[(i * 3) % world.spawnPoints.length].clone();
       if (sp.distanceTo(player.position) < 26) {
@@ -164,7 +168,7 @@ export function createAssaultMode(ctx) {
       });
       enemiesAlive += 1;
     }
-    hud.toast(`第 ${wave} 波蓝方进入 · 占领中央区即可获胜`);
+    hud.toast(`第 ${wave} 波蓝方进入（${count} 人）· 占领中央区即可获胜`);
   }
 
   spawnAllies();
@@ -244,7 +248,7 @@ export function createAssaultMode(ctx) {
       hud.setObjective(
         `占领 ${Math.min(100, capture).toFixed(0)}%${capNote ? `（${capNote}）` : ""} · 波次 ${wave}/${maxWave} · 蓝 ${enemiesAlive} · 红 ${alliesAlive + (player.alive ? 1 : 0)}`
       );
-      hud.setScore(`${kills} 清除`);
+      hud.setKills?.(kills);
 
       if (capture >= captureNeed) {
         return {
@@ -260,6 +264,7 @@ export function createAssaultMode(ctx) {
     },
     onKill() {
       kills += 1;
+      hud.setKills?.(kills);
     },
     dispose() {
       for (const c of ctx.loot) c.dispose?.();
@@ -294,22 +299,25 @@ export function createRoyaleMode(ctx) {
   ctx.loadout = createLoadout("rifle"); // 备弹 200
   player.grantSpawnProtect?.(5);
   player.medkits = 0;
-  hud.toast("红方小队 · 清剿全部蓝方即可获胜 · 注意安全区（开局无敌）");
+  hud.setKills?.(0);
+  hud.toast("红蓝各 10 人 · 清剿全部蓝方即可获胜 · 注意安全区（开局无敌）");
 
   const start = world.spawnPoints[Math.floor(Math.random() * world.spawnPoints.length)].clone();
   player.getObject().position.set(start.x, player.eyeHeight, start.z);
 
-  for (let i = 0; i < 3; i++) {
+  const allyCount = 9; // + 玩家 = 红方 10
+  for (let i = 0; i < allyCount; i++) {
+    const ang = (i / allyCount) * Math.PI * 2;
     const sp = start.clone();
-    sp.x += (i - 1) * 4;
-    sp.z += 3;
+    sp.x += Math.cos(ang) * (4.5 + (i % 3) * 0.8);
+    sp.z += Math.sin(ang) * (4.5 + (i % 3) * 0.8);
     spawnUnit(ctx, "red", sp, {
       hp: 90,
       speed: 3.6,
       damage: 7,
       reactRange: 48,
       fireRange: 34,
-      jitter: 2,
+      jitter: 1.6,
     });
   }
 
@@ -395,18 +403,19 @@ export function createRoyaleMode(ctx) {
       hud.setObjective(
         `安全区 ${radius.toFixed(0)}m · 蓝方 ${aliveBlue} · 红方 ${aliveRed + (player.alive ? 1 : 0)}`
       );
-      hud.setScore(`${kills} 淘汰`);
+      hud.setKills?.(kills);
 
       if (!player.alive) {
-        return { done: true, win: false, detail: `被淘汰 · 淘汰数 ${kills}` };
+        return { done: true, win: false, detail: `被淘汰 · 击杀 ${kills}` };
       }
       if (aliveBlue === 0) {
-        return { done: true, win: true, detail: `清剿全部蓝方 · 淘汰 ${kills}` };
+        return { done: true, win: true, detail: `清剿全部蓝方 · 击杀 ${kills}` };
       }
       return { done: false };
     },
     onKill() {
       kills += 1;
+      hud.setKills?.(kills);
     },
     dispose() {
       zone.dispose?.();

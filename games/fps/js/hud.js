@@ -48,6 +48,12 @@ export function createHud() {
     setScore(text) {
       els.scoreText.textContent = text;
     },
+    /** 玩家击杀数（仅本人，不含队友） */
+    setKills(n) {
+      const v = Math.max(0, n | 0);
+      els.scoreText.textContent = String(v);
+      els.scoreText.dataset.kills = String(v);
+    },
     toast(text) {
       els.toast.textContent = text;
       els.toast.classList.add("show");
