@@ -126,6 +126,8 @@ function onMouseMove( event ) {
 
 	_euler.y -= movementX * 0.002 * this.pointerSpeed;
 	_euler.x -= movementY * 0.002 * this.pointerSpeed;
+	// 强制无 roll：setFromQuaternion 在俯仰接近极限时会冒出非零 z，累积成「侧身」
+	_euler.z = 0;
 
 	_euler.x = Math.max( _PI_2 - this.maxPolarAngle, Math.min( _PI_2 - this.minPolarAngle, _euler.x ) );
 
