@@ -57,12 +57,13 @@ body.monopoly-cartoon {
     radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.18), transparent 45%),
     var(--board-felt);
   border-radius: 22px;
-  padding: 6px;
+  padding: 10px;
   box-sizing: border-box;
   border: 5px solid #1f7a4d;
   box-shadow:
     inset 0 0 0 3px rgba(255, 255, 255, 0.35),
     0 10px 0 #14633d;
+  overflow: visible;
 }
 
 .board-center {
@@ -316,18 +317,21 @@ body.monopoly-cartoon {
   min-height: 0;
 }
 
-.cell-icon { font-size: clamp(0.78rem, 1.65vw, 1.15rem); line-height: 1; font-weight: 700; flex: 0 0 auto; }
+.cell-icon { font-size: clamp(0.78rem, 1.65vw, 1.15rem); line-height: 1; font-weight: 700; flex: 0 1 auto; min-height: 0; }
 .cell-icon-empty { display: none; }
 .cell-name {
   font-size: clamp(0.62rem, 1.3vw, 0.9rem);
-  line-height: 1.15;
+  line-height: 1.1;
   text-align: center;
   font-weight: 700;
   letter-spacing: 0.01em;
   max-width: 100%;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-all;
   padding: 1px 3px;
   border-radius: 3px;
   background: rgba(255, 253, 245, 0.92);
@@ -649,11 +653,6 @@ body.monopoly-cartoon {
 
 .side-left .cell-name,
 .side-right .cell-name {
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  line-height: 1.1;
   font-size: clamp(0.56rem, 1.2vw, 0.8rem);
 }
 .side-left .cell-price,
@@ -662,18 +661,51 @@ body.monopoly-cartoon {
 }
 
 .cell-corner {
+  --token-space: 11%;
   overflow: visible;
   z-index: 2;
+}
+.cell-corner .cell-body {
+  gap: 0;
+  padding: 2px 3px;
+  justify-content: center;
+}
+.cell-corner .cell-icon {
+  font-size: clamp(0.72rem, 1.5vw, 1.05rem);
+  line-height: 1;
+}
+.cell-corner .cell-tokens .meeple {
+  width: 0.62rem;
+  height: 0.75rem;
+}
+.side-bottom.cell-corner .cell-body {
+  top: 2px;
+  bottom: var(--token-space);
+}
+.side-top.cell-corner .cell-body {
+  bottom: 2px;
+  top: var(--token-space);
+}
+.side-left.cell-corner .cell-body,
+.side-right.cell-corner .cell-body {
+  /* keep rotation insets from side rules */
 }
 .cell-go .cell-price,
 .cell-jail .cell-price,
 .cell-park .cell-price,
 .cell-gotojail .cell-price {
-  white-space: normal;
-  font-size: clamp(0.48rem, 1.05vw, 0.7rem);
-  line-height: 1.1;
+  white-space: nowrap;
+  font-size: clamp(0.44rem, 0.95vw, 0.64rem);
+  line-height: 1.05;
+  overflow: hidden;
+  max-width: 100%;
 }
-.cell-go .cell-name { color: #c62828; font-size: clamp(0.75rem, 1.55vw, 1.15rem); }
+.cell-go .cell-name { color: #c62828; font-size: clamp(0.62rem, 1.25vw, 0.88rem); }
+.cell-park .cell-name,
+.cell-gotojail .cell-name,
+.cell-jail .cell-name {
+  font-size: clamp(0.54rem, 1.1vw, 0.76rem);
+}
 .cell-jail { background: linear-gradient(145deg, #fff59d, #fffde7); }
 .cell-gotojail { background: linear-gradient(145deg, #ef9a9a, #ffcdd2); }
 .cell-park { background: linear-gradient(145deg, #81d4fa, #e1f5fe); }
