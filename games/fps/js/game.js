@@ -38,6 +38,9 @@ export class Game {
       0.08,
       420
     );
+    // PointerLock 与后坐共用 YXZ；禁止出现 roll（侧身）
+    this.camera.rotation.order = "YXZ";
+    this._lookEuler = new THREE.Euler(0, 0, 0, "YXZ");
     try {
       this.renderer = new THREE.WebGLRenderer({ antialias: true });
     } catch (e) {
@@ -205,6 +208,33 @@ export class Game {
     return { enemy, hitZone };
   }
 
+  /**
+   * 用 YXZ 欧拉读写视角，并强制 z=0，避免与 PointerLock 四元数互转时出现 roll（侧身）。
+   */
+  stabilizeLook() {
+    const cam = this.camera;
+    const e = this._lookEuler;
+    e.setFromQuaternion(cam.quaternion, "YXZ");
+    e.z = 0;
+    const lim = Math.PI / 2 - 0.05;
+    e.x = THREE.MathUtils.clamp(e.x, -lim, lim);
+    cam.quaternion.setFromEuler(e);
+    cam.rotation.set(e.x, e.y, 0, "YXZ");
+  }
+
+  /** 后坐/回落：只改俯仰，不引入侧倾 */
+  applyLookPitch(delta) {
+    const cam = this.camera;
+    const e = this._lookEuler;
+    e.setFromQuaternion(cam.quaternion, "YXZ");
+    e.z = 0;
+    e.x += delta;
+    const lim = Math.PI / 2 - 0.05;
+    e.x = THREE.MathUtils.clamp(e.x, -lim, lim);
+    cam.quaternion.setFromEuler(e);
+    cam.rotation.set(e.x, e.y, 0, "YXZ");
+  }
+
   fireRay(origin, baseDir, spread, range, damage) {
     const dir = baseDir.clone();
     dir.x += (Math.random() - 0.5) * spread;
@@ -264,10 +294,8 @@ export class Game {
 
     const ads = this.aiming && !this.loadout.reloading;
     const kick = (def.kick ?? 0.024) * (ads ? 0.55 : 1);
-    this.camera.rotation.x -= kick;
+    this.applyLookPitch(-kick);
     this.kickRecover += kick;
-    const lim = Math.PI / 2 - 0.05;
-    this.camera.rotation.x = THREE.MathUtils.clamp(this.camera.rotation.x, -lim, lim);
 
     const origin = this.camera.getWorldPosition(new THREE.Vector3());
     const baseDir = new THREE.Vector3();
@@ -355,11 +383,14 @@ export class Game {
 
       if (this.kickRecover > 0.0001) {
         const step = Math.min(this.kickRecover, this.kickRecover * 10 * dt + 0.002);
-        this.camera.rotation.x += step;
+        this.applyLookPitch(step);
         this.kickRecover -= step;
-        const lim = Math.PI / 2 - 0.05;
-        this.camera.rotation.x = THREE.MathUtils.clamp(this.camera.rotation.x, -lim, lim);
+      } else {
+        this.kickRecover = 0;
       }
+
+      // 每帧清 roll，避免鼠标+后坐欧拉漂移成侧身
+      this.stabilizeLook();
 
       if (this.shooting) this.shoot(now);
 
