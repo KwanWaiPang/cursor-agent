@@ -266,7 +266,7 @@ body.monopoly-cartoon {
 
 .game-page.monopoly-cartoon .cell,
 .cell {
-  --band-size: 30%;
+  --band-size: 32%;
   position: relative;
   appearance: none;
   border: 2px solid var(--line-ink) !important;
@@ -360,14 +360,96 @@ body.monopoly-cartoon {
 .house::before,
 .house::after { content: none; }
 
+/* 酒店：高楼 + 平顶檐 + 窗户 + 旗，和小尖顶房明显不同 */
 .house.hotel {
-  width: 1.7rem;
-  height: 1.35rem;
-  clip-path: polygon(8% 42%, 50% 0%, 92% 42%, 92% 100%, 8% 100%);
-  background:
-    linear-gradient(90deg, transparent 28%, rgba(255, 255, 255, 0.45) 29% 45%, transparent 46%),
-    linear-gradient(180deg, var(--house-light), var(--house));
-  border-width: 2.5px;
+  width: 1.5rem;
+  height: 1.75rem;
+  clip-path: none;
+  border-radius: 3px 3px 2px 2px;
+  border: 2.5px solid #2b1d14;
+  background: linear-gradient(180deg, var(--house-light) 0%, var(--house) 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 3px 3px rgba(0, 0, 0, 0.3);
+  display: block;
+  overflow: visible;
+}
+
+/* 平顶檐口 */
+.house.hotel::before {
+  content: "";
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  top: -0.2rem;
+  height: 0.26rem;
+  background: color-mix(in srgb, var(--house) 42%, #1a120c);
+  border: 2px solid #2b1d14;
+  border-radius: 2px;
+  box-sizing: border-box;
+  z-index: 2;
+}
+
+.hotel-flag {
+  position: absolute;
+  left: 50%;
+  top: -0.58rem;
+  width: 0.15rem;
+  height: 0.45rem;
+  margin-left: -0.07rem;
+  background: #2b1d14;
+  z-index: 3;
+}
+
+.hotel-flag::after {
+  content: "";
+  position: absolute;
+  left: 0.13rem;
+  top: 0.02rem;
+  width: 0.45rem;
+  height: 0.3rem;
+  background: #fff8e7;
+  border: 1.5px solid #2b1d14;
+  clip-path: polygon(0 0, 100% 45%, 0 90%);
+  box-sizing: border-box;
+}
+
+.hotel-windows {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 14%;
+  height: 50%;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+}
+
+.hotel-windows i {
+  display: block;
+  background: #fff8e7;
+  border: 1.5px solid #2b1d14;
+  border-radius: 1px;
+  min-height: 0;
+}
+
+.hotel-door {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 30%;
+  height: 24%;
+  margin-left: -15%;
+  background: color-mix(in srgb, var(--house) 35%, #1a120c);
+  border: 1.5px solid #2b1d14;
+  border-radius: 2px 2px 0 0;
+  z-index: 1;
+}
+
+.cell.has-hotel .cell-band {
+  overflow: visible;
 }
 
 /* 棋子叠在格子上、不随 cell-body 旋转，始终正立 */
