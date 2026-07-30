@@ -6,11 +6,12 @@
 
 export const CELL_COUNT = 40;
 
+/** 仅保留棋子配色；显示名在开局时按人类/AI 序号生成（玩家1… / AI1…） */
 export const TOKEN_PRESETS = [
-  { id: "red", name: "赤旅", color: "#ff5252", accent: "#ffcdd2" },
-  { id: "blue", name: "青旅", color: "#448aff", accent: "#bbdefb" },
-  { id: "green", name: "翠旅", color: "#69f0ae", accent: "#c8e6c9" },
-  { id: "gold", name: "金旅", color: "#ffd740", accent: "#fff9c4" },
+  { id: "red", color: "#ff5252", accent: "#ffcdd2" },
+  { id: "blue", color: "#448aff", accent: "#bbdefb" },
+  { id: "green", color: "#69f0ae", accent: "#c8e6c9" },
+  { id: "gold", color: "#ffd740", accent: "#fff9c4" },
 ];
 
 /**

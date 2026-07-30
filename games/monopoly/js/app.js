@@ -453,9 +453,7 @@ function render() {
         pl.id === state.turn ? "current" : ""
       }">
         <span class="token-wrap">${meepleHTML(pl)}</span>
-        <span class="name">${pl.name}${pl.isHuman ? "" : " · AI"}${
-        pl.auto ? " · 托管" : ""
-      }</span>
+        <span class="name">${pl.name}${pl.auto ? " · 托管" : ""}</span>
         <span class="money">$${pl.bankrupt ? 0 : pl.money}</span>
         <span class="props">${props}处产业</span>
       </li>`;
