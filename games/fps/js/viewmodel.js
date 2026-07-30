@@ -160,8 +160,8 @@ export function createAK47ViewModel() {
       const bobMul = aiming ? 0.25 : 1;
       const bobY = Math.sin(state.bob) * (moving ? 0.012 : 0.004) * bobMul;
       const bobX = Math.cos(state.bob * 0.5) * (moving ? 0.008 : 0.002) * bobMul;
-      const kickZ = state.recoil * (aiming ? 0.03 : 0.05);
-      const kickX = state.recoil * (aiming ? 0.04 : 0.08);
+      const kickZ = state.recoil * (aiming ? 0.05 : 0.085);
+      const kickX = state.recoil * (aiming ? 0.07 : 0.13);
       const reloadDrop = reloading ? 0.15 : 0;
       // 开镜：枪械靠中、略前伸
       const baseX = aiming ? 0.02 : 0.22;
@@ -231,8 +231,8 @@ export function createPistolViewModel() {
       const x = aiming ? 0.02 : 0.2;
       const y = aiming ? -0.14 : -0.22;
       const z = aiming ? -0.32 : -0.4;
-      gun.position.set(x, y + bobY - (reloading ? 0.12 : 0), z + state.recoil * 0.04);
-      gun.rotation.set(state.recoil * 0.1, aiming ? 0.01 : 0.05, 0);
+      gun.position.set(x, y + bobY - (reloading ? 0.12 : 0), z + state.recoil * 0.07);
+      gun.rotation.set(state.recoil * 0.16, aiming ? 0.01 : 0.05, 0);
     },
   };
 }
@@ -316,8 +316,8 @@ export function createM4ViewModel() {
       const x = aiming ? 0.02 : 0.2;
       const y = aiming ? -0.17 : -0.26;
       const z = aiming ? -0.38 : -0.5;
-      gun.position.set(x, y + bobY - (reloading ? 0.12 : 0), z + state.recoil * 0.03);
-      gun.rotation.set(0.03 + state.recoil * 0.06, aiming ? 0.01 : 0.08, 0.02);
+      gun.position.set(x, y + bobY - (reloading ? 0.12 : 0), z + state.recoil * 0.055);
+      gun.rotation.set(0.03 + state.recoil * 0.1, aiming ? 0.01 : 0.08, 0.02);
     },
   };
 }
@@ -399,8 +399,8 @@ export function createShotgunViewModel() {
       const x = aiming ? 0.02 : 0.18;
       const y = aiming ? -0.18 : -0.28;
       const z = aiming ? -0.36 : -0.48;
-      gun.position.set(x, y + bobY - (reloading ? 0.14 : 0), z + state.recoil * 0.06);
-      gun.rotation.set(0.05 + state.recoil * 0.12, aiming ? 0.02 : 0.1, 0.03);
+      gun.position.set(x, y + bobY - (reloading ? 0.14 : 0), z + state.recoil * 0.1);
+      gun.rotation.set(0.05 + state.recoil * 0.18, aiming ? 0.02 : 0.1, 0.03);
     },
   };
 }
@@ -488,8 +488,8 @@ export function createSniperViewModel() {
       const x = aiming ? 0.01 : 0.2;
       const y = aiming ? -0.14 : -0.27;
       const z = aiming ? -0.34 : -0.52;
-      gun.position.set(x, y + bobY - (reloading ? 0.16 : 0), z + state.recoil * 0.07);
-      gun.rotation.set(0.02 + state.recoil * 0.14, aiming ? 0.005 : 0.09, 0.015);
+      gun.position.set(x, y + bobY - (reloading ? 0.16 : 0), z + state.recoil * 0.11);
+      gun.rotation.set(0.02 + state.recoil * 0.2, aiming ? 0.005 : 0.09, 0.015);
     },
   };
 }

@@ -639,11 +639,13 @@ kbd {
   border: 2px solid #e8d48a;
   border-radius: 2px;
   rotate: 45deg;
-  transition: opacity 80ms linear;
+  transition: opacity 80ms linear, transform 90ms ease-out;
+  z-index: 6;
 }
 
 .hit-marker.show {
   opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .hit-marker.headshot {
@@ -651,6 +653,81 @@ kbd {
   box-shadow: 0 0 10px rgba(255, 207, 77, 0.85);
   width: 22px;
   height: 22px;
+}
+
+.hit-marker.kill {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+  border-color: #f0e6a8;
+  box-shadow: 0 0 16px rgba(240, 230, 168, 0.9);
+  transform: translate(-50%, -50%) scale(1.35);
+}
+
+.hit-marker.kill.headshot {
+  border-color: #ffd76a;
+  box-shadow: 0 0 20px rgba(255, 215, 106, 0.95);
+  width: 32px;
+  height: 32px;
+}
+
+.kill-confirm {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 2.4rem);
+  transform: translateX(-50%) translateY(6px);
+  font-family: var(--font-mono);
+  letter-spacing: 0.18em;
+  font-size: 0.85rem;
+  color: #f4ffe8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 7;
+  transition: opacity 100ms ease, transform 120ms ease;
+}
+
+.kill-confirm.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.kill-confirm.headshot {
+  color: #ffe08a;
+  letter-spacing: 0.22em;
+}
+
+.kill-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 240, 180, 0.22) 0%,
+    rgba(255, 220, 120, 0.08) 35%,
+    transparent 65%
+  );
+  z-index: 5;
+  transition: opacity 80ms linear;
+}
+
+.kill-flash.on {
+  opacity: 1;
+}
+
+.kill-flash.headshot {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 210, 90, 0.28) 0%,
+    rgba(255, 180, 60, 0.1) 40%,
+    transparent 68%
+  );
+}
+
+.hud-chip.map {
+  border-color: rgba(196, 165, 116, 0.55);
+  color: #f0e2c4;
 }
 
 .damage-vignette {

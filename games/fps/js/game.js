@@ -61,7 +61,14 @@ export class Game {
     this.renderer.toneMappingExposure = mode === "royale" ? 1.05 : 1.45;
     document.body.appendChild(this.renderer.domElement);
 
-    this.world = createWorld(this.scene, mode === "royale" ? 210 : 170);
+    const preferMap =
+      typeof location !== "undefined"
+        ? new URLSearchParams(location.search).get("map")
+        : null;
+    this.world = createWorld(this.scene, {
+      size: mode === "royale" ? 210 : 170,
+      mapId: preferMap || undefined,
+    });
     this.player = new Player(this.camera, this.renderer.domElement, this.world);
     this.arsenal = createArsenal("rifle");
 
@@ -84,9 +91,12 @@ export class Game {
     this.tracers = [];
     this.tracerPool = [];
     this.kickRecover = 0;
+    this.fovPunch = 0;
     this._enemyMeshCache = [];
     this._enemyMeshCacheAt = 0;
     this.switchUntil = 0;
+
+    this.hud.setMap?.(this.world.map);
 
     const ctx = {
       scene: this.scene,
@@ -319,7 +329,12 @@ export class Game {
         if (headshot) this.sfx.headshot();
         else this.sfx.hit();
         this.hud.flashHit(headshot);
-        if (killed) this.mode.onKill?.();
+        if (killed) {
+          this.sfx.kill?.(headshot);
+          this.hud.flashKill?.(headshot);
+          this.fovPunch = Math.min(10, this.fovPunch + (headshot ? 5.5 : 3.8));
+          this.mode.onKill?.();
+        }
       }
     }
 
@@ -349,8 +364,10 @@ export class Game {
 
     const ads = this.aiming && !this.loadout.reloading;
     const kick = (def.kick ?? 0.024) * (ads ? 0.55 : 1);
-    this.applyLookPitch(-kick * 0.72);
-    this.kickRecover += kick * 0.55;
+    // 更强枪口上扬 + FOV 冲击，回收稍慢以保留「枪感」
+    this.applyLookPitch(-kick * 1.08);
+    this.kickRecover += kick * 0.78;
+    this.fovPunch = Math.min(9, this.fovPunch + kick * 95);
 
     const origin = this.camera.getWorldPosition(new THREE.Vector3());
     const baseDir = new THREE.Vector3();
@@ -451,9 +468,20 @@ export class Game {
       this.player.update(dt);
 
       const adsFov = this.loadout?.def?.adsFov ?? this.adsFov;
-      const wantFov = this.aiming && !this.loadout.reloading ? adsFov : this.baseFov;
-      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, wantFov, 1 - Math.pow(0.0008, dt));
+      const wantFov =
+        (this.aiming && !this.loadout.reloading ? adsFov : this.baseFov) +
+        this.fovPunch;
+      this.camera.fov = THREE.MathUtils.lerp(
+        this.camera.fov,
+        wantFov,
+        1 - Math.pow(0.0008, dt)
+      );
       this.camera.updateProjectionMatrix();
+      if (this.fovPunch > 0.01) {
+        this.fovPunch = Math.max(0, this.fovPunch - dt * 26);
+      } else {
+        this.fovPunch = 0;
+      }
 
       // 待机准星随姿态收放
       {
@@ -471,7 +499,7 @@ export class Game {
       }
 
       if (this.kickRecover > 0.0001) {
-        const step = Math.min(this.kickRecover, this.kickRecover * 10 * dt + 0.002);
+        const step = Math.min(this.kickRecover, this.kickRecover * 7.2 * dt + 0.0015);
         this.applyLookPitch(step);
         this.kickRecover -= step;
       } else {
