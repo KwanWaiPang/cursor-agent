@@ -24,6 +24,10 @@ export function createHud() {
     captureBar: document.getElementById("captureBar"),
     capturePct: document.getElementById("capturePct"),
     captureLabel: document.getElementById("captureLabel"),
+    killFeed: document.getElementById("killFeed"),
+    streakChip: document.getElementById("streakChip"),
+    livesChip: document.getElementById("livesChip"),
+    phaseBanner: document.getElementById("phaseBanner"),
   };
 
   let toastTimer = 0;
@@ -31,8 +35,10 @@ export function createHud() {
   let dmgTimer = 0;
   let fireClear = 0;
   let hitDirTimer = 0;
+  let phaseBannerTimer = 0;
   let arsenalRef = null;
   let stripSig = "";
+  const feedLines = [];
 
   const SLOT_NAMES = {
     pistol: "手枪",
@@ -55,6 +61,10 @@ export function createHud() {
       els.hitDir?.classList.add("hidden");
       els.reloadTrack?.classList.add("hidden");
       els.captureHud?.classList.add("hidden");
+      els.killFeed?.classList.add("hidden");
+      els.streakChip?.classList.add("hidden");
+      els.livesChip?.classList.add("hidden");
+      els.phaseBanner?.classList.add("hidden");
     },
     setMode(text) {
       els.modeLabel.textContent = text;
@@ -69,6 +79,53 @@ export function createHud() {
       const v = Math.max(0, n | 0);
       els.scoreText.textContent = String(v);
       els.scoreText.dataset.kills = String(v);
+    },
+    setStreak(n) {
+      if (!els.streakChip) return;
+      const v = Math.max(0, n | 0);
+      if (v <= 0) {
+        els.streakChip.classList.add("hidden");
+        els.streakChip.textContent = "";
+        return;
+      }
+      els.streakChip.classList.remove("hidden");
+      els.streakChip.textContent = `连杀 ${v}`;
+      els.streakChip.classList.toggle("hot", v >= 5);
+    },
+    setLives(n) {
+      if (!els.livesChip) return;
+      if (n == null || n < 0) {
+        els.livesChip.classList.add("hidden");
+        return;
+      }
+      els.livesChip.classList.remove("hidden");
+      els.livesChip.textContent = `残机 ${n}`;
+    },
+    pushKillFeed(text) {
+      if (!els.killFeed || !text) return;
+      feedLines.unshift(String(text));
+      if (feedLines.length > 5) feedLines.length = 5;
+      els.killFeed.innerHTML = feedLines.map((t) => `<div>${t}</div>`).join("");
+      els.killFeed.classList.remove("hidden");
+    },
+    clearKillFeed() {
+      feedLines.length = 0;
+      if (els.killFeed) {
+        els.killFeed.innerHTML = "";
+        els.killFeed.classList.add("hidden");
+      }
+    },
+    setPhaseBanner(text, warn = false) {
+      if (!els.phaseBanner) return;
+      if (!text) {
+        els.phaseBanner.classList.add("hidden");
+        phaseBannerTimer = 0;
+        return;
+      }
+      els.phaseBanner.textContent = text;
+      els.phaseBanner.classList.remove("hidden");
+      els.phaseBanner.classList.toggle("warn", !!warn);
+      phaseBannerTimer = warn ? 4.5 : 2.8;
     },
     setCapture(pct, note = "") {
       if (!els.captureHud) return;
@@ -244,6 +301,10 @@ export function createHud() {
       if (fireClear > 0) {
         fireClear -= dt;
         if (fireClear <= 0) els.crosshair.classList.remove("fire");
+      }
+      if (phaseBannerTimer > 0) {
+        phaseBannerTimer -= dt;
+        if (phaseBannerTimer <= 0) els.phaseBanner?.classList.add("hidden");
       }
     },
   };

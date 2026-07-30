@@ -1648,11 +1648,27 @@ export function createSafeZoneVisual(scene) {
   fill.position.y = 0.06;
   scene.add(fill);
 
+  // 下一圈预览（白圈）
+  const nextRing = new THREE.Mesh(
+    new THREE.RingGeometry(BASE - 0.35, BASE + 0.05, 64),
+    new THREE.MeshBasicMaterial({
+      color: 0xf0f4f8,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  );
+  nextRing.rotation.x = -Math.PI / 2;
+  nextRing.position.y = 0.1;
+  scene.add(nextRing);
+
   let currentR = BASE;
 
   return {
     ring,
     fill,
+    nextRing,
     setRadius(r) {
       currentR = Math.max(0.2, r);
       const s = currentR / BASE;
@@ -1665,13 +1681,29 @@ export function createSafeZoneVisual(scene) {
       fill.position.x = x;
       fill.position.z = z;
     },
+    setNextZone(x, z, r) {
+      const nr = Math.max(0.2, r);
+      const s = nr / BASE;
+      nextRing.scale.set(s, s, s);
+      nextRing.position.x = x;
+      nextRing.position.z = z;
+      nextRing.material.opacity = 0.55;
+      nextRing.visible = true;
+    },
+    clearNextZone() {
+      nextRing.material.opacity = 0;
+      nextRing.visible = false;
+    },
     dispose() {
       scene.remove(ring);
       scene.remove(fill);
+      scene.remove(nextRing);
       ring.geometry.dispose();
       fill.geometry.dispose();
+      nextRing.geometry.dispose();
       ring.material.dispose();
       fill.material.dispose();
+      nextRing.material.dispose();
     },
   };
 }

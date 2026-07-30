@@ -261,6 +261,71 @@ kbd {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
+.hud-chip.streak {
+  border-color: rgba(255, 180, 90, 0.45);
+  color: #ffe2b0;
+}
+
+.hud-chip.streak.hot {
+  border-color: rgba(255, 120, 80, 0.7);
+  color: #ffd0a8;
+  box-shadow: 0 0 12px rgba(255, 120, 60, 0.25);
+}
+
+.hud-chip.lives {
+  border-color: rgba(140, 200, 255, 0.4);
+  color: #cfe6ff;
+}
+
+.kill-feed {
+  position: absolute;
+  right: 1rem;
+  top: 4.8rem;
+  width: min(18rem, 42vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  pointer-events: none;
+  z-index: 7;
+}
+
+.kill-feed div {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: #e8f0d8;
+  background: rgba(8, 12, 8, 0.62);
+  border: 1px solid rgba(183, 213, 154, 0.22);
+  border-radius: 6px;
+  padding: 0.28rem 0.5rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.phase-banner {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  color: #f4ffe8;
+  background: rgba(8, 12, 8, 0.78);
+  border: 1px solid rgba(183, 213, 154, 0.5);
+  border-radius: 10px;
+  padding: 0.55rem 1rem;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
+.phase-banner.warn {
+  color: #ffe8c8;
+  border-color: rgba(255, 180, 90, 0.65);
+  background: rgba(30, 16, 8, 0.82);
+}
+
 .hud-bottom {
   position: absolute;
   left: 1rem;
