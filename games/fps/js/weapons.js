@@ -18,7 +18,7 @@ export const WEAPONS = {
     heavy: false,
     view: "pistol",
     adsSpreadMul: 0.35,
-    kick: 0.018,
+    kick: 0.032,
     // 爆头略低于步枪，鼓励近距点射而非远距离爆头狙
     zoneMul: { head: 1.85, body: 1, limb: 0.75 },
   },
@@ -35,7 +35,7 @@ export const WEAPONS = {
     heavy: true,
     view: "ak",
     adsSpreadMul: 0.28,
-    kick: 0.028,
+    kick: 0.048,
     zoneMul: { head: 2, body: 1, limb: 0.72 },
   },
   m4: {
@@ -52,7 +52,7 @@ export const WEAPONS = {
     heavy: true,
     view: "m4",
     adsSpreadMul: 0.22,
-    kick: 0.018,
+    kick: 0.034,
     zoneMul: { head: 2, body: 1, limb: 0.72 },
   },
   shotgun: {
@@ -70,7 +70,7 @@ export const WEAPONS = {
     pellets: 8,
     adsSpreadMul: 0.72,
     hipSpreadMul: 1.15,
-    kick: 0.055,
+    kick: 0.095,
     // 弹丸爆头倍率压低，避免一发多弹丸全爆头秒全图
     zoneMul: { head: 1.35, body: 1, limb: 0.8 },
   },
@@ -90,7 +90,7 @@ export const WEAPONS = {
     adsSpreadMul: 0.15,
     hipSpreadMul: 18,
     adsFov: 28,
-    kick: 0.07,
+    kick: 0.12,
     zoneMul: { head: 2.5, body: 1, limb: 0.85 },
   },
 };

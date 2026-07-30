@@ -226,8 +226,12 @@ export function createAssaultMode(ctx) {
   hud.setArsenal?.(ctx.arsenal);
   hud.clearKillFeed?.();
 
-  hud.setMode("据点清剿 · 红方");
-  hud.toast("COD 风据点战 · 3 条命 · 连杀可呼叫支援 · 占领中央区获胜");
+  const mapLabel = world.map?.name ? `【${world.map.name}】` : "";
+  hud.setMode(`据点清剿 · 红方${mapLabel ? ` · ${world.map.name}` : ""}`);
+  hud.setMap?.(world.map);
+  hud.toast(
+    `${mapLabel} COD 风据点战 · 3 条命 · 连杀可呼叫支援 · 占领中央区获胜`
+  );
   hud.setCapture?.(0, "");
   player.getObject().position.set(0, player.eyeHeight, 26);
 
@@ -515,7 +519,12 @@ export function createRoyaleMode(ctx) {
   hud.setArsenal?.(ctx.arsenal);
   hud.setCapture?.(0, "");
   hud.clearKillFeed?.();
-  hud.toast("大逃杀：注意白圈预告与毒圈 · 空投会携带高级补给 · 清剿蓝方获胜");
+  const mapLabel = world.map?.name ? `【${world.map.name}】` : "";
+  hud.setMode(`迷你大逃杀${mapLabel ? ` · ${world.map.name}` : ""}`);
+  hud.setMap?.(world.map);
+  hud.toast(
+    `${mapLabel} 大逃杀：注意白圈预告与毒圈 · 空投会携带高级补给 · 清剿蓝方获胜`
+  );
 
   const start = world.spawnPoints[Math.floor(Math.random() * world.spawnPoints.length)].clone();
   player.getObject().position.set(start.x, player.eyeHeight, start.z);
@@ -603,7 +612,9 @@ export function createRoyaleMode(ctx) {
   // 开局预告第一圈
   if (phases[0]) planNextZone(phases[0].r);
 
-  hud.setMode("迷你大逃杀 · 红方");
+  hud.setMode(
+    `迷你大逃杀 · 红方${world.map?.name ? ` · ${world.map.name}` : ""}`
+  );
 
   return {
     id: "royale",

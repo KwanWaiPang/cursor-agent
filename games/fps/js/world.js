@@ -769,7 +769,222 @@ function addAssaultMilitaryDressing(ctx, coverPoints) {
   }
 }
 
-export function createWorld(scene, size = 170) {
+/** 地图变体：同一街区骨架上换氛围与掩体布局 */
+export const MAP_VARIANTS = {
+  plaza: {
+    id: "plaza",
+    name: "中央广场",
+    blurb: "开阔中庭 · 远距交火",
+    fogNearMul: 0.58,
+    fogFarMul: 1.32,
+    sky: null, // 沿用模式主题
+    fog: null,
+    tint: 0xc4a574,
+  },
+  yards: {
+    id: "yards",
+    name: "工业院落",
+    blurb: "货箱迷宫 · 近战混战",
+    fogNearMul: 0.5,
+    fogFarMul: 1.18,
+    sky: 0x9aa8b0,
+    fog: 0xa8b4bc,
+    tint: 0xb87333,
+  },
+  docks: {
+    id: "docks",
+    name: "滨河码头",
+    blurb: "窄道压逼 · 侧翼穿插",
+    fogNearMul: 0.42,
+    fogFarMul: 1.05,
+    sky: 0x8a9eaa,
+    fog: 0x96aab6,
+    tint: 0x4a7a8c,
+  },
+};
+
+export function pickMapVariant(preferId) {
+  if (preferId && MAP_VARIANTS[preferId]) return MAP_VARIANTS[preferId];
+  const keys = Object.keys(MAP_VARIANTS);
+  return MAP_VARIANTS[keys[(Math.random() * keys.length) | 0]];
+}
+
+/** 变体专属布景：广场纪念碑 / 货箱阵 / 码头岸线 */
+function applyMapVariant(ctx, map, coverPoints, half, assaultTheme) {
+  const { scene, colliders, meshes } = ctx;
+  const box = (opts) => addBox(scene, colliders, meshes, opts);
+  const steel = makeMat(assaultTheme ? 0x5a6068 : 0x4a5560, 0.55, 0.45, texMetal());
+  const rust = makeMat(0x7a6054, 0.88, 0.22);
+  const wood = makeMat(assaultTheme ? 0x6a5a48 : 0x7a6048, 0.95, 0.05);
+  const stone = makeMat(assaultTheme ? 0x9a9688 : 0xb0aaa0, 0.92, 0.05, texConcrete(assaultTheme));
+  const water = new THREE.MeshStandardMaterial({
+    color: assaultTheme ? 0x3a5058 : 0x3a6a78,
+    roughness: 0.25,
+    metalness: 0.35,
+    transparent: true,
+    opacity: 0.82,
+  });
+
+  if (map.id === "plaza") {
+    // 中央纪念碑：拉开中庭视线
+    box({ w: 3.2, h: 0.45, d: 3.2, x: 0, y: 0.22, z: 0, mat: stone });
+    box({ w: 1.4, h: 4.2, d: 1.4, x: 0, y: 2.4, z: 0, mat: stone });
+    box({ w: 2.2, h: 0.35, d: 2.2, x: 0, y: 4.6, z: 0, mat: steel, collidable: false });
+    coverPoints.push(new THREE.Vector3(0, 0, 0));
+    // 广场花坛矮墙（软掩体环）
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + 0.2;
+      if (i % 2 === 0) continue; // 留通道
+      const r = 14;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      box({
+        w: Math.abs(Math.cos(a)) > 0.7 ? 3.2 : 1.1,
+        h: 0.85,
+        d: Math.abs(Math.cos(a)) > 0.7 ? 1.1 : 3.2,
+        x,
+        y: 0.42,
+        z,
+        mat: stone,
+      });
+      coverPoints.push(new THREE.Vector3(x, 0, z));
+    }
+    // 街角告示牌座
+    for (const [x, z] of [
+      [-22, -22],
+      [22, 22],
+      [-22, 22],
+      [22, -22],
+    ]) {
+      if (Math.abs(x) > half - 8) continue;
+      box({ w: 1.6, h: 1.1, d: 0.45, x, y: 0.55, z, mat: wood });
+      coverPoints.push(new THREE.Vector3(x, 0, z));
+    }
+  } else if (map.id === "yards") {
+    // 货箱阵列：形成巷战迷宫
+    const containers = [
+      [-20, -8, 6.2, 2.6, 0],
+      [-20, -4.8, 6.2, 2.6, 0],
+      [-12, 16, 2.6, 6.2, 1],
+      [-8.8, 16, 2.6, 6.2, 1],
+      [18, 6, 6.2, 2.6, 0],
+      [18, 9.2, 6.2, 2.6, 0],
+      [10, -18, 2.6, 6.2, 1],
+      [13.2, -18, 2.6, 6.2, 1],
+      [-36, 12, 6.2, 2.6, 0],
+      [36, -14, 6.2, 2.6, 0],
+      [0, 32, 6.2, 2.6, 0],
+      [-28, -28, 2.6, 6.2, 1],
+    ];
+    for (const [x, z, w, d] of containers) {
+      if (Math.abs(x) > half - 5 || Math.abs(z) > half - 5) continue;
+      const mat = Math.abs(x + z) % 3 === 0 ? rust : steel;
+      box({ w, h: 2.55, d, x, y: 1.28, z, mat });
+      coverPoints.push(new THREE.Vector3(x, 0, z));
+    }
+    // 木栈托盘堆
+    for (const [x, z] of [
+      [-6, 10],
+      [8, -6],
+      [24, 20],
+      [-24, -16],
+    ]) {
+      if (Math.abs(x) > half - 6) continue;
+      for (let t = 0; t < 3; t++) {
+        box({
+          w: 1.4,
+          h: 0.35,
+          d: 1.1,
+          x: x + (t % 2) * 0.1,
+          y: 0.18 + t * 0.36,
+          z: z + (t % 2) * 0.08,
+          mat: wood,
+          collidable: t === 0,
+        });
+      }
+      coverPoints.push(new THREE.Vector3(x, 0, z));
+    }
+  } else if (map.id === "docks") {
+    // 北侧河道水面（视觉，非碰撞）
+    const waterW = half * 1.85;
+    const waterMesh = new THREE.Mesh(new THREE.PlaneGeometry(waterW, 18), water);
+    waterMesh.rotation.x = -Math.PI / 2;
+    waterMesh.position.set(0, 0.06, -half + 7);
+    scene.add(waterMesh);
+    meshes.push(waterMesh);
+    // 码头栈桥与桩柱
+    for (let i = -5; i <= 5; i++) {
+      const x = i * 7;
+      if (Math.abs(x) > half - 8) continue;
+      box({
+        w: 0.35,
+        h: 2.4,
+        d: 0.35,
+        x,
+        y: 1.2,
+        z: -half + 14,
+        mat: wood,
+        collidable: false,
+      });
+      box({
+        w: 2.4,
+        h: 0.35,
+        d: 4.5,
+        x,
+        y: 1.35,
+        z: -half + 16.5,
+        mat: wood,
+      });
+      coverPoints.push(new THREE.Vector3(x, 0, -half + 16));
+    }
+    // 岸边货箱
+    for (const [x, z] of [
+      [-16, -half + 28],
+      [-8, -half + 30],
+      [8, -half + 28],
+      [20, -half + 32],
+      [-28, -half + 36],
+      [32, -half + 34],
+    ]) {
+      if (Math.abs(x) > half - 6 || Math.abs(z) > half - 6) continue;
+      const mat = Math.abs(x | 0) % 2 === 0 ? steel : rust;
+      box({ w: 5.8, h: 2.5, d: 2.4, x, y: 1.25, z, mat });
+      coverPoints.push(new THREE.Vector3(x, 0, z));
+    }
+    // 侧巷矮墙压逼
+    for (const [x, z, alongZ] of [
+      [-14, -half + 48, true],
+      [14, -half + 50, true],
+      [0, -half + 42, false],
+      [-40, 10, false],
+      [40, -8, false],
+    ]) {
+      if (Math.abs(x) > half - 5 || Math.abs(z) > half - 5) continue;
+      box({
+        w: alongZ ? 0.7 : 4.2,
+        h: 1.35,
+        d: alongZ ? 4.2 : 0.7,
+        x,
+        y: 0.68,
+        z,
+        mat: wood,
+      });
+      coverPoints.push(new THREE.Vector3(x, 0, z));
+    }
+  }
+}
+
+/**
+ * @param {THREE.Scene} scene
+ * @param {number|{size?:number,mapId?:string}} sizeOrOpts
+ */
+export function createWorld(scene, sizeOrOpts = 170) {
+  const size =
+    typeof sizeOrOpts === "number" ? sizeOrOpts : sizeOrOpts?.size ?? 170;
+  const preferMap =
+    typeof sizeOrOpts === "object" && sizeOrOpts ? sizeOrOpts.mapId : null;
+  const map = pickMapVariant(preferMap);
+
   const colliders = [];
   const meshes = [];
   const coverPoints = [];
@@ -862,10 +1077,13 @@ export function createWorld(scene, size = 170) {
     });
   }
 
-  // 据点：写实灰绿但保持日间可读亮度（避免过暗）
-  const fogFar = Math.min(assaultTheme ? 300 : 300, size * (assaultTheme ? 1.3 : 1.28));
-  scene.fog = new THREE.Fog(assaultTheme ? 0xb4bca8 : 0xb9d0e4, size * (assaultTheme ? 0.55 : 0.48), fogFar);
-  scene.background = new THREE.Color(assaultTheme ? 0xa8b09c : 0x9ebbd4);
+  // 据点：写实灰绿但保持日间可读亮度（避免过暗）；地图变体可覆写雾色
+  const fogFar = Math.min(300, size * (map.fogFarMul ?? (assaultTheme ? 1.3 : 1.28)));
+  const fogNear = size * (map.fogNearMul ?? (assaultTheme ? 0.55 : 0.48));
+  const fogColor = map.fog ?? (assaultTheme ? 0xb4bca8 : 0xb9d0e4);
+  const skyColor = map.sky ?? (assaultTheme ? 0xa8b09c : 0x9ebbd4);
+  scene.fog = new THREE.Fog(fogColor, fogNear, fogFar);
+  scene.background = new THREE.Color(skyColor);
 
   const hemi = new THREE.HemisphereLight(
     assaultTheme ? 0xf2f6e8 : 0xf8fbff,
@@ -1490,6 +1708,7 @@ export function createWorld(scene, size = 170) {
   }
 
   if (assaultTheme) addAssaultMilitaryDressing(ctx, coverPoints);
+  applyMapVariant(ctx, map, coverPoints, half, assaultTheme);
 
   // 灯柱（据点模式更暗、更少）
   const lamps = assaultTheme
@@ -1568,6 +1787,7 @@ export function createWorld(scene, size = 170) {
   return {
     size,
     half,
+    map,
     colliders,
     meshes,
     coverPoints,

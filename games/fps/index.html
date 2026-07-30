@@ -59,13 +59,14 @@
         </ul>
       </section>
 
-      <p class="menu-note">需要桌面浏览器与 WebGL。据点模式含残机与连杀支援；大逃杀含白圈预告与空投。开局短暂无敌；脱战约 4 秒后自动回血。红方为我方、蓝方为敌方（各 10 人）。捡枪入库，按 1–5 / 滚轮自选切换。</p>
+      <p class="menu-note">需要桌面浏览器与 WebGL。据点模式含残机与连杀支援；大逃杀含白圈预告与空投。每局随机地图变体（中央广场 / 工业院落 / 滨河码头）。开局短暂无敌；脱战约 4 秒后自动回血。红方为我方、蓝方为敌方（各 10 人）。捡枪入库，按 1–5 / 滚轮自选切换。</p>
       <p class="back-link"><a href="../../">← 返回游戏馆</a></p>
     </div>
 
     <div id="hud" class="hud hidden" aria-hidden="true">
       <div class="hud-top">
         <div class="hud-chip" id="modeLabel">—</div>
+        <div class="hud-chip map hidden" id="mapChip"></div>
         <div class="hud-chip" id="objective">—</div>
         <div class="hud-chip streak hidden" id="streakChip"></div>
         <div class="hud-chip lives hidden" id="livesChip"></div>
@@ -80,6 +81,8 @@
         <span></span><span></span><span></span><span></span>
       </div>
       <div class="hit-marker" id="hitMarker"></div>
+      <div id="killConfirm" class="kill-confirm" aria-live="polite"></div>
+      <div id="killFlash" class="kill-flash" aria-hidden="true"></div>
       <div class="damage-vignette" id="damageVignette"></div>
       <div id="hitDir" class="hit-dir hidden" aria-hidden="true">▲</div>
       <div id="captureHud" class="capture-hud hidden" aria-live="polite">

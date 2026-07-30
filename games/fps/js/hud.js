@@ -28,10 +28,14 @@ export function createHud() {
     streakChip: document.getElementById("streakChip"),
     livesChip: document.getElementById("livesChip"),
     phaseBanner: document.getElementById("phaseBanner"),
+    mapChip: document.getElementById("mapChip"),
+    killFlash: document.getElementById("killFlash"),
+    killConfirm: document.getElementById("killConfirm"),
   };
 
   let toastTimer = 0;
   let hitTimer = 0;
+  let killTimer = 0;
   let dmgTimer = 0;
   let fireClear = 0;
   let hitDirTimer = 0;
@@ -65,9 +69,23 @@ export function createHud() {
       els.streakChip?.classList.add("hidden");
       els.livesChip?.classList.add("hidden");
       els.phaseBanner?.classList.add("hidden");
+      els.mapChip?.classList.add("hidden");
+      els.killFlash?.classList.remove("on", "headshot");
+      els.killConfirm?.classList.remove("show", "headshot");
     },
     setMode(text) {
       els.modeLabel.textContent = text;
+    },
+    setMap(map) {
+      if (!els.mapChip) return;
+      if (!map?.name) {
+        els.mapChip.classList.add("hidden");
+        els.mapChip.textContent = "";
+        return;
+      }
+      els.mapChip.classList.remove("hidden");
+      els.mapChip.textContent = map.name;
+      els.mapChip.title = map.blurb || map.name;
     },
     setObjective(text) {
       els.objective.textContent = text;
@@ -257,8 +275,24 @@ export function createHud() {
     },
     flashHit(headshot = false) {
       els.hitMarker.classList.toggle("headshot", !!headshot);
+      els.hitMarker.classList.remove("kill");
       els.hitMarker.classList.add("show");
-      hitTimer = headshot ? 0.2 : 0.12;
+      hitTimer = headshot ? 0.22 : 0.14;
+    },
+    flashKill(headshot = false) {
+      els.hitMarker.classList.add("show", "kill");
+      els.hitMarker.classList.toggle("headshot", !!headshot);
+      hitTimer = headshot ? 0.38 : 0.28;
+      killTimer = headshot ? 0.45 : 0.32;
+      if (els.killFlash) {
+        els.killFlash.classList.toggle("headshot", !!headshot);
+        els.killFlash.classList.add("on");
+      }
+      if (els.killConfirm) {
+        els.killConfirm.textContent = headshot ? "爆头击破" : "击破";
+        els.killConfirm.classList.toggle("headshot", !!headshot);
+        els.killConfirm.classList.add("show");
+      }
     },
     flashDamage(fromPos, playerYaw = 0, playerPos = null) {
       els.damageVignette.classList.add("on");
@@ -288,6 +322,14 @@ export function createHud() {
         if (hitTimer <= 0) {
           els.hitMarker.classList.remove("show");
           els.hitMarker.classList.remove("headshot");
+          els.hitMarker.classList.remove("kill");
+        }
+      }
+      if (killTimer > 0) {
+        killTimer -= dt;
+        if (killTimer <= 0) {
+          els.killFlash?.classList.remove("on", "headshot");
+          els.killConfirm?.classList.remove("show", "headshot");
         }
       }
       if (dmgTimer > 0) {
