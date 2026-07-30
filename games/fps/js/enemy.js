@@ -486,7 +486,7 @@ export class Enemy {
     let best = null;
     let bestDist = Infinity;
 
-    if (this.team === "blue" && player?.alive !== false) {
+    if (this.team === "blue" && player?.alive) {
       const d = this.position.distanceTo(player.position);
       if (d < this.reactRange && d < bestDist) {
         bestDist = d;

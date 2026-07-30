@@ -143,6 +143,16 @@ export class Player {
     }
   }
 
+  /** 据点等多残机模式：复活到指定位置 */
+  respawnAt(x, z, protectSec = 4) {
+    this.alive = true;
+    this.hp = this.maxHp;
+    this._timeSinceDamage = 99;
+    this._lastHitFrom = null;
+    this.yawObject.position.set(x, this.eyeHeight, z);
+    this.grantSpawnProtect(protectSec);
+  }
+
   heal(amount) {
     this.hp = Math.min(this.maxHp, this.hp + amount);
   }
