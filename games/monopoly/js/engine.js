@@ -33,11 +33,15 @@ export function createInitialState(opts) {
   const ais = total - humans;
 
   const players = [];
+  let humanSeq = 0;
+  let aiSeq = 0;
   for (let i = 0; i < humans + ais; i++) {
     const token = TOKEN_PRESETS[i];
+    const isHuman = i < humans;
+    const name = isHuman ? `玩家${++humanSeq}` : `AI${++aiSeq}`;
     players.push({
       id: i,
-      name: token.name,
+      name,
       color: token.color,
       accent: token.accent || "#fff",
       tokenId: token.id,
@@ -45,7 +49,7 @@ export function createInitialState(opts) {
       position: 0,
       stop: 0,
       bankrupt: false,
-      isHuman: i < humans,
+      isHuman,
       auto: false,
     });
   }
