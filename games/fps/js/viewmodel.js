@@ -160,8 +160,8 @@ export function createAK47ViewModel() {
       const bobMul = aiming ? 0.25 : 1;
       const bobY = Math.sin(state.bob) * (moving ? 0.012 : 0.004) * bobMul;
       const bobX = Math.cos(state.bob * 0.5) * (moving ? 0.008 : 0.002) * bobMul;
-      const kickZ = state.recoil * (aiming ? 0.05 : 0.085);
-      const kickX = state.recoil * (aiming ? 0.07 : 0.13);
+      const kickZ = state.recoil * (aiming ? 0.035 : 0.06);
+      const kickX = state.recoil * (aiming ? 0.05 : 0.09);
       const reloadDrop = reloading ? 0.15 : 0;
       // 开镜：枪械靠中、略前伸
       const baseX = aiming ? 0.02 : 0.22;
@@ -169,7 +169,7 @@ export function createAK47ViewModel() {
       const baseZ = aiming ? -0.42 : -0.55;
 
       gun.position.set(baseX + bobX, baseY + bobY - reloadDrop, baseZ + kickZ);
-      gun.rotation.set(0.04 + kickX, aiming ? 0.02 : 0.12, 0.04 + state.recoil * 0.03);
+      gun.rotation.set(0.04 + kickX, aiming ? 0.02 : 0.12, 0.04 + state.recoil * 0.02);
     },
   };
 }

@@ -35,7 +35,8 @@ export const WEAPONS = {
     heavy: true,
     view: "ak",
     adsSpreadMul: 0.28,
-    kick: 0.048,
+    // 后坐略高于 M4，但不再过度抬头，便于连射控枪
+    kick: 0.036,
     zoneMul: { head: 2, body: 1, limb: 0.72 },
   },
   m4: {
