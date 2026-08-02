@@ -41,17 +41,20 @@ export function detectQuality() {
       /swiftshader|llvmpipe|softpipe|microsoft basic render|gdi generic/i.test(renderer) ||
       maxTex > 0 && maxTex < 4096;
 
-    if (soft || mobile || (mem > 0 && mem <= 4) || cores <= 4) return 'low';
-    if ((mem > 0 && mem <= 8) || cores <= 6 || dpr >= 2.5) return 'medium';
+    // Soft GPUs still need low; otherwise aim for the official demo look (high).
+    if (soft) return 'low';
+    if (mobile || (mem > 0 && mem <= 4) || cores <= 4) return 'medium';
+    if ((mem > 0 && mem <= 8) || cores <= 6) return 'high';
     return 'high';
   } catch {
-    return 'medium';
+    return 'high';
   }
 }
 
 /**
- * Resolve quality from URL, then detection, never defaulting to ultra on the hub.
- * `?q=` always wins.
+ * Resolve quality from URL, then detection.
+ * Hub default matches the official Claude-of-Duty demo look (`high`);
+ * `?q=ultra` remains available.
  */
 export function resolveQuality(search = location.search) {
   const params = new URLSearchParams(search);
@@ -66,6 +69,6 @@ export function shouldPrewarm(quality, search = location.search) {
   const params = new URLSearchParams(search);
   if (params.get('prewarm') === '0') return false;
   if (params.get('prewarm') === '1') return true;
-  // low: prefer fast first paint; medium+: prewarm to avoid mid-fight stalls
+  // Always prewarm on the hub except explicit low — matches official demo feel.
   return quality !== 'low';
 }

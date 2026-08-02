@@ -17,6 +17,7 @@ import { AudioSystem } from './audio/index.js';
 import { installShotApi } from './dev/shots.js';
 import { prewarm } from './core/prewarm.js';
 import { createBootUi } from './bootui.js';
+import { spawnAssaultWave, installAssaultDirector } from './playstart.js';
 
 const params = new URLSearchParams(location.search);
 const capture = params.get('capture') === '1';
@@ -124,11 +125,18 @@ window.__ENGINE__ = engine;
 
 // Hub UX: require an explicit click so users know load finished, and so the
 // browser gesture can acquire pointer lock (needed for look / feel playable).
+let stopDirector = null;
 const enter = () => {
   boot.hide();
   document.getElementById('boot-hint')?.remove();
   engine.input.requestPointerLock();
   document.body.classList.add('is-playing');
+  // Official demo-driver stages enemies in front of the camera. Mirror that for
+  // normal hub play so the street is not an empty walk to the distant garrison.
+  if (!capture) {
+    spawnAssaultWave(engine, 6, 11, 24);
+    stopDirector = installAssaultDirector(engine, { minAlive: 3, waveSize: 4, cooldown: 10 });
+  }
 };
 
 if (capture) {
@@ -139,5 +147,8 @@ if (capture) {
 }
 
 if (import.meta.hot) {
-  import.meta.hot.dispose(() => engine.dispose());
+  import.meta.hot.dispose(() => {
+    stopDirector?.();
+    engine.dispose();
+  });
 }

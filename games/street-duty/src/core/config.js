@@ -84,8 +84,8 @@ export const QUALITY_PRESETS = {
 };
 
 export const DEFAULTS = {
-  // Hub default is medium; main.js may override via detectQuality() / ?q=
-  quality: 'medium',
+  // Hub default matches official demo look; main.js may override via detect / ?q=
+  quality: 'high',
   fov: 80, // horizontal-ish vertical FOV, CoD default feel
   adsFovScale: 0.72,
   sensitivity: 0.0022,
