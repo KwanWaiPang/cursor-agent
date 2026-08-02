@@ -139,9 +139,9 @@ const enter = () => {
   if (!capture) {
     const q = config.quality;
     const wave =
-      q === 'low' ? { n: 3, minD: 12, maxD: 22, minAlive: 1, waveSize: 2, cooldown: 16 }
-        : q === 'medium' ? { n: 4, minD: 12, maxD: 24, minAlive: 2, waveSize: 3, cooldown: 13 }
-          : { n: 6, minD: 11, maxD: 24, minAlive: 3, waveSize: 4, cooldown: 10 };
+      q === 'low' ? { n: 2, minD: 12, maxD: 20, minAlive: 1, waveSize: 2, cooldown: 18 }
+        : q === 'medium' ? { n: 3, minD: 12, maxD: 22, minAlive: 2, waveSize: 2, cooldown: 14 }
+          : { n: 5, minD: 11, maxD: 24, minAlive: 3, waveSize: 3, cooldown: 11 };
     spawnAssaultWave(engine, wave.n, wave.minD, wave.maxD);
     stopDirector = installAssaultDirector(engine, {
       minAlive: wave.minAlive,

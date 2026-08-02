@@ -493,8 +493,14 @@ export class AiSystem {
     if (!ranked.length) return 0;
 
     const variants = ['vanguard', 'irregular', 'breacher'];
-    const squads = opts.squads ?? 2;
-    const per = opts.perSquad ?? 3;
+    // Scale garrison with hub quality — skinned AI dominates CPU/GPU after the street.
+    const qName = this.ctx?.config?.quality || 'medium';
+    const qDefault =
+      qName === 'low' ? { squads: 1, perSquad: 2 }
+        : qName === 'medium' ? { squads: 1, perSquad: 3 }
+          : { squads: 2, perSquad: 3 };
+    const squads = opts.squads ?? qDefault.squads;
+    const per = opts.perSquad ?? qDefault.perSquad;
     let made = 0;
     for (let q = 0; q < squads && q < ranked.length; q++) {
       const squad = this.createSquad();

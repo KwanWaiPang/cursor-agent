@@ -22,10 +22,10 @@ function disposePass(render, key) {
   return true;
 }
 
-export function installAdaptiveQuality(engine, { floorScale = 0.55 } = {}) {
+export function installAdaptiveQuality(engine, { floorScale = 0.48 } = {}) {
   let bad = 0;
   let good = 0;
-  let cool = 3.0; // seconds before first adjustment
+  let cool = 2.0; // seconds before first adjustment
   let lastApply = 0;
   let emaDt = 1 / 60;
 
@@ -48,6 +48,14 @@ export function installAdaptiveQuality(engine, { floorScale = 0.55 } = {}) {
       changed = disposePass(render, 'ssr') || changed;
       changed = disposePass(render, 'motionBlur') || changed;
       changed = disposePass(render, 'gtao') || changed;
+      changed = disposePass(render, 'bloom') || changed;
+      changed = disposePass(render, 'taa') || changed;
+      changed = disposePass(render, 'dof') || changed;
+      changed = disposePass(render, 'contact') || changed;
+      if (render.needsPrepass && (engine.config.quality === 'low' || engine.config.quality === 'medium')) {
+        render.needsPrepass = false;
+        changed = true;
+      }
     }
     if (sky?.volumetrics?.marchEnabled) {
       sky.volumetrics.marchEnabled = false;
@@ -58,7 +66,9 @@ export function installAdaptiveQuality(engine, { floorScale = 0.55 } = {}) {
       engine.config.q.motionBlur = false;
       engine.config.q.gtao = false;
       engine.config.q.volumetrics = false;
-      console.info('[adaptive] disabled heavy post (ssr/mb/gtao/volumetrics)');
+      engine.config.q.bloom = false;
+      engine.config.q.taa = false;
+      console.info('[adaptive] disabled heavy post (ssr/mb/gtao/vol/bloom/taa)');
     }
     return changed;
   };
@@ -88,10 +98,10 @@ export function installAdaptiveQuality(engine, { floorScale = 0.55 } = {}) {
     cool -= 0.1;
     if (cool > 0) return;
 
-    if (emaDt > 1 / 28) {
+    if (emaDt > 1 / 32) {
       bad++;
       good = 0;
-    } else if (emaDt < 1 / 48) {
+    } else if (emaDt < 1 / 50) {
       good++;
       bad = 0;
     } else {
@@ -100,20 +110,20 @@ export function installAdaptiveQuality(engine, { floorScale = 0.55 } = {}) {
     }
 
     const now = engine.time.elapsed;
-    if (now - lastApply < 2.5) return;
+    if (now - lastApply < 1.8) return;
 
-    if (bad >= 25) {
+    if (bad >= 18) {
       lastApply = now;
       bad = 0;
       const scale = engine.config.q.renderScale ?? 1;
       if (scale > floorScale + 0.04) {
-        applyScale(scale * 0.82);
+        applyScale(scale * 0.8);
       } else if (stripHeavyPasses()) {
         /* stripped */
       } else {
         stepPreset(-1);
       }
-      cool = 1.5;
+      cool = 1.2;
     } else if (good >= 80) {
       // Cautiously recover scale only (never auto-upgrade preset / re-enable post).
       lastApply = now;

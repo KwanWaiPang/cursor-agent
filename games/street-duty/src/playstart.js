@@ -68,13 +68,14 @@ export function installAssaultDirector(engine, { minAlive = 2, waveSize = 3, coo
   if (q === 'low') {
     minAlive = 1;
     waveSize = 2;
-    cooldown = 16;
+    cooldown = 18;
   } else if (q === 'medium') {
     minAlive = 2;
-    waveSize = 3;
-    cooldown = 13;
+    waveSize = 2;
+    cooldown = 14;
   }
-  const hardCap = q === 'low' ? 6 : q === 'medium' ? 10 : 14;
+  // Cap *alive* agents — dead bodies still sit in the array until cleaned up.
+  const hardCap = q === 'low' ? 4 : q === 'medium' ? 6 : 12;
   let cool = 2.0;
   const onUpdate = (dt) => {
     cool -= dt;
@@ -85,7 +86,7 @@ export function installAssaultDirector(engine, { minAlive = 2, waveSize = 3, coo
       return;
     }
     // Hard cap living AI for hub playability.
-    if ((ai.agents || []).length >= hardCap) {
+    if (alive >= hardCap) {
       cool = cooldown;
       return;
     }
