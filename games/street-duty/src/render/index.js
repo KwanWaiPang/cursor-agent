@@ -220,9 +220,9 @@ export class RenderSystem {
     // far cheaper than any spatial substitute at the same quality.
     this._viewSamples = this.qLevel >= 2 ? 4 : this.qLevel >= 1 ? 2 : 0;
 
-    // Always on: depthTexture/velocityTexture are part of the public contract
-    // (soft particles, SSR, motion blur) even when our own effects are off.
-    this.needsPrepass = true;
+    // Soft particles / SSR / MB need the GBuffer prepass. On low we skip it —
+    // a full world MRT is one of the largest remaining frame costs on hub GPUs.
+    this.needsPrepass = this.qLevel >= 1 || !!(q.ssr || q.motionBlur || q.gtao);
 
     this.hdrRt = null;
     this.viewRt = null;

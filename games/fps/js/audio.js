@@ -167,6 +167,14 @@ export class Sfx {
     this.tone(520, 0.06, "sine", 0.03, 120);
   }
 
+  /** H 求助：短促喇叭/号角 */
+  horn() {
+    this.ensure();
+    this.tone(280, 0.18, "sawtooth", 0.07, -40);
+    this.tone(420, 0.22, "square", 0.055, -90);
+    this.tone(180, 0.28, "triangle", 0.045, -60);
+  }
+
   win() {
     this.tone(440, 0.1, "sine", 0.04);
     setTimeout(() => this.tone(660, 0.12, "sine", 0.04), 100);

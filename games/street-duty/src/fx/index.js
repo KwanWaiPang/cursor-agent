@@ -58,8 +58,9 @@ export class FxSystem {
     this._decalAtlas = decalAtlas;
     const bakeMs = performance.now() - t0;
 
-    const mote = clampI(Math.round(budget * 0.06), 96, 600);
-    const hazeCap = clampI(Math.round(budget * 0.04), 48, 320);
+    // Low budgets: kill ambient dust motes — they are always-on GPU cost.
+    const mote = budget < 1200 ? 0 : clampI(Math.round(budget * 0.05), 48, 400);
+    const hazeCap = budget < 1200 ? 24 : clampI(Math.round(budget * 0.035), 32, 240);
     const viewAdd = clampI(Math.round(budget * 0.03), 48, 400);
     const viewLit = clampI(Math.round(budget * 0.02), 32, 256);
     const rest = Math.max(256, budget - mote - hazeCap - viewAdd - viewLit);

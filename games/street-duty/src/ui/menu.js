@@ -93,7 +93,7 @@ export class PauseMenu {
     setStyle(hub, 'display', 'inline-flex');
     setStyle(hub, 'align-items', 'center');
     setStyle(hub, 'justify-content', 'center');
-    el('div', 'hint', inner, 'ESC 继续 · WASD 移动 · SHIFT 冲刺 · Ctrl/C 下蹲 · R 换弹 · F 互动');
+    el('div', 'hint', inner, 'ESC 继续 · WASD 移动 · Q/E 探头 · Z 下蹲 · SHIFT 冲刺 · R 换弹');
 
     this.open = false;
     this.shown = 0;

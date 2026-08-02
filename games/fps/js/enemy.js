@@ -269,8 +269,8 @@ export class Enemy {
     this.fireCd = 0.35 + Math.random() * 0.5;
     this.state = "patrol";
     this.patrolTarget = position.clone();
-    this.reactRange = opts.reactRange ?? 42;
-    this.fireRange = opts.fireRange ?? 34;
+    this.reactRange = opts.reactRange ?? 56;
+    this.fireRange = opts.fireRange ?? 42;
     this.fade = 1;
     this.scoreValue = opts.scoreValue ?? 1;
     this.walkPhase = Math.random() * Math.PI * 2;
@@ -286,6 +286,9 @@ export class Enemy {
     this.currentTarget = null;
     this.seekCoverUntil = 0;
     this.coverTarget = null;
+    /** 玩家 H 求助截止时间与集火目标 */
+    this.helpUntil = 0;
+    this.helpFocus = null;
     /** 据点模式：优先靠近战术区 */
     this.holdZone = opts.holdZone || null;
     this.lootCd = 0.4 + Math.random() * 0.8;
@@ -317,11 +320,12 @@ export class Enemy {
     } else {
       this.damage = Math.max(4, Math.round(def.damage * 0.3));
     }
-    this.fireRange = Math.min(52, Math.max(18, def.range * 0.4));
+    // AI 射程略低于玩家同枪，但比过去更敢远射（0.55 / 上限 72）
+    this.fireRange = Math.min(72, Math.max(22, def.range * 0.55));
     this.baseFireGap = def.chamberMs
-      ? Math.max(0.9, def.chamberMs / 1000)
-      : Math.max(0.11, 60 / def.rpm);
-    this.shotSpread = (def.spread || 0.014) * (def.hipSpreadMul || 1) * 1.8;
+      ? Math.max(0.85, def.chamberMs / 1000)
+      : Math.max(0.1, 60 / def.rpm);
+    this.shotSpread = (def.spread || 0.014) * (def.hipSpreadMul || 1) * 1.45;
     if (def.id === "shotgun") this.idealRange = 5 + Math.random() * 4;
     else if (def.id === "sniper") this.idealRange = 16 + Math.random() * 10;
     else if (def.id === "pistol") this.idealRange = 6 + Math.random() * 5;
@@ -416,10 +420,33 @@ export class Enemy {
     this.strafeSign *= -1;
     this.tacticCd = 0;
     this.sprintBoost = 1.35;
-    // 受伤后优先找掩体
-    this.seekCoverUntil = performance.now() + 2200 + Math.random() * 1200;
-    this.pickCoverAwayFrom(opts.from || null);
+    // 残血才长时间躲掩体；血厚时只短暂侧闪，保持进攻压力
+    const hpFrac = this.hp / Math.max(1, this.maxHp);
+    if (hpFrac < 0.45) {
+      this.seekCoverUntil = performance.now() + 1400 + Math.random() * 900;
+      this.pickCoverAwayFrom(opts.from || null);
+    } else {
+      this.seekCoverUntil = performance.now() + 350 + Math.random() * 350;
+      this.coverTarget = null;
+    }
     return false;
+  }
+
+  /** 玩家按 H：清掩体、赶往玩家，并优先集火指定蓝方 */
+  respondToHelp(player, focusBlue, until) {
+    if (!this.alive || this.team !== "red") return;
+    this.helpUntil = until || performance.now() + 14000;
+    this.helpFocus = focusBlue || null;
+    this.seekCoverUntil = 0;
+    this.coverTarget = null;
+    this.sprintBoost = 1.45;
+    this.reactRange = Math.max(this.reactRange, 64);
+    if (player?.position) {
+      this.patrolTarget.copy(player.position);
+      this.patrolTarget.x += (Math.random() - 0.5) * 5;
+      this.patrolTarget.z += (Math.random() - 0.5) * 5;
+    }
+    this.state = focusBlue?.alive ? "chase" : "patrol";
   }
 
   pickCoverAwayFrom(threatPos) {
@@ -466,15 +493,16 @@ export class Enemy {
     _side.set(-fwd.z, 0, fwd.x).multiplyScalar(this.strafeSign);
 
     if (dist < this.idealRange - 2.5) {
-      this.moveDir.copy(_side).multiplyScalar(0.9).addScaledVector(fwd, -0.85);
-      this.sprintBoost = 1.2;
+      // 过近才小幅后撤，多数时间侧向压制
+      this.moveDir.copy(_side).multiplyScalar(1.05).addScaledVector(fwd, -0.35);
+      this.sprintBoost = 1.15;
     } else if (dist > this.idealRange + 4) {
-      this.moveDir.copy(fwd).multiplyScalar(1.05).addScaledVector(_side, 0.75);
-      this.sprintBoost = 1.25;
+      this.moveDir.copy(fwd).multiplyScalar(1.2).addScaledVector(_side, 0.55);
+      this.sprintBoost = 1.35;
     } else {
-      const press = (Math.random() - 0.35) * 0.45;
-      this.moveDir.copy(_side).multiplyScalar(1.15).addScaledVector(fwd, press);
-      this.sprintBoost = 1.05;
+      const press = 0.25 + Math.random() * 0.55;
+      this.moveDir.copy(_side).multiplyScalar(0.95).addScaledVector(fwd, press);
+      this.sprintBoost = 1.15;
     }
 
     if (this.moveDir.lengthSq() > 0.0001) this.moveDir.normalize();
@@ -485,10 +513,20 @@ export class Enemy {
   pickTarget(player, units) {
     let best = null;
     let bestDist = Infinity;
+    const helping = this.helpUntil && performance.now() < this.helpUntil;
+    const range = helping ? Math.max(this.reactRange, 70) : this.reactRange;
+
+    // 求助集火：优先打玩家指定的蓝方
+    if (helping && this.helpFocus?.alive && !this.helpFocus.gone) {
+      const d = this.position.distanceTo(this.helpFocus.position);
+      if (d < range + 12) {
+        return { kind: "unit", ref: this.helpFocus, dist: d };
+      }
+    }
 
     if (this.team === "blue" && player?.alive) {
       const d = this.position.distanceTo(player.position);
-      if (d < this.reactRange && d < bestDist) {
+      if (d < range && d < bestDist) {
         bestDist = d;
         best = { kind: "player", ref: player, dist: d };
       }
@@ -498,7 +536,7 @@ export class Enemy {
       if (!u || u === this || !u.alive || u.gone) continue;
       if (u.team === this.team) continue;
       const d = this.position.distanceTo(u.position);
-      if (d < this.reactRange && d < bestDist) {
+      if (d < range && d < bestDist) {
         bestDist = d;
         best = { kind: "unit", ref: u, dist: d };
       }
@@ -544,13 +582,26 @@ export class Enemy {
         _aim.set(tp.x, aimY, tp.z),
         this.fireRange + 4
       );
-      if (!los && !seekingCover) {
-        this.seekCoverUntil = now + 1600;
+      // 丢视线时短侧移找角度，而不是长时间躲起来
+      if (!los && !seekingCover && Math.random() < 0.35) {
+        this.seekCoverUntil = now + 500 + Math.random() * 400;
         this.pickCoverAwayFrom(tp);
       }
-      this.state = dist < this.fireRange * 0.4 ? "attack" : "chase";
+      this.state = dist < this.fireRange * 0.55 ? "attack" : "chase";
     } else if (this.state !== "patrol") {
       this.state = "patrol";
+    }
+
+    // 求助中：向玩家靠拢
+    if (this.isAlly && this.helpUntil && now < this.helpUntil && player?.position) {
+      const toHelp = _tmp2.copy(player.position).sub(this.position);
+      toHelp.y = 0;
+      if (toHelp.length() > 10) {
+        this.patrolTarget.copy(player.position);
+        this.patrolTarget.x += (Math.random() - 0.5) * 4;
+        this.patrolTarget.z += (Math.random() - 0.5) * 4;
+        if (!target) this.state = "patrol";
+      }
     }
 
     // 无交火时，朝更强的枪箱走两步
@@ -610,10 +661,10 @@ export class Enemy {
             this.patrolTarget.x += (Math.random() - 0.5) * 4;
             this.patrolTarget.z += (Math.random() - 0.5) * 4;
           }
-        } else if (toP.length() > 22) {
+        } else if (toP.length() > 14) {
           this.patrolTarget.copy(player.position);
-          this.patrolTarget.x += (Math.random() - 0.5) * 8;
-          this.patrolTarget.z += (Math.random() - 0.5) * 8;
+          this.patrolTarget.x += (Math.random() - 0.5) * 6;
+          this.patrolTarget.z += (Math.random() - 0.5) * 6;
         }
       }
       if (!moving) {
@@ -662,8 +713,8 @@ export class Enemy {
       // 有视线才开火；命中由真实射线判定（与弹道一致）
       if (los && dist < this.fireRange && this.fireCd <= 0) {
         const gap = this.baseFireGap || 0.45;
-        const burst = !this.weaponDef?.chamberMs && this.weaponId !== "shotgun" && Math.random() < 0.38;
-        this.fireCd = burst ? gap * 0.45 : gap * (0.85 + Math.random() * 0.35);
+        const burst = !this.weaponDef?.chamberMs && this.weaponId !== "shotgun" && Math.random() < 0.55;
+        this.fireCd = burst ? gap * 0.38 : gap * (0.7 + Math.random() * 0.3);
 
         const origin = new THREE.Vector3(this.position.x, 1.48, this.position.z);
         const aimPos =
@@ -671,7 +722,7 @@ export class Enemy {
             ? _aim.set(player.position.x, player.eyeHeight ?? 1.7, player.position.z)
             : _aim.set(target.ref.position.x, 1.45, target.ref.position.z);
         _shotDir.subVectors(aimPos, origin);
-        const spread = (this.shotSpread || 0.025) + dist * 0.0018;
+        const spread = (this.shotSpread || 0.025) + dist * 0.0011;
         _shotDir.x += (Math.random() - 0.5) * spread;
         _shotDir.y += (Math.random() - 0.5) * spread * 0.7;
         _shotDir.z += (Math.random() - 0.5) * spread;
@@ -942,22 +993,45 @@ export class LootCrate {
     if (dx * dx + dz * dz <= radius * radius) {
       this.alive = false;
       this.taken = true;
-      this.disposeMesh();
+      // 先立刻从场景摘掉，GPU/贴图释放放到空闲帧，避免捡物卡顿一帧
+      this.hideForPickup();
       return this.kind;
     }
     return null;
   }
 
+  hideForPickup() {
+    if (!this.mesh) return;
+    const mesh = this.mesh;
+    mesh.visible = false;
+    if (mesh.parent) this.scene.remove(mesh);
+    this.mesh = null;
+    const dispose = () => this._disposeObject(mesh);
+    if (typeof requestIdleCallback === "function") {
+      requestIdleCallback(dispose, { timeout: 240 });
+    } else {
+      setTimeout(dispose, 0);
+    }
+  }
+
+  _disposeObject(root) {
+    if (!root) return;
+    root.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+      for (const m of mats) {
+        if (!m) continue;
+        if (m.map) m.map.dispose?.();
+        m.dispose?.();
+      }
+    });
+  }
+
   disposeMesh() {
     if (!this.mesh) return;
     if (this.mesh.parent) this.scene.remove(this.mesh);
-    this.mesh.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material) {
-        if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose?.());
-        else o.material.dispose?.();
-      }
-    });
+    this._disposeObject(this.mesh);
+    this.mesh = null;
   }
 
   dispose() {

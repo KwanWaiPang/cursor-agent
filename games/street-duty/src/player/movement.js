@@ -368,7 +368,7 @@ export class Movement {
     if (this.sliding) {
       this.stanceWant = 'crouch';
     } else {
-      // Hold-to-crouch (Ctrl / C): reliable for taking cover. Edge `crouchPressed`
+      // Hold-to-crouch (Z): reliable for taking cover. Edge `crouchPressed`
       // while sprinting still starts a slide in `_updateSlide`.
       const crouchHeld = this.ctx.input.action('crouch');
       if (cmd.pronePressed) {

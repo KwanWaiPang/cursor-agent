@@ -243,6 +243,9 @@ export class PhysicsSystem {
     this.ctx = ctx;
     this.rng = ctx.rng.fork();
     this.ballistics.rng = this.rng;
+    // Hub: fewer simultaneous ragdolls — each is a multi-body fixed-step cost.
+    const qName = ctx.config?.quality || 'medium';
+    this.maxRagdolls = qName === 'low' ? 3 : qName === 'medium' ? 4 : 8;
     this.debug = new PhysicsDebugView(ctx.scene);
 
     this._onExplosion = (e) => this.explode(e);

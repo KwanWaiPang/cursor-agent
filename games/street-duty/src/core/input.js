@@ -12,9 +12,9 @@ export const ACTIONS = {
   left: ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
   jump: ['Space'],
-  // Ctrl / C — hold to crouch (cover). Right Ctrl included for completeness.
-  crouch: ['ControlLeft', 'ControlRight', 'KeyC'],
-  prone: ['KeyZ'],
+  // Z — hold to crouch (cover). Q/E — hold to lean. Release restores.
+  crouch: ['KeyZ'],
+  prone: ['ControlLeft', 'ControlRight', 'KeyC'],
   sprint: ['ShiftLeft'],
   reload: ['KeyR'],
   use: ['KeyF'],
@@ -107,8 +107,7 @@ export class Input {
     if (e.repeat) return;
     // Allow browser/OS chords with Meta; keep F5/F12 for refresh/devtools.
     // Important: do NOT skip preventDefault just because ctrlKey is set —
-    // otherwise Ctrl (crouch) is swallowed by the browser and never reaches us
-    // consistently under pointer lock.
+    // otherwise Ctrl (prone) is swallowed by the browser under pointer lock.
     if (e.metaKey) return;
     if (e.code === 'F5' || e.code === 'F12' || e.code === 'F11') return;
     e.preventDefault();

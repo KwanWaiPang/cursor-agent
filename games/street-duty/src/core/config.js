@@ -4,10 +4,12 @@
  * quality scaler and the capture harness can drive everything from one place.
  */
 
-export const PHYSICS_HZ = 120;
+// Hub target: playable frame pacing on laptop GPUs. Official Claude-of-Duty
+// uses 120 Hz; 60 Hz halves fixed-step work with only a mild feel change.
+export const PHYSICS_HZ = 60;
 export const FIXED_DT = 1 / PHYSICS_HZ;
 /** Never simulate more than this many physics steps in one frame (spiral-of-death guard). */
-export const MAX_SUBSTEPS = 8;
+export const MAX_SUBSTEPS = 4;
 
 /** Real-world units are metres, seconds, kilograms. */
 export const UNITS = {
@@ -19,13 +21,28 @@ export const UNITS = {
 };
 
 /**
- * Hub presets are tuned for browser GPUs. Official Claude-of-Duty defaults are
- * heavier (especially high/ultra); we keep the look but cut the costliest extras
- * that dominate frame time on typical laptops.
+ * Hub presets favour frame-rate over fidelity. Official Claude-of-Duty high/ultra
+ * stay available via ?q=high / ?q=ultra for machines that can take it.
  */
 export const QUALITY_PRESETS = {
   low: {
-    renderScale: 0.65,
+    renderScale: 0.55,
+    maxPixelRatio: 1.0,
+    shadowMapSize: 512,
+    cascades: 2,
+    shadowDistance: 40,
+    taa: false,
+    gtao: false,
+    ssr: false,
+    volumetrics: false,
+    motionBlur: false,
+    bloom: false,
+    anisotropy: 2,
+    particleBudget: 800,
+    decalBudget: 32,
+  },
+  medium: {
+    renderScale: 0.68,
     maxPixelRatio: 1.0,
     shadowMapSize: 1024,
     cascades: 2,
@@ -36,32 +53,16 @@ export const QUALITY_PRESETS = {
     volumetrics: false,
     motionBlur: false,
     bloom: true,
-    anisotropy: 2,
-    particleBudget: 1200,
-    decalBudget: 48,
-  },
-  medium: {
-    renderScale: 0.78,
-    maxPixelRatio: 1.15,
-    shadowMapSize: 1024,
-    cascades: 3,
-    shadowDistance: 70,
-    taa: true,
-    gtao: false,
-    ssr: false,
-    volumetrics: false,
-    motionBlur: false,
-    bloom: true,
     anisotropy: 4,
-    particleBudget: 3500,
-    decalBudget: 96,
+    particleBudget: 1800,
+    decalBudget: 64,
   },
   high: {
-    renderScale: 0.9,
+    renderScale: 0.85,
     maxPixelRatio: 1.25,
     shadowMapSize: 2048,
     cascades: 3,
-    shadowDistance: 100,
+    shadowDistance: 90,
     taa: true,
     gtao: true,
     ssr: false,
@@ -69,8 +70,8 @@ export const QUALITY_PRESETS = {
     motionBlur: false,
     bloom: true,
     anisotropy: 8,
-    particleBudget: 7000,
-    decalBudget: 160,
+    particleBudget: 5000,
+    decalBudget: 128,
   },
   ultra: {
     renderScale: 1.0,

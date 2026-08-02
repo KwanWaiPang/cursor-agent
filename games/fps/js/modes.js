@@ -74,8 +74,8 @@ function spawnUnit(ctx, team, baseSp, opts = {}) {
     hp: opts.hp ?? 70,
     speed: opts.speed ?? 3.5,
     damage: opts.damage,
-    reactRange: opts.reactRange ?? 48,
-    fireRange: opts.fireRange ?? 36,
+    reactRange: opts.reactRange ?? 58,
+    fireRange: opts.fireRange ?? 44,
     holdZone: opts.holdZone || null,
     weaponId: opts.weaponId || pickAiStartWeapon(team),
   });
@@ -253,10 +253,13 @@ export function createAssaultMode(ctx) {
       sp.z += Math.sin(ang) * ring + 3;
       spawnUnit(ctx, "red", sp, {
         hp: 80,
-        speed: 3.5,
-        damage: 7,
+        speed: 3.8,
+        damage: 8,
         jitter: 2.2,
-        holdZone: world.zoneCenter.clone(),
+        reactRange: 62,
+        fireRange: 48,
+        // 不绑死据点：更愿意跟着玩家进攻
+        holdZone: null,
       });
     }
   }
@@ -277,10 +280,10 @@ export function createAssaultMode(ctx) {
       }
       spawnUnit(ctx, "blue", sp, {
         hp: 52 + wave * 10,
-        speed: 3.25 + wave * 0.18,
-        damage: 4 + Math.floor(wave * 0.9),
-        reactRange: 46,
-        fireRange: 34,
+        speed: 3.45 + wave * 0.2,
+        damage: 5 + Math.floor(wave * 0.9),
+        reactRange: 58,
+        fireRange: 46,
         jitter: 6,
       });
       enemiesAlive += 1;
@@ -538,10 +541,10 @@ export function createRoyaleMode(ctx) {
     sp.z += Math.sin(ang) * ring;
     spawnUnit(ctx, "red", sp, {
       hp: 90,
-      speed: 3.6,
-      damage: 7,
-      reactRange: 48,
-      fireRange: 34,
+      speed: 3.9,
+      damage: 8,
+      reactRange: 62,
+      fireRange: 48,
       jitter: 2,
     });
   }
@@ -559,10 +562,10 @@ export function createRoyaleMode(ctx) {
     }
     spawnUnit(ctx, "blue", sp, {
       hp: 70,
-      speed: 3.4,
-      damage: 5,
-      reactRange: 46,
-      fireRange: 32,
+      speed: 3.6,
+      damage: 6,
+      reactRange: 58,
+      fireRange: 46,
       jitter: 14,
     });
   }

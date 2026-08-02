@@ -41,12 +41,14 @@ export function detectQuality() {
       (maxTex > 0 && maxTex < 4096);
 
     // Prefer playable frame-rate over max fidelity on the hub.
+    // Most laptop integrated GPUs are happier on low; medium is for decent
+    // discrete / Apple GPU class machines.
     if (soft || mobile) return 'low';
-    if ((mem > 0 && mem <= 4) || cores <= 4 || dpr >= 2.5) return 'medium';
-    if ((mem > 0 && mem <= 8) || cores <= 8) return 'medium';
+    if ((mem > 0 && mem <= 4) || cores <= 4 || dpr >= 2) return 'low';
+    if ((mem > 0 && mem <= 8) || cores <= 8 || dpr >= 1.5) return 'medium';
     return 'high';
   } catch {
-    return 'medium';
+    return 'low';
   }
 }
 

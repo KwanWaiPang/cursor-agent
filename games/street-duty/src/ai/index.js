@@ -321,6 +321,12 @@ export class AiSystem {
       if (!e || !e.target || !(e.target instanceof Agent)) return;
       const a = e.target;
       if (!a.alive) return;
+      // Friendly fire off: player/allies (team 0) do not hurt each other.
+      const src = e.source;
+      if (a.team === 0) {
+        if (!src || src === this.ctx.peek('player') || src?.team === 0) return;
+      }
+      if (src instanceof Agent && src.team === a.team) return;
       const amount = e.amount * this._falloff(e.point);
       a.applyDamage(amount, e.headshot ? 'head' : e.part ?? 'torso', e.point ?? a.position, e.incident);
       if (!a.alive) e.killed = true;
@@ -331,6 +337,8 @@ export class AiSystem {
       const radius = e.radius ?? 5;
       for (const a of this.agents) {
         if (!a.alive) continue;
+        // Player grenades should not wipe the fireteam.
+        if (a.team === 0 && !e.source) continue;
         const d = a.position.distanceTo(e.position) + 0.001;
         a.hear(e.position, 120);
         if (d > radius) continue;
@@ -345,7 +353,8 @@ export class AiSystem {
     on('player:footstep', (e) => {
       if (!e || !e.position) return;
       const loud = e.running ? 24 : 11;
-      for (const a of this.agents) if (a.alive) a.hear(e.position, loud);
+      // Footsteps alert hostiles only — allies already escort the player.
+      for (const a of this.agents) if (a.alive && a.team !== 0) a.hear(e.position, loud);
     });
   }
 
@@ -493,8 +502,14 @@ export class AiSystem {
     if (!ranked.length) return 0;
 
     const variants = ['vanguard', 'irregular', 'breacher'];
-    const squads = opts.squads ?? 2;
-    const per = opts.perSquad ?? 3;
+    // Scale garrison with hub quality — skinned AI dominates CPU/GPU after the street.
+    const qName = this.ctx?.config?.quality || 'medium';
+    const qDefault =
+      qName === 'low' ? { squads: 1, perSquad: 2 }
+        : qName === 'medium' ? { squads: 1, perSquad: 3 }
+          : { squads: 2, perSquad: 3 };
+    const squads = opts.squads ?? qDefault.squads;
+    const per = opts.perSquad ?? qDefault.perSquad;
     let made = 0;
     for (let q = 0; q < squads && q < ranked.length; q++) {
       const squad = this.createSquad();
@@ -528,6 +543,7 @@ export class AiSystem {
         }
         const a = this.spawn(variants[(q * per + m) % variants.length], p, anchor.yaw + this.rng.signed() * 0.7, {
           patrol: route,
+          team: 1,
         });
         squad.add(a);
         made++;
@@ -626,6 +642,8 @@ export class AiSystem {
   }
 
   _testPlayerHit(agent, origin, dir, end) {
+    // Allies never damage the player via the capsule test.
+    if (agent?.team === 0 || agent?.isAlly) return;
     const p = this.playerPosition(this._v);
     if (!p) return;
     const maxT = end ? origin.distanceTo(end) : 200;
@@ -1080,6 +1098,21 @@ export class AiSystem {
       };
     }
     return this.stats;
+  }
+
+  /** Minimap / HUD contract: mark fireteam as friendly. */
+  getHudActors() {
+    const out = [];
+    for (const a of this.agents) {
+      if (!a || a.gone) continue;
+      out.push({
+        position: a.position,
+        alive: !!a.alive,
+        friendly: a.team === 0,
+        heading: ((a.yaw ?? 0) * 180) / Math.PI,
+      });
+    }
+    return out;
   }
 
   /* ================================================================== */

@@ -269,30 +269,55 @@ export class Game {
   }
 
   /**
-   * 用 YXZ 欧拉读写视角，并强制 z=0，避免与 PointerLock 四元数互转时出现 roll（侧身）。
+   * 用 YXZ 欧拉读写视角。探头时保留少量 roll；其余时候清掉漂移侧倾。
    */
   stabilizeLook() {
     const cam = this.camera;
     const e = this._lookEuler;
     e.setFromQuaternion(cam.quaternion, "YXZ");
-    e.z = 0;
+    const leanRoll = (this.player?.leanAmount || 0) * 0.16;
+    e.z = leanRoll;
     const lim = Math.PI / 2 - 0.05;
     e.x = THREE.MathUtils.clamp(e.x, -lim, lim);
     cam.quaternion.setFromEuler(e);
-    cam.rotation.set(e.x, e.y, 0, "YXZ");
+    cam.rotation.set(e.x, e.y, e.z, "YXZ");
   }
 
-  /** 后坐/回落：只改俯仰，不引入侧倾 */
+  /** 后坐/回落：只改俯仰，保留当前探头侧倾 */
   applyLookPitch(delta) {
     const cam = this.camera;
     const e = this._lookEuler;
     e.setFromQuaternion(cam.quaternion, "YXZ");
-    e.z = 0;
+    const leanRoll = (this.player?.leanAmount || 0) * 0.16;
+    e.z = leanRoll;
     e.x += delta;
     const lim = Math.PI / 2 - 0.05;
     e.x = THREE.MathUtils.clamp(e.x, -lim, lim);
     cam.quaternion.setFromEuler(e);
-    cam.rotation.set(e.x, e.y, 0, "YXZ");
+    cam.rotation.set(e.x, e.y, e.z, "YXZ");
+  }
+
+  /** H：吹号求助，红方队友清掩体、向玩家靠拢并优先攻击附近蓝方 */
+  callForHelp() {
+    const now = performance.now();
+    this._helpUntil = now + 14000;
+    this.sfx.horn?.();
+    this.hud.toast?.("呼叫支援！队友正在赶来");
+    const player = this.player;
+    let focus = null;
+    let focusDist = 42;
+    for (const e of this.enemies) {
+      if (!e.alive || e.gone || e.team !== "blue") continue;
+      const d = e.position.distanceTo(player.position);
+      if (d < focusDist) {
+        focusDist = d;
+        focus = e;
+      }
+    }
+    for (const e of this.enemies) {
+      if (!e.alive || e.gone || e.team !== "red") continue;
+      e.respondToHelp?.(player, focus, now + 14000);
+    }
   }
 
   fireRay(origin, baseDir, spread, range, damage) {
@@ -340,7 +365,7 @@ export class Game {
 
     const traceDist = blocked
       ? wallDist
-      : enemyHit?.distance ?? Math.min(55, range);
+      : enemyHit?.distance ?? range;
     this.spawnTracer(origin, dir, traceDist, { team: "player" });
     return hitSomething;
   }
@@ -398,7 +423,9 @@ export class Game {
   /** 多条弹道可并存：玩家黄、我方红、敌方蓝；对象池复用 */
   spawnTracer(origin, dir, dist, opts = {}) {
     const team = opts.team || (opts.enemy ? "blue" : "player");
-    const cap = team === "player" ? 55 : 70;
+    // 弹道可视长度跟真实射程走，避免 AK 远射「打到了但曳光提前断」的错觉
+    const weaponRange = this.loadout?.def?.range ?? 85;
+    const cap = team === "player" ? Math.max(90, weaponRange) : 90;
     const len = Math.min(Math.max(dist, 0.05), cap);
     const end = origin.clone().addScaledVector(dir, len);
     const color = team === "blue" ? 0x4fc3f7 : team === "red" ? 0xff6655 : 0xe8d48a;
@@ -460,6 +487,9 @@ export class Game {
       updateArsenalReloads(this.arsenal, now);
       if (this.player.consumeReloadRequest()) {
         tryReload(this.loadout, now, this.sfx);
+      }
+      if (this.player.consumeHelpRequest?.()) {
+        this.callForHelp();
       }
       // 空仓自动换弹
       if (!this.loadout.reloading && this.loadout.mag <= 0 && this.loadout.reserve > 0) {

@@ -165,6 +165,26 @@ export const VARIANTS = {
     bulk: 1.06,
     scale: 1.025,
   },
+  // Player fireteam — cooler blue-grey read so they don't look like hostiles.
+  ally: {
+    camo: 'urban',
+    clothTint: [0.86, 0.92, 1.08],
+    gearTint: [0.55, 0.72, 0.98],
+    plateTint: [0.70, 0.80, 0.96],
+    skinTint: [1.02, 0.96, 0.90],
+    helmet: true,
+    helmetCover: true,
+    helmetTint: [0.45, 0.55, 0.72],
+    goggles: true,
+    gogglesDown: false,
+    faceWrap: false,
+    beard: false,
+    kneePads: true,
+    fullCarrier: true,
+    weapon: 'carbine',
+    bulk: 1.0,
+    scale: 1.0,
+  },
 };
 
 const bp = (name) => {
