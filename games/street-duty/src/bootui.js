@@ -33,7 +33,7 @@ export function createBootUi() {
       <div class="boot-bar"><i id="boot-bar"></i></div>
       <div class="boot-meta" id="boot-meta">画质自适应中</div>
       <button type="button" class="boot-start" id="boot-start" hidden>点击进入街区</button>
-      <div class="boot-hint">WASD 移动 · Q/E 探头 · Z 下蹲 · Shift 冲刺 · 鼠标射击</div>
+      <div class="boot-hint">WASD 移动 · Q/E 探头 · Z 下蹲 · 2 名队友协同 · 鼠标射击</div>
     </div>
   `;
   const status = root.querySelector('#boot-status');

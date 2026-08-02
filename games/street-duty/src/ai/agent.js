@@ -110,7 +110,7 @@ export class Agent {
     this.mesh.frustumCulled = true;
     this.mesh.userData.agent = this;
     this.group = new THREE.Group();
-    this.group.name = `enemy${this.id}`;
+    this.group.name = (opts.team === 0 ? 'ally' : 'enemy') + this.id;
     this.group.add(root);
     this.group.add(this.mesh);
     this.mesh.bind(skeleton);
@@ -173,22 +173,25 @@ export class Agent {
     }
 
     /* ---------------- stats ---------------- */
-    this.health = 100;
-    this.maxHealth = 100;
+    this.team = opts.team ?? 1;
+    this.isAlly = this.team === 0;
+    this.allySlot = opts.allySlot ?? 0; // -1 left / +1 right of player
+    this.health = this.isAlly ? 130 : 100;
+    this.maxHealth = this.health;
     this.alive = true;
     this.state = STATE.IDLE;
     this.stateTime = 0;
     this.squad = opts.squad ?? null;
-    this.team = opts.team ?? 1;
 
     /* ---------------- perception ---------------- */
     this.eyeHeight = RIG.eyeHeight * this.scale;
-    this.viewRange = 58;
+    this.viewRange = this.isAlly ? 52 : 58;
     this.viewCos = Math.cos((100 * Math.PI) / 180 / 2);
     this.awareness = 0; // 0..1 build-up before the target is acknowledged
     this.hasTarget = false;
     this.targetVisible = false;
     this.target = null;
+    this.targetAgent = null; // hostile Agent when team === 0
     this.lastKnown = new THREE.Vector3();
     this.lastKnownAge = Infinity;
     this.searchPoint = new THREE.Vector3();
@@ -291,6 +294,10 @@ export class Agent {
   /* ================================================================== */
 
   _sense(dt) {
+    if (this.isAlly) {
+      this._senseHostiles(dt);
+      return;
+    }
     const player = this.ai.playerPosition(this._v3);
     if (!player) return;
     const eye = this.eye;
@@ -319,10 +326,77 @@ export class Agent {
       if (this.awareness >= 1) {
         this.hasTarget = true;
         this.target = player;
+        this.targetAgent = null;
       }
     } else {
       this.awareness = Math.max(0, this.awareness - dt * 0.35);
-      if (this.hasTarget && this.lastKnownAge > 6.5) this.hasTarget = false;
+      if (this.hasTarget && this.lastKnownAge > 6.5) {
+        this.hasTarget = false;
+        this.targetAgent = null;
+      }
+    }
+  }
+
+  /** Allies scan hostile agents (team !== 0) instead of the player. */
+  _senseHostiles(dt) {
+    const eye = this.eye;
+    const fwd = this._v2.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+    let best = null;
+    let bestDist = Infinity;
+    let bestPos = null;
+
+    for (const o of this.ai.agents) {
+      if (!o || o === this || !o.alive || o.team === this.team) continue;
+      const chestY = o.position.y + o.eyeHeight * 0.55;
+      const dx = o.position.x - eye.x;
+      const dy = chestY - eye.y;
+      const dz = o.position.z - eye.z;
+      const dist = Math.hypot(dx, dy, dz);
+      if (dist > this.viewRange || dist < 0.4) continue;
+      const inv = 1 / dist;
+      const dot = fwd.x * dx * inv + fwd.z * dz * inv;
+      const cone = this.hasTarget ? -0.25 : this.viewCos - this.alertness * 0.25;
+      if (dot < cone && dist > 5) continue;
+      this._v.set(o.position.x, chestY, o.position.z);
+      const visible = this.phys
+        ? this.phys.lineOfSight(eye, this._v, this.phys.MASK.SIGHT)
+        : true;
+      if (!visible) continue;
+      // Prefer enemies near the player so the fireteam fights with you.
+      const player = this.ai.playerPosition(this._v3);
+      const nearPlayer = player ? o.position.distanceTo(player) : 20;
+      const score = dist + nearPlayer * 0.35;
+      if (score < bestDist) {
+        bestDist = score;
+        best = o;
+        bestPos = this._dir.set(o.position.x, chestY, o.position.z).clone();
+      }
+    }
+
+    if (best && bestPos) {
+      const dist = eye.distanceTo(bestPos);
+      const rate = 1 / Math.max(0.1, 0.12 + dist * 0.006);
+      this.awareness = Math.min(1, this.awareness + dt * rate);
+      this.lastKnown.copy(bestPos);
+      this.lastKnownAge = 0;
+      this.alertness = 1;
+      this.targetVisible = true;
+      if (this.awareness >= 0.85) {
+        this.hasTarget = true;
+        this.target = bestPos;
+        this.targetAgent = best;
+      }
+    } else {
+      this.targetVisible = false;
+      this.awareness = Math.max(0, this.awareness - dt * 0.4);
+      if (this.targetAgent && !this.targetAgent.alive) {
+        this.hasTarget = false;
+        this.targetAgent = null;
+      }
+      if (this.hasTarget && this.lastKnownAge > 5.5) {
+        this.hasTarget = false;
+        this.targetAgent = null;
+      }
     }
   }
 
@@ -364,19 +438,28 @@ export class Agent {
     const sq = this.squad;
     switch (this.state) {
       case STATE.IDLE:
-        this.desiredSpeed = 0;
         this.crouch = false;
-        if (this.hasTarget) this._enterCombat();
-        else if (this.patrolPoints && this.stateTime > 2.5) this._setState(STATE.PATROL);
+        if (this.hasTarget) {
+          this._enterCombat();
+        } else if (this.isAlly) {
+          this._followPlayer(dt);
+        } else {
+          this.desiredSpeed = 0;
+          if (this.patrolPoints && this.stateTime > 2.5) this._setState(STATE.PATROL);
+        }
         break;
 
       case STATE.PATROL: {
         this.crouch = false;
-        this.desiredSpeed = 1.35;
         if (this.hasTarget) {
           this._enterCombat();
           break;
         }
+        if (this.isAlly) {
+          this._followPlayer(dt);
+          break;
+        }
+        this.desiredSpeed = 1.35;
         // a route point whose path is still queued is not a route point reached:
         // taking the next one here would walk the patrol index forward for free
         if (this.pathPending) break;
@@ -392,11 +475,17 @@ export class Agent {
 
       case STATE.ALERT: {
         this.crouch = false;
-        this.desiredSpeed = 1.5;
         if (this.hasTarget) {
           this._enterCombat();
           break;
         }
+        if (this.isAlly) {
+          // After a fight, rejoin the player instead of camping last-known.
+          this._followPlayer(dt);
+          if (this.stateTime > 4) this._setState(STATE.IDLE);
+          break;
+        }
+        this.desiredSpeed = 1.5;
         // move to the last known position, then look around
         if (this.lastKnownAge < 8 && !this.hasMoveTarget) this._goTo(this.lastKnown);
         if (this.stateTime > 12) this._setState(this.patrolPoints ? STATE.PATROL : STATE.IDLE);
@@ -448,6 +537,36 @@ export class Agent {
     this._setState(STATE.COMBAT);
     this.cover = null;
     this.repathTimer = 0;
+  }
+
+  /** Keep a lateral slot behind the player when not fighting. */
+  _followPlayer(dt) {
+    const player = this.ai.playerPosition(this._v3);
+    if (!player) {
+      this.desiredSpeed = 0;
+      return;
+    }
+    const pSys = this.ctx.peek('player');
+    const yaw = pSys?.movement?.yaw ?? pSys?.yaw ?? this.yaw;
+    const fx = -Math.sin(yaw);
+    const fz = -Math.cos(yaw);
+    const rx = Math.cos(yaw);
+    const rz = -Math.sin(yaw);
+    const side = this.allySlot || 1;
+    const sx = player.x + fx * -2.6 + rx * side * 2.1;
+    const sz = player.z + fz * -2.6 + rz * side * 2.1;
+    const dist = Math.hypot(this.position.x - sx, this.position.z - sz);
+    if (dist < 1.4) {
+      this.desiredSpeed = 0;
+      this.hasMoveTarget = false;
+      this.targetYaw = yaw;
+      return;
+    }
+    this.desiredSpeed = dist > 8 ? 4.2 : dist > 4 ? 2.8 : 1.6;
+    if (!this.pathPending && (this._followRepath = (this._followRepath ?? 0) - dt) <= 0) {
+      this._followRepath = 0.55;
+      this._goTo(this._v.set(sx, player.y, sz));
+    }
   }
 
   _combat(dt) {

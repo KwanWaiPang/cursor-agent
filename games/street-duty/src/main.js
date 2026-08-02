@@ -18,7 +18,7 @@ import { AudioSystem } from './audio/index.js';
 import { installShotApi } from './dev/shots.js';
 import { prewarm } from './core/prewarm.js';
 import { createBootUi } from './bootui.js';
-import { spawnAssaultWave, installAssaultDirector } from './playstart.js';
+import { spawnAssaultWave, spawnAllyFireteam, installAssaultDirector } from './playstart.js';
 
 const params = new URLSearchParams(location.search);
 const capture = params.get('capture') === '1';
@@ -142,6 +142,7 @@ const enter = () => {
       q === 'low' ? { n: 2, minD: 12, maxD: 20, minAlive: 1, waveSize: 2, cooldown: 18 }
         : q === 'medium' ? { n: 3, minD: 12, maxD: 22, minAlive: 2, waveSize: 2, cooldown: 14 }
           : { n: 5, minD: 11, maxD: 24, minAlive: 3, waveSize: 3, cooldown: 11 };
+    spawnAllyFireteam(engine, 2);
     spawnAssaultWave(engine, wave.n, wave.minD, wave.maxD);
     stopDirector = installAssaultDirector(engine, {
       minAlive: wave.minAlive,
