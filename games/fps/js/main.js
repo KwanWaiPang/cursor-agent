@@ -53,10 +53,13 @@ function quitToMenu() {
     game.dispose();
     game = null;
   }
+  window.__FPS_GAME__ = null;
   hide(pause);
   hide(result);
   show(menu);
 }
+
+window.__FPS_START__ = start;
 
 document.querySelectorAll(".mode-card").forEach((btn) => {
   btn.addEventListener("click", () => start(btn.dataset.mode));
