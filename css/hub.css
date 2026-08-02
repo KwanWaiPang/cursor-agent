@@ -38,6 +38,14 @@
   background: radial-gradient(circle, rgba(90, 107, 58, 0.22), transparent 65%);
 }
 
+.game-card-street .mark {
+  color: #6b4a2e;
+}
+
+.game-card-street::before {
+  background: radial-gradient(circle, rgba(107, 74, 46, 0.24), transparent 65%);
+}
+
 .game-card {
   position: relative;
   display: grid;

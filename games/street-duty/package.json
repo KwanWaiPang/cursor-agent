@@ -1,0 +1,21 @@
+{
+  "name": "street-duty",
+  "version": "1.0.0",
+  "description": "街战突击 — hub port of mshumer/Claude-of-Duty (MIT)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "shot": "node tools/capture.mjs"
+  },
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "vite": "^7.3.6"
+  },
+  "private": true
+}

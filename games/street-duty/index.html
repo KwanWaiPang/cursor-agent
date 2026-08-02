@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>街战突击 · 游戏馆</title>
+    <meta
+      name="description"
+      content="街战突击：基于 Claude-of-Duty 的全程序化 Three.js 第一人称射击，进入市场街区作战。"
+    />
+    <style>
+      :root { color-scheme: dark; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+      body {
+        font-family: "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      #game { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: none; }
+      #hub-back {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 10000;
+        padding: 8px 12px;
+        font: 600 13px/1 "Noto Sans SC", sans-serif;
+        letter-spacing: 0.04em;
+        color: #e8e2d4;
+        text-decoration: none;
+        background: rgba(8, 10, 12, 0.72);
+        border: 1px solid rgba(232, 226, 212, 0.28);
+        backdrop-filter: blur(6px);
+        pointer-events: auto;
+        cursor: pointer;
+      }
+      #hub-back:hover { color: #fff; border-color: rgba(232, 226, 212, 0.55); }
+      #boot-hint {
+        position: fixed;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        z-index: 9998;
+        max-width: min(92vw, 520px);
+        padding: 10px 14px;
+        text-align: center;
+        font: 400 13px/1.45 "Noto Sans SC", sans-serif;
+        color: rgba(232, 226, 212, 0.88);
+        background: rgba(8, 10, 12, 0.55);
+        border: 1px solid rgba(232, 226, 212, 0.18);
+        pointer-events: none;
+        transition: opacity 0.4s ease;
+      }
+      body.is-locked #boot-hint,
+      body.is-locked #hub-back { opacity: 0; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <a id="hub-back" href="../../">← 游戏馆</a>
+    <canvas id="game"></canvas>
+    <div id="ui"></div>
+    <p id="boot-hint">点击画面锁定鼠标开玩 · WASD 移动 · 鼠标瞄准 · 左键射击 · 右键开镜 · R 换弹 · Esc 暂停</p>
+    <script type="module" src="/src/main.js"></script>
+    <script>
+      // Hide hub chrome while pointer is locked so it never steals clicks mid-fight.
+      document.addEventListener('pointerlockchange', () => {
+        document.body.classList.toggle('is-locked', !!document.pointerLockElement);
+      });
+    </script>
+  </body>
+</html>
