@@ -1,6 +1,6 @@
 /**
  * Central tuning + quality configuration.
- * Subsystems read from here rather than hardcoding magic numbers, so the
+ * Subsystems read from this rather than hardcoding magic numbers, so the
  * quality scaler and the capture harness can drive everything from one place.
  */
 
@@ -18,59 +18,67 @@ export const UNITS = {
   eyeOffset: 0.12, // below top of capsule
 };
 
+/**
+ * Hub presets are tuned for browser GPUs. Official Claude-of-Duty defaults are
+ * heavier (especially high/ultra); we keep the look but cut the costliest extras
+ * that dominate frame time on typical laptops.
+ */
 export const QUALITY_PRESETS = {
   low: {
-    renderScale: 0.72,
+    renderScale: 0.65,
+    maxPixelRatio: 1.0,
     shadowMapSize: 1024,
-    cascades: 3,
-    shadowDistance: 60,
+    cascades: 2,
+    shadowDistance: 50,
     taa: false,
     gtao: false,
     ssr: false,
     volumetrics: false,
     motionBlur: false,
     bloom: true,
-    anisotropy: 4,
-    particleBudget: 2000,
-    decalBudget: 64,
+    anisotropy: 2,
+    particleBudget: 1200,
+    decalBudget: 48,
   },
   medium: {
-    renderScale: 0.85,
+    renderScale: 0.78,
+    maxPixelRatio: 1.15,
+    shadowMapSize: 1024,
+    cascades: 3,
+    shadowDistance: 70,
+    taa: true,
+    gtao: false,
+    ssr: false,
+    volumetrics: false,
+    motionBlur: false,
+    bloom: true,
+    anisotropy: 4,
+    particleBudget: 3500,
+    decalBudget: 96,
+  },
+  high: {
+    renderScale: 0.9,
+    maxPixelRatio: 1.25,
     shadowMapSize: 2048,
     cascades: 3,
-    shadowDistance: 90,
+    shadowDistance: 100,
     taa: true,
     gtao: true,
     ssr: false,
     volumetrics: true,
-    motionBlur: true,
+    motionBlur: false,
     bloom: true,
     anisotropy: 8,
-    particleBudget: 6000,
-    decalBudget: 128,
-  },
-  high: {
-    renderScale: 1.0,
-    shadowMapSize: 2048,
-    cascades: 4,
-    shadowDistance: 140,
-    taa: true,
-    gtao: true,
-    ssr: true,
-    volumetrics: true,
-    motionBlur: true,
-    bloom: true,
-    anisotropy: 16,
-    particleBudget: 12000,
-    decalBudget: 256,
+    particleBudget: 7000,
+    decalBudget: 160,
   },
   ultra: {
     renderScale: 1.0,
-    // Cap at 2048 for the web hub: 4096 CSM arrays routinely freeze weaker GPUs
-    // into a black, unresponsive tab during first compile (verified in play smoke).
+    maxPixelRatio: 1.5,
+    // Cap at 2048 for the web hub: 4096 CSM arrays routinely freeze weaker GPUs.
     shadowMapSize: 2048,
     cascades: 4,
-    shadowDistance: 200,
+    shadowDistance: 160,
     taa: true,
     gtao: true,
     ssr: true,
@@ -78,14 +86,14 @@ export const QUALITY_PRESETS = {
     motionBlur: true,
     bloom: true,
     anisotropy: 16,
-    particleBudget: 24000,
-    decalBudget: 512,
+    particleBudget: 14000,
+    decalBudget: 256,
   },
 };
 
 export const DEFAULTS = {
-  // Hub default matches official demo look; main.js may override via detect / ?q=
-  quality: 'high',
+  // Safer hub default; detectQuality() may raise/lower. Use ?q=ultra for max.
+  quality: 'medium',
   fov: 80, // horizontal-ish vertical FOV, CoD default feel
   adsFovScale: 0.72,
   sensitivity: 0.0022,

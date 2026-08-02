@@ -1,6 +1,7 @@
 import { Engine } from './core/engine.js';
 import { createConfig } from './core/config.js';
 import { resolveQuality, shouldPrewarm } from './core/quality.js';
+import { installAdaptiveQuality } from './core/adaptive.js';
 
 import { RenderSystem } from './render/index.js';
 import { MaterialSystem } from './materials/index.js';
@@ -126,6 +127,7 @@ window.__ENGINE__ = engine;
 // Hub UX: require an explicit click so users know load finished, and so the
 // browser gesture can acquire pointer lock (needed for look / feel playable).
 let stopDirector = null;
+let stopAdaptive = null;
 const enter = () => {
   boot.hide();
   document.getElementById('boot-hint')?.remove();
@@ -133,9 +135,20 @@ const enter = () => {
   document.body.classList.add('is-playing');
   // Official demo-driver stages enemies in front of the camera. Mirror that for
   // normal hub play so the street is not an empty walk to the distant garrison.
+  // Scale wave size with quality so medium/low stay playable on laptop GPUs.
   if (!capture) {
-    spawnAssaultWave(engine, 6, 11, 24);
-    stopDirector = installAssaultDirector(engine, { minAlive: 3, waveSize: 4, cooldown: 10 });
+    const q = config.quality;
+    const wave =
+      q === 'low' ? { n: 3, minD: 12, maxD: 22, minAlive: 1, waveSize: 2, cooldown: 16 }
+        : q === 'medium' ? { n: 4, minD: 12, maxD: 24, minAlive: 2, waveSize: 3, cooldown: 13 }
+          : { n: 6, minD: 11, maxD: 24, minAlive: 3, waveSize: 4, cooldown: 10 };
+    spawnAssaultWave(engine, wave.n, wave.minD, wave.maxD);
+    stopDirector = installAssaultDirector(engine, {
+      minAlive: wave.minAlive,
+      waveSize: wave.waveSize,
+      cooldown: wave.cooldown,
+    });
+    stopAdaptive = installAdaptiveQuality(engine);
   }
 };
 
@@ -149,6 +162,7 @@ if (capture) {
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     stopDirector?.();
+    stopAdaptive?.();
     engine.dispose();
   });
 }

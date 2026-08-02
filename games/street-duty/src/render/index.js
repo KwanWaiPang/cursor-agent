@@ -866,7 +866,8 @@ export class RenderSystem {
   // ==========================================================================
 
   resize(w, h, ctx) {
-    const pr = Math.min(globalThis.devicePixelRatio || 1, 1.5);
+    const cap = this.q?.maxPixelRatio ?? 1.25;
+    const pr = Math.min(globalThis.devicePixelRatio || 1, cap);
     this.renderer.setPixelRatio(pr);
     this.renderer.setSize(w, h, false);
 
