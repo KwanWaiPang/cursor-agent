@@ -22,6 +22,13 @@ Pages 工作流会在部署前自动构建，并把 `dist/` 内容放到站点�
 
 ## 操作
 
-点击画面锁定鼠标。WASD 移动，鼠标瞄准，左键射击，右键开镜，R 换弹，Shift 冲刺，Ctrl 蹲下，空格跳跃，Q/E 侧身，Esc 暂停。
+等待加载条完成后点「点击进入街区」锁定鼠标。WASD 移动，鼠标瞄准，左键射击，右键开镜，R 换弹，Shift 冲刺，Ctrl 蹲下，空格跳跃，Q/E 侧身，Esc 暂停。
+
+## 画质
+
+默认按设备自动选择（通常 `medium` / 弱设备 `low`），**不再默认 ultra**，避免弱 GPU 长时间黑屏卡死。可用 URL 强制：
+
+- `?q=low` / `?q=medium` / `?q=high` / `?q=ultra`
+- `?prewarm=0` 跳过着色器预热（更快进游戏，但可能首战卡顿）
 
 原作者说明与架构见同目录 `README.md`、`ARCHITECTURE.md`。许可见 `LICENSE`。

@@ -6,15 +6,19 @@
     <title>街战突击 · 游戏馆</title>
     <meta
       name="description"
-      content="街战突击：基于 Claude-of-Duty 的全程序化 Three.js 第一人称射击，进入市场街区作战。"
+      content="街战突击：参照 Claude-of-Duty 的全程序化 Three.js 第一人称射击，本地完整实现。"
     />
     <style>
       :root { color-scheme: dark; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #07090c; }
       body {
         font-family: "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
+        background:
+          radial-gradient(120% 80% at 50% 0%, rgba(120, 90, 40, 0.22), transparent 55%),
+          radial-gradient(90% 70% at 80% 100%, rgba(40, 70, 90, 0.2), transparent 50%),
+          #07090c;
       }
       #game { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: none; }
       #hub-back {
@@ -34,34 +38,69 @@
         cursor: pointer;
       }
       #hub-back:hover { color: #fff; border-color: rgba(232, 226, 212, 0.55); }
-      #boot-hint {
+      body.is-playing #hub-back,
+      body.is-locked #hub-back { opacity: 0; pointer-events: none; }
+
+      #boot {
         position: fixed;
-        left: 50%;
-        bottom: 18px;
-        transform: translateX(-50%);
-        z-index: 9998;
-        max-width: min(92vw, 520px);
-        padding: 10px 14px;
-        text-align: center;
-        font: 400 13px/1.45 "Noto Sans SC", sans-serif;
-        color: rgba(232, 226, 212, 0.88);
-        background: rgba(8, 10, 12, 0.55);
-        border: 1px solid rgba(232, 226, 212, 0.18);
-        pointer-events: none;
+        inset: 0;
+        z-index: 9990;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(80% 60% at 50% 40%, rgba(20, 24, 28, 0.55), rgba(7, 9, 12, 0.92));
         transition: opacity 0.4s ease;
       }
-      body.is-locked #boot-hint,
-      body.is-locked #hub-back { opacity: 0; pointer-events: none; }
+      #boot.is-done { opacity: 0; pointer-events: none; }
+      .boot-card {
+        width: min(92vw, 420px);
+        padding: 28px 26px 22px;
+        color: #e8e2d4;
+        text-align: center;
+      }
+      .boot-brand {
+        font-size: clamp(2rem, 6vw, 2.8rem);
+        letter-spacing: 0.18em;
+        font-weight: 600;
+        margin-bottom: 18px;
+      }
+      .boot-status { font-size: 14px; opacity: 0.92; margin-bottom: 12px; }
+      .boot-bar {
+        height: 4px;
+        background: rgba(232, 226, 212, 0.15);
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+      .boot-bar > i {
+        display: block;
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #c4a35a, #e8e2d4);
+        transition: width 0.2s ease;
+      }
+      .boot-meta { font-size: 12px; opacity: 0.65; margin-bottom: 18px; }
+      .boot-start {
+        appearance: none;
+        border: 1px solid rgba(232, 226, 212, 0.45);
+        background: rgba(232, 226, 212, 0.08);
+        color: #e8e2d4;
+        font: 600 14px/1 "Noto Sans SC", sans-serif;
+        letter-spacing: 0.08em;
+        padding: 12px 22px;
+        cursor: pointer;
+      }
+      .boot-start:hover { background: rgba(232, 226, 212, 0.16); }
+      .boot-start:disabled { opacity: 0.5; cursor: wait; }
+      .boot-hint { margin-top: 14px; font-size: 11px; opacity: 0.5; }
     </style>
   </head>
   <body>
     <a id="hub-back" href="../../">← 游戏馆</a>
     <canvas id="game"></canvas>
     <div id="ui"></div>
-    <p id="boot-hint">点击画面锁定鼠标开玩 · WASD 移动 · 鼠标瞄准 · 左键射击 · 右键开镜 · R 换弹 · Esc 暂停</p>
+    <div id="boot" aria-live="polite"></div>
     <script type="module" src="/src/main.js"></script>
     <script>
-      // Hide hub chrome while pointer is locked so it never steals clicks mid-fight.
       document.addEventListener('pointerlockchange', () => {
         document.body.classList.toggle('is-locked', !!document.pointerLockElement);
       });
