@@ -368,14 +368,29 @@ export class Movement {
     if (this.sliding) {
       this.stanceWant = 'crouch';
     } else {
-      if (cmd.crouchPressed) {
-        this.stanceWant = this.stanceWant === 'crouch' ? 'stand' : 'crouch';
-      }
+      // Hold-to-crouch (Ctrl / C): reliable for taking cover. Edge `crouchPressed`
+      // while sprinting still starts a slide in `_updateSlide`.
+      const crouchHeld = this.ctx.input.action('crouch');
       if (cmd.pronePressed) {
         this.stanceWant = this.stanceWant === 'prone' ? 'crouch' : 'prone';
+      } else if (this.stanceWant === 'prone') {
+        if (cmd.jump || (cmd.sprintHeld && rawInput > 0.5 && cmd.moveY > 0.5)) {
+          this.stanceWant = 'stand';
+        }
+      } else if (crouchHeld) {
+        // Crouch wins while held so you can duck into cover even with Shift still down.
+        this.stanceWant = 'crouch';
+      } else {
+        this.stanceWant = 'stand';
       }
-      // Sprinting always stands you up — CoD does not let you sprint crouched.
-      if (cmd.sprintHeld && rawInput > 0.5 && this.stanceWant !== 'stand' && cmd.moveY > 0.5) {
+      // Without crouch held, sprinting stands you up — CoD does not sprint crouched.
+      if (
+        !crouchHeld &&
+        cmd.sprintHeld &&
+        rawInput > 0.5 &&
+        this.stanceWant !== 'stand' &&
+        cmd.moveY > 0.5
+      ) {
         this.stanceWant = 'stand';
       }
       if (cmd.jump && this.stanceWant !== 'stand') this.stanceWant = 'stand';

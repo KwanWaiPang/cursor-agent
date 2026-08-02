@@ -12,7 +12,8 @@ export const ACTIONS = {
   left: ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
   jump: ['Space'],
-  crouch: ['ControlLeft', 'KeyC'],
+  // Ctrl / C — hold to crouch (cover). Right Ctrl included for completeness.
+  crouch: ['ControlLeft', 'ControlRight', 'KeyC'],
   prone: ['KeyZ'],
   sprint: ['ShiftLeft'],
   reload: ['KeyR'],
@@ -104,13 +105,22 @@ export class Input {
   _onKeyDown(e) {
     if (!this.enabled) return;
     if (e.repeat) return;
-    // Let devtools/refresh through; swallow everything else the game binds.
-    if (!e.metaKey && !e.ctrlKey) e.preventDefault();
+    // Allow browser/OS chords with Meta; keep F5/F12 for refresh/devtools.
+    // Important: do NOT skip preventDefault just because ctrlKey is set —
+    // otherwise Ctrl (crouch) is swallowed by the browser and never reaches us
+    // consistently under pointer lock.
+    if (e.metaKey) return;
+    if (e.code === 'F5' || e.code === 'F12' || e.code === 'F11') return;
+    e.preventDefault();
     this._pendingDown.add(e.code);
   }
 
   _onKeyUp(e) {
     if (!this.enabled) return;
+    if (e.metaKey) return;
+    if (e.code === 'F5' || e.code === 'F12' || e.code === 'F11') return;
+    // Mirror keydown: always preventDefault for Ctrl release too.
+    e.preventDefault();
     this._pendingUp.add(e.code);
   }
 

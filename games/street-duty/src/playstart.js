@@ -60,10 +60,22 @@ export function spawnAssaultWave(engine, n = 5, minD = 12, maxD = 26) {
  * Keep pressure on: if the street goes quiet, drop another wave.
  * Call once after enter; it self-schedules via the engine event/update loop.
  */
-export function installAssaultDirector(engine, { minAlive = 3, waveSize = 4, cooldown = 8 } = {}) {
+export function installAssaultDirector(engine, { minAlive = 2, waveSize = 3, cooldown = 12 } = {}) {
   const ai = engine.ctx.peek('ai');
   if (!ai) return () => {};
-  let cool = 1.5; // first reinforce shortly after enter
+  // Scale pressure down on low/medium so AI + particles don't tank the GPU.
+  const q = engine.config?.quality || 'medium';
+  if (q === 'low') {
+    minAlive = 1;
+    waveSize = 2;
+    cooldown = 16;
+  } else if (q === 'medium') {
+    minAlive = 2;
+    waveSize = 3;
+    cooldown = 13;
+  }
+  const hardCap = q === 'low' ? 6 : q === 'medium' ? 10 : 14;
+  let cool = 2.0;
   const onUpdate = (dt) => {
     cool -= dt;
     if (cool > 0) return;
@@ -72,19 +84,14 @@ export function installAssaultDirector(engine, { minAlive = 3, waveSize = 4, coo
       cool = 1.0;
       return;
     }
+    // Hard cap living AI for hub playability.
+    if ((ai.agents || []).length >= hardCap) {
+      cool = cooldown;
+      return;
+    }
     spawnAssaultWave(engine, waveSize, 14, 28);
     cool = cooldown;
   };
-  // Prefer registry update hook if present; else patch via events.
-  const off = engine.events.on?.('frame', () => {}) || null;
-  const prev = engine._assaultDirector;
-  if (prev) engine.events.off?.('tick', prev);
-  const tick = () => onUpdate(engine.time?.dt || 0.016);
-  // Use rAF-side check from a light interval tied to engine updates:
-  const wrapped = (dt, ctx) => {
-    // no-op placeholder — we hook engine.events if available
-  };
-  let acc = 0;
   const id = setInterval(() => {
     if (!engine._running) return;
     onUpdate(0.25);
