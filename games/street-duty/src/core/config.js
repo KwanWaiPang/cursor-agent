@@ -66,7 +66,9 @@ export const QUALITY_PRESETS = {
   },
   ultra: {
     renderScale: 1.0,
-    shadowMapSize: 4096,
+    // Cap at 2048 for the web hub: 4096 CSM arrays routinely freeze weaker GPUs
+    // into a black, unresponsive tab during first compile (verified in play smoke).
+    shadowMapSize: 2048,
     cascades: 4,
     shadowDistance: 200,
     taa: true,
@@ -82,7 +84,8 @@ export const QUALITY_PRESETS = {
 };
 
 export const DEFAULTS = {
-  quality: 'ultra',
+  // Hub default is medium; main.js may override via detectQuality() / ?q=
+  quality: 'medium',
   fov: 80, // horizontal-ish vertical FOV, CoD default feel
   adsFovScale: 0.72,
   sensitivity: 0.0022,

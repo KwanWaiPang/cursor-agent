@@ -1,5 +1,6 @@
 import { Engine } from './core/engine.js';
 import { createConfig } from './core/config.js';
+import { resolveQuality, shouldPrewarm } from './core/quality.js';
 
 import { RenderSystem } from './render/index.js';
 import { MaterialSystem } from './materials/index.js';
@@ -15,6 +16,7 @@ import { AudioSystem } from './audio/index.js';
 
 import { installShotApi } from './dev/shots.js';
 import { prewarm } from './core/prewarm.js';
+import { createBootUi } from './bootui.js';
 
 const params = new URLSearchParams(location.search);
 const capture = params.get('capture') === '1';
@@ -24,8 +26,12 @@ const capture = params.get('capture') === '1';
 // free-run. See the long comment in src/dev/shots.js.
 const lockstep = capture && params.get('lockstep') === '1';
 
+const boot = createBootUi();
+const picked = resolveQuality(location.search);
+boot.setPhase('init', 'render', 0.02, `画质 ${picked.quality}（${picked.source === 'query' ? 'URL' : '自动'}）`);
+
 const config = createConfig({
-  quality: params.get('q') ?? 'ultra',
+  quality: picked.quality,
   deterministic: capture,
 });
 
@@ -48,9 +54,15 @@ engine
   .add(AudioSystem);
 
 try {
-  await engine.init();
+  await engine.init({
+    onProgress: ({ id, ratio }) => {
+      // Init is ~70% of the visible bar; prewarm takes the rest when enabled.
+      boot.setPhase('init', id, 0.05 + ratio * 0.65, `画质 ${config.quality}`);
+    },
+  });
 } catch (err) {
   console.error('[boot] init failed', err);
+  boot.fail(err);
   document.body.insertAdjacentHTML(
     'beforeend',
     `<pre style="position:fixed;inset:0;padding:2rem;color:#f66;background:#000;
@@ -66,19 +78,20 @@ const shotApi = installShotApi(engine, { capture, lockstep });
 // this, 86 programs compile lazily during play, up to 30 on one frame, producing
 // 3.1-3.9 SECOND stalls. See src/core/prewarm.js.
 //
-// ON BY DEFAULT since the capture path was made frame-deterministic; opt out with
-// `?prewarm=0`. It is now PROVEN pixel-neutral: `tools/baseline.mjs` with
-// `--query=prewarm=0` vs `--query=prewarm=1` reports identical:true on all 11
-// shots (0 changed pixels, maxDelta 0). The two things that previously made the
-// ~1.4 s pre-warm spend look like a visual change were both boot-duration
-// couplings OUTSIDE the subsystems: (1) the shutter frame index was latency-bound
-// because the engine kept stepping through the driver's round trips — fixed by
-// lockstep in src/dev/shots.js; (2) `will-change: transform` on the compass strip
-// cached a composited-layer raster taken at a wall-clock-dependent moment — fixed
-// in src/ui/style.js.
-const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);
-console.info('[boot] prewarm', warmup);
+// Hub: skip on low (fast first paint); keep for medium+ unless ?prewarm=0.
+const doPrewarm = shouldPrewarm(config.quality, location.search);
+let warmup;
+if (!doPrewarm) {
+  warmup = { ok: false, reason: 'disabled for hub quality / ?prewarm=0' };
+} else {
+  boot.setPhase('prewarm', 'prewarm', 0.72, `画质 ${config.quality}`);
+  warmup = await prewarm(engine, {
+    onProgress: (r) => boot.setPhase('prewarm', 'prewarm', 0.72 + r * 0.25, `画质 ${config.quality}`),
+  });
+}
+console.info('[boot] quality', picked, 'prewarm', warmup);
 window.__PREWARM__ = warmup;
+window.__QUALITY__ = picked;
 
 engine.start();
 
@@ -93,18 +106,37 @@ if (lockstep) {
   await shotApi.pump(BOOT_FRAMES);
   window.__READY__ = true;
 } else {
-  let warm = 0;
-  const readyProbe = () => {
-    if (++warm >= BOOT_FRAMES) {
-      window.__READY__ = true;
-      return;
-    }
+  await new Promise((resolve) => {
+    let warm = 0;
+    const readyProbe = () => {
+      if (++warm >= BOOT_FRAMES) {
+        window.__READY__ = true;
+        resolve();
+        return;
+      }
+      requestAnimationFrame(readyProbe);
+    };
     requestAnimationFrame(readyProbe);
-  };
-  requestAnimationFrame(readyProbe);
+  });
 }
 
 window.__ENGINE__ = engine;
+
+// Hub UX: require an explicit click so users know load finished, and so the
+// browser gesture can acquire pointer lock (needed for look / feel playable).
+const enter = () => {
+  boot.hide();
+  document.getElementById('boot-hint')?.remove();
+  engine.input.requestPointerLock();
+  document.body.classList.add('is-playing');
+};
+
+if (capture) {
+  enter();
+} else {
+  boot.setPhase('ready', 'ready', 1, `画质 ${config.quality} · 点击开始`);
+  boot.showStart(enter);
+}
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => engine.dispose());

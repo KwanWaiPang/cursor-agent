@@ -72,14 +72,26 @@ export class Engine {
     return this;
   }
 
-  async init() {
+  async init({ onProgress } = {}) {
     const order = this.registry.resolve();
-    for (const sys of order) {
+    const total = order.length;
+    for (let i = 0; i < order.length; i++) {
+      const sys = order[i];
+      onProgress?.({
+        phase: 'init',
+        id: sys.constructor.id,
+        index: i,
+        total,
+        ratio: i / total,
+      });
       const t0 = performance.now();
       await sys.init?.(this.ctx);
       const ms = performance.now() - t0;
       if (ms > 50) console.info(`[engine] ${sys.constructor.id} init ${ms.toFixed(0)}ms`);
+      // Yield so the boot overlay can paint between heavy subsystems.
+      await new Promise((r) => requestAnimationFrame(r));
     }
+    onProgress?.({ phase: 'init', id: 'done', index: total, total, ratio: 1 });
     this.input.attach();
     addEventListener('resize', this._onResize);
     this.resize();
