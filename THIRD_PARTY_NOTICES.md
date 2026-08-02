@@ -36,5 +36,5 @@
 - 来源：[mshumer/Claude-of-Duty](https://github.com/mshumer/Claude-of-Duty)
 - 许可证：MIT（见 `games/street-duty/LICENSE`）
 - 渲染库：[Three.js](https://github.com/mrdoob/three.js) r180（MIT）
-- 说明：游戏馆以独立入口接入其完整源码（Vite + 全程序化子系统）；中文标题/暂停菜单与大厅返回链接为适配层改动。原作者版权声明保持不变。
+- 说明：游戏馆以独立入口**本地完整落地**其实现（Vite + `src/` 全程序化子系统，非外链/iframe）；中文标题/暂停菜单与大厅返回链接为适配层改动。原作者版权声明保持不变。
 
