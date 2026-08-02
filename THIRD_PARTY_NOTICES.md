@@ -31,3 +31,10 @@
 - 枪声素材：基于 Wikimedia Commons「9 mm gunshot-mike-koenig-123.wav」（CC BY-SA 4.0）处理为步枪/手枪射击音；换弹音效片段改编自 [Mixkit](https://mixkit.co/free-sound-effects/) 免费音效
 - 玩法、低模场景、AK-47 第一人称模型与 CS 风格角色：本仓库原创
 
+## 街战突击（`games/street-duty/`）
+
+- 来源：[mshumer/Claude-of-Duty](https://github.com/mshumer/Claude-of-Duty)
+- 许可证：MIT（见 `games/street-duty/LICENSE`）
+- 渲染库：[Three.js](https://github.com/mrdoob/three.js) r180（MIT）
+- 说明：游戏馆以独立入口接入其完整源码（Vite + 全程序化子系统）；中文标题/暂停菜单与大厅返回链接为适配层改动。原作者版权声明保持不变。
+

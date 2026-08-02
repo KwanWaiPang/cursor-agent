@@ -23,15 +23,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: games/street-duty/package-lock.json
+
+      - name: Build street-duty
+        working-directory: games/street-duty
+        run: |
+          npm ci
+          npm run build
+
       - name: Prepare site
         run: |
           mkdir -p _site
           cp index.html .nojekyll README.md THIRD_PARTY_NOTICES.md _site/
           cp -r css games assets _site/
+          # 街战突击：只发布 Vite dist，避免把源码树当静态站
+          rm -rf _site/games/street-duty
+          mkdir -p _site/games/street-duty
+          cp -a games/street-duty/dist/. _site/games/street-duty/
+          cp games/street-duty/LICENSE _site/games/street-duty/
           # 不部署测试文件与超大源文件
           find _site -name '*.test.js' -delete
           find _site -name '*.blend' -delete
           find _site -path '*/3D/fbx/*' -delete 2>/dev/null || true
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
