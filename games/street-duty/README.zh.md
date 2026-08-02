@@ -4,21 +4,23 @@
 
 与现有 `games/fps/`（据点清剿 / 迷你大逃杀）并存，互不替换。
 
+开局会在镜头前方拉起突击波次（贴近官方 demo-driver 的交战密度），默认画质偏 `high`。
+
 ## 本地开发
 
 ```bash
 cd games/street-duty
 npm install
-npm run dev          # http://127.0.0.1:5173
+npm run dev          # 使用 index.source.html
 ```
 
 ## 构建（GitHub Pages 部署用）
 
 ```bash
-npm run build        # 产出 dist/
+npm run build        # vite build → 同步到 index.html + assets/
 ```
 
-Pages 工作流会在部署前自动构建，并把 `dist/` 内容放到站点的 `games/street-duty/`。
+**重要：** 本仓库 GitHub Pages 目前是 **legacy / 从 main 分支部署**，不会自动吃 Actions 产物。因此 `index.html` + `assets/` 必须随代码提交。建议在仓库 Settings → Pages 将 Source 改为 **GitHub Actions**。
 
 ## 操作
 

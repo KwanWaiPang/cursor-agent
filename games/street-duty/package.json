@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "街战突击 — hub port of mshumer/Claude-of-Duty (MIT)",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "vite index.source.html",
+    "build": "vite build && node tools/sync-pages-build.mjs",
     "preview": "vite preview --port 4173",
     "shot": "node tools/capture.mjs"
   },

@@ -1,10 +1,12 @@
 node_modules/
 
-# Build output
+# Vite scratch build (synced into index.html + assets/ for Pages)
 dist/
 playable-snapshot/
 perf-candidate/
 perf-cand2/
+
+# Do NOT ignore ./assets/ — legacy GitHub Pages serves the synced build from main.
 
 # Capture output — 780 MB of PNGs. Regenerate with tools/baseline.mjs.
 shots/
