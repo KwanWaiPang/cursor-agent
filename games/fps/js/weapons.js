@@ -14,7 +14,7 @@ export const WEAPONS = {
     reserve: 48,
     reloadMs: 2800,
     spread: 0.018,
-    range: 55,
+    range: 70,
     heavy: false,
     view: "pistol",
     adsSpreadMul: 0.35,
@@ -30,13 +30,14 @@ export const WEAPONS = {
     magSize: 30,
     reserve: 200,
     reloadMs: 3000,
-    spread: 0.014,
-    range: 85,
+    // 中远距仍可用：腰射略收，硬射程加长（无「突然失效」感）
+    spread: 0.011,
+    range: 110,
     heavy: true,
     view: "ak",
-    adsSpreadMul: 0.28,
+    adsSpreadMul: 0.24,
     // 后坐略高于 M4，但不再过度抬头，便于连射控枪
-    kick: 0.036,
+    kick: 0.034,
     zoneMul: { head: 2, body: 1, limb: 0.72 },
   },
   m4: {
@@ -49,7 +50,7 @@ export const WEAPONS = {
     reloadMs: 2800,
     // 比 AK 更稳：腰射散布更小，开镜更准；单发略低、射速补齐
     spread: 0.009,
-    range: 90,
+    range: 120,
     heavy: true,
     view: "m4",
     adsSpreadMul: 0.22,

@@ -16,8 +16,14 @@ export class Player {
       sprint: false,
       jump: false,
       crouch: false,
+      leanL: false,
+      leanR: false,
       reload: false,
+      help: false,
     };
+    /** -1..1 smoothed lean (Q left / E right, hold) */
+    this.leanAmount = 0;
+    this._leanApplied = 0;
     this.standHeight = 1.7;
     this.crouchHeight = 1.05;
     this.eyeHeight = this.standHeight;
@@ -67,8 +73,18 @@ export class Player {
       case "Space":
         if (down) this.keys.jump = true;
         break;
-      case "KeyQ":
+      case "KeyZ":
         this.keys.crouch = down;
+        break;
+      case "KeyQ":
+        this.keys.leanL = down;
+        break;
+      case "KeyE":
+        this.keys.leanR = down;
+        break;
+      case "KeyH":
+        // 边沿：呼叫队友支援
+        if (down && !this.keys.help) this.keys.help = true;
         break;
       case "KeyR":
         // 边沿触发换弹
@@ -97,6 +113,12 @@ export class Player {
     return true;
   }
 
+  consumeHelpRequest() {
+    if (!this.keys.help) return false;
+    this.keys.help = false;
+    return true;
+  }
+
   consumeWeaponKey() {
     const code = this._weaponKey;
     this._weaponKey = null;
@@ -105,6 +127,10 @@ export class Player {
 
   get crouching() {
     return !!this.keys.crouch;
+  }
+
+  get leaning() {
+    return Math.abs(this.leanAmount) > 0.05;
   }
 
   lock() {
@@ -195,6 +221,14 @@ export class Player {
     this._eyeCurrent = THREE.MathUtils.lerp(this._eyeCurrent, wantEye, 1 - Math.pow(0.001, dt));
     this.eyeHeight = this._eyeCurrent;
 
+    // Q/E 按住探头；冲刺时收回
+    const leanWant =
+      this.keys.sprint || this.keys.crouch
+        ? 0
+        : (this.keys.leanR ? 1 : 0) - (this.keys.leanL ? 1 : 0);
+    this.leanAmount = THREE.MathUtils.lerp(this.leanAmount, leanWant, 1 - Math.pow(0.0002, dt));
+    if (Math.abs(this.leanAmount) < 0.02) this.leanAmount = 0;
+
     // 蹲下可走，略慢；蹲下时不能冲刺
     const sprinting = this.keys.sprint && !this.keys.crouch;
     let base = sprinting ? 11 : 6.5;
@@ -217,6 +251,12 @@ export class Player {
     const move = new THREE.Vector3();
     move.addScaledVector(forward, -this.direction.z * speed);
     move.addScaledVector(right, this.direction.x * speed);
+
+    // 探头：相对上一帧的侧向位移，方便掩体后探身瞄准
+    const leanOff = this.leanAmount * 0.42;
+    const leanDelta = leanOff - this._leanApplied;
+    this._leanApplied = leanOff;
+    move.addScaledVector(right, leanDelta);
 
     // 蹲下时可走不可跳
     if (this.onGround && this.keys.jump) {

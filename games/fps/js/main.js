@@ -35,6 +35,8 @@ function start(mode) {
         show(result);
       },
     });
+    // Demo / automation hook (hub recordings, smoke tests)
+    window.__FPS_GAME__ = game;
   } catch (e) {
     if (String(e.message) === "WEBGL") {
       hide(menu);
