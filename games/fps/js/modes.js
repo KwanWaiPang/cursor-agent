@@ -214,8 +214,9 @@ export function createAssaultMode(ctx) {
   let respawning = false;
   const claimedStreaks = new Set();
   const maxWave = 5;
-  const allyCount = 9;
-  const teamSize = 10;
+  // Fewer, smarter bots — tactics (cover / flank / suppress) carry the fight.
+  const allyCount = 4;
+  const teamSize = 5;
 
   ctx.arsenal = createArsenal("rifle");
   player.grantSpawnProtect?.(4.5);
@@ -252,12 +253,12 @@ export function createAssaultMode(ctx) {
       sp.x += Math.cos(ang) * ring;
       sp.z += Math.sin(ang) * ring + 3;
       spawnUnit(ctx, "red", sp, {
-        hp: 80,
-        speed: 3.8,
-        damage: 8,
-        jitter: 2.2,
-        reactRange: 62,
-        fireRange: 48,
+        hp: 95,
+        speed: 4.15,
+        damage: 10,
+        jitter: 1.6,
+        reactRange: 68,
+        fireRange: 52,
         // 不绑死据点：更愿意跟着玩家进攻
         holdZone: null,
       });
@@ -279,12 +280,12 @@ export function createAssaultMode(ctx) {
         sp.z += sp.z >= 0 ? 18 : -18;
       }
       spawnUnit(ctx, "blue", sp, {
-        hp: 52 + wave * 10,
-        speed: 3.45 + wave * 0.2,
-        damage: 5 + Math.floor(wave * 0.9),
-        reactRange: 58,
-        fireRange: 46,
-        jitter: 6,
+        hp: 62 + wave * 12,
+        speed: 3.7 + wave * 0.22,
+        damage: 6 + Math.floor(wave * 1.0),
+        reactRange: 64,
+        fireRange: 50,
+        jitter: 4,
       });
       enemiesAlive += 1;
     }
@@ -532,7 +533,7 @@ export function createRoyaleMode(ctx) {
   const start = world.spawnPoints[Math.floor(Math.random() * world.spawnPoints.length)].clone();
   player.getObject().position.set(start.x, player.eyeHeight, start.z);
 
-  const allyCount = 9;
+  const allyCount = 4;
   for (let i = 0; i < allyCount; i++) {
     const ang = (i / allyCount) * Math.PI * 2;
     const sp = start.clone();
@@ -540,16 +541,16 @@ export function createRoyaleMode(ctx) {
     sp.x += Math.cos(ang) * ring;
     sp.z += Math.sin(ang) * ring;
     spawnUnit(ctx, "red", sp, {
-      hp: 90,
-      speed: 3.9,
-      damage: 8,
-      reactRange: 62,
-      fireRange: 48,
-      jitter: 2,
+      hp: 100,
+      speed: 4.2,
+      damage: 10,
+      reactRange: 68,
+      fireRange: 52,
+      jitter: 1.5,
     });
   }
 
-  const botCount = 10;
+  const botCount = 5;
   for (let i = 0; i < botCount; i++) {
     const sp = world.spawnPoints[(i + 2) % world.spawnPoints.length].clone();
     if (sp.distanceTo(start) < 28) {
@@ -561,12 +562,12 @@ export function createRoyaleMode(ctx) {
       sp.z -= 20;
     }
     spawnUnit(ctx, "blue", sp, {
-      hp: 70,
-      speed: 3.6,
-      damage: 6,
-      reactRange: 58,
-      fireRange: 46,
-      jitter: 14,
+      hp: 80,
+      speed: 3.85,
+      damage: 7,
+      reactRange: 64,
+      fireRange: 50,
+      jitter: 8,
     });
   }
 

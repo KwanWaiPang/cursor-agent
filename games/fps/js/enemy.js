@@ -286,11 +286,17 @@ export class Enemy {
     this.currentTarget = null;
     this.seekCoverUntil = 0;
     this.coverTarget = null;
+    /** "suppress" | "push" | null — squad-lite pairing with a teammate */
+    this.tacticRole = null;
+    this.tacticPartner = null;
+    this.tacticRoleUntil = 0;
+    this.flankSlot = (Math.random() * 6) | 0;
     /** 玩家 H 求助截止时间与集火目标 */
     this.helpUntil = 0;
     this.helpFocus = null;
     /** 据点模式：优先靠近战术区 */
     this.holdZone = opts.holdZone || null;
+    this.isAlly = this.team === "red";
     this.lootCd = 0.4 + Math.random() * 0.8;
     this.equipWeapon(startWeapon, { silent: true, damageOverride: opts.damage });
   }
@@ -420,15 +426,21 @@ export class Enemy {
     this.strafeSign *= -1;
     this.tacticCd = 0;
     this.sprintBoost = 1.35;
-    // 残血才长时间躲掩体；血厚时只短暂侧闪，保持进攻压力
+    // Always break for cover when hit — allies resume faster / keep pushing.
     const hpFrac = this.hp / Math.max(1, this.maxHp);
-    if (hpFrac < 0.45) {
-      this.seekCoverUntil = performance.now() + 1400 + Math.random() * 900;
-      this.pickCoverAwayFrom(opts.from || null);
-    } else {
-      this.seekCoverUntil = performance.now() + 350 + Math.random() * 350;
-      this.coverTarget = null;
-    }
+    const ally = this.isAlly;
+    const longHide = hpFrac < 0.4;
+    this.seekCoverUntil =
+      performance.now() +
+      (ally
+        ? longHide
+          ? 900 + Math.random() * 500
+          : 280 + Math.random() * 220
+        : longHide
+          ? 1500 + Math.random() * 900
+          : 650 + Math.random() * 450);
+    this.pickCoverAwayFrom(opts.from || null);
+    if (ally && !longHide) this.tacticRole = "push";
     return false;
   }
 
@@ -455,18 +467,37 @@ export class Enemy {
     let best = null;
     let bestScore = -Infinity;
     for (const c of cover) {
-      const away = threatPos
-        ? c.distanceTo(threatPos) - this.position.distanceTo(c) * 0.35
-        : -this.position.distanceTo(c);
-      if (away > bestScore) {
-        bestScore = away;
+      const travel = this.position.distanceTo(c);
+      if (travel > 22) continue;
+      let score = -travel * 0.4;
+      if (threatPos) {
+        score += c.distanceTo(threatPos) * 0.55;
+        // Prefer points that actually break LOS from the threat.
+        const fromThreat = _aim.set(threatPos.x, 1.5, threatPos.z);
+        const coverEye = _tmp2.set(c.x, 1.2, c.z);
+        const blocked = !hasLineOfSight(this.world, fromThreat, coverEye, 48);
+        score += blocked ? 8 : -2;
+      }
+      if (score > bestScore) {
+        bestScore = score;
         best = c;
       }
     }
     if (best) {
       this.coverTarget = best.clone();
-      this.coverTarget.x += (Math.random() - 0.5) * 1.5;
-      this.coverTarget.z += (Math.random() - 0.5) * 1.5;
+      this.coverTarget.x += (Math.random() - 0.5) * 1.2;
+      this.coverTarget.z += (Math.random() - 0.5) * 1.2;
+    } else if (threatPos) {
+      // No listed cover: peel laterally away from the threat.
+      _tmp2.copy(this.position).sub(threatPos);
+      _tmp2.y = 0;
+      if (_tmp2.lengthSq() > 0.01) {
+        _tmp2.normalize();
+        this.coverTarget = this.position
+          .clone()
+          .addScaledVector(_tmp2, 6)
+          .addScaledVector(_side.set(-_tmp2.z, 0, _tmp2.x), this.strafeSign * 3);
+      }
     }
   }
 
@@ -488,26 +519,91 @@ export class Enemy {
     this.patrolTarget.z += (Math.random() - 0.5) * 4;
   }
 
-  replanCombat(toTarget, dist) {
+  replanCombat(toTarget, dist, units) {
     const fwd = _tmp2.copy(toTarget).normalize();
-    _side.set(-fwd.z, 0, fwd.x).multiplyScalar(this.strafeSign);
+    const aggressive = this.isAlly || this.tacticRole === "push";
+    const suppress = this.tacticRole === "suppress";
 
-    if (dist < this.idealRange - 2.5) {
-      // 过近才小幅后撤，多数时间侧向压制
+    // Surround: pick an angular slot around the target among same-team fighters.
+    let slotAngle = this.flankSlot * ((Math.PI * 2) / 6);
+    if (units && this.currentTarget) {
+      const mates = [];
+      for (const u of units) {
+        if (!u.alive || u.team !== this.team) continue;
+        if (u.currentTarget === this.currentTarget || u === this) mates.push(u);
+      }
+      const idx = Math.max(0, mates.indexOf(this));
+      const n = Math.max(2, mates.length);
+      slotAngle = (idx / n) * Math.PI * 2 + (this.isAlly ? 0.35 : 0);
+      this.flankSlot = idx;
+    }
+    const ring = suppress
+      ? this.idealRange + 2
+      : aggressive
+        ? Math.max(5.5, this.idealRange - 1.5)
+        : this.idealRange;
+    // Desired point on the ring around the current aim point.
+    const aimX = this.position.x + toTarget.x;
+    const aimZ = this.position.z + toTarget.z;
+    const wantX = aimX + Math.cos(slotAngle) * ring;
+    const wantZ = aimZ + Math.sin(slotAngle) * ring;
+    this.moveDir.set(wantX - this.position.x, 0, wantZ - this.position.z);
+
+    if (suppress) {
+      // Hold the angle — small lateral adjust only.
+      _side.set(-fwd.z, 0, fwd.x).multiplyScalar(this.strafeSign * 0.55);
+      this.moveDir.copy(_side).addScaledVector(fwd, dist > ring + 3 ? 0.35 : dist < ring - 2 ? -0.4 : 0.05);
+      this.sprintBoost = 1.05;
+    } else if (aggressive && dist > this.idealRange - 1) {
+      this.moveDir.addScaledVector(fwd, 0.85);
+      this.sprintBoost = 1.4;
+    } else if (dist < this.idealRange - 2.5) {
+      _side.set(-fwd.z, 0, fwd.x).multiplyScalar(this.strafeSign);
       this.moveDir.copy(_side).multiplyScalar(1.05).addScaledVector(fwd, -0.35);
       this.sprintBoost = 1.15;
-    } else if (dist > this.idealRange + 4) {
-      this.moveDir.copy(fwd).multiplyScalar(1.2).addScaledVector(_side, 0.55);
-      this.sprintBoost = 1.35;
     } else {
-      const press = 0.25 + Math.random() * 0.55;
-      this.moveDir.copy(_side).multiplyScalar(0.95).addScaledVector(fwd, press);
-      this.sprintBoost = 1.15;
+      const press = aggressive ? 0.55 + Math.random() * 0.45 : 0.25 + Math.random() * 0.55;
+      _side.set(-fwd.z, 0, fwd.x).multiplyScalar(this.strafeSign);
+      this.moveDir.copy(_side).multiplyScalar(0.85).addScaledVector(fwd, press);
+      this.sprintBoost = aggressive ? 1.3 : 1.15;
     }
 
     if (this.moveDir.lengthSq() > 0.0001) this.moveDir.normalize();
-    if (Math.random() < 0.28) this.strafeSign *= -1;
-    this.tacticCd = 0.55 + Math.random() * 1.1;
+    if (Math.random() < 0.18) this.strafeSign *= -1;
+    this.tacticCd = suppress ? 0.9 + Math.random() * 0.8 : 0.45 + Math.random() * 0.9;
+  }
+
+  /**
+   * Pair with a nearby teammate on the same target: one suppresses, one pushes/flanks.
+   */
+  syncTactics(units, now) {
+    if (now < this.tacticRoleUntil && this.tacticPartner?.alive) return;
+    this.tacticRole = null;
+    this.tacticPartner = null;
+    if (!this.currentTarget || !units?.length) return;
+    let best = null;
+    let bestD = 16;
+    for (const u of units) {
+      if (u === this || !u.alive || u.team !== this.team) continue;
+      if (u.currentTarget !== this.currentTarget && u.state === "patrol") continue;
+      const d = this.position.distanceTo(u.position);
+      if (d < bestD) {
+        bestD = d;
+        best = u;
+      }
+    }
+    if (!best) return;
+    // Stable pairing: lower id (mesh uuid) suppresses, other pushes.
+    const meFirst = (this.mesh.uuid || "") < (best.mesh.uuid || "");
+    const iSuppress = meFirst;
+    this.tacticRole = iSuppress ? "suppress" : "push";
+    this.tacticPartner = best;
+    this.tacticRoleUntil = now + 2200 + Math.random() * 1200;
+    if (!best.tacticPartner || best.tacticPartner === this || now > best.tacticRoleUntil) {
+      best.tacticRole = iSuppress ? "push" : "suppress";
+      best.tacticPartner = this;
+      best.tacticRoleUntil = this.tacticRoleUntil;
+    }
   }
 
   pickTarget(player, units) {
@@ -561,9 +657,11 @@ export class Enemy {
 
     const now = performance.now();
     const seekingCover = now < this.seekCoverUntil && this.coverTarget;
+    const list = units || [];
 
-    const target = this.pickTarget(player, units || []);
+    const target = this.pickTarget(player, list);
     this.currentTarget = target;
+    if (target) this.syncTactics(list, now);
 
     let toTarget = null;
     let dist = Infinity;
@@ -582,14 +680,16 @@ export class Enemy {
         _aim.set(tp.x, aimY, tp.z),
         this.fireRange + 4
       );
-      // 丢视线时短侧移找角度，而不是长时间躲起来
-      if (!los && !seekingCover && Math.random() < 0.35) {
-        this.seekCoverUntil = now + 500 + Math.random() * 400;
+      // Lost LOS: slip to cover that breaks the threat's angle, then re-peek.
+      if (!los && !seekingCover && Math.random() < 0.45) {
+        this.seekCoverUntil = now + 550 + Math.random() * 450;
         this.pickCoverAwayFrom(tp);
       }
       this.state = dist < this.fireRange * 0.55 ? "attack" : "chase";
     } else if (this.state !== "patrol") {
       this.state = "patrol";
+      this.tacticRole = null;
+      this.tacticPartner = null;
     }
 
     // 求助中：向玩家靠拢
@@ -634,12 +734,15 @@ export class Enemy {
       to.y = 0;
       if (to.length() < 1.2) {
         this.seekCoverUntil = 0;
+        if (this.tacticRole === "push") this.tacticCd = 0;
       } else {
         to.normalize();
-        this.position.addScaledVector(to, this.speed * 1.15 * dt);
+        const rush = this.tacticRole === "push" || this.isAlly ? 1.35 : 1.15;
+        this.position.addScaledVector(to, this.speed * rush * dt);
         this.mesh.lookAt(this.position.x + to.x, this.position.y, this.position.z + to.z);
         moving = true;
       }
+      // While relocating, skip open combat steering but still allow peek-fire below.
     } else if (this.state === "patrol") {
       if (this.isAlly && player?.position) {
         const toP = _tmp2.copy(player.position).sub(this.position);
@@ -661,10 +764,22 @@ export class Enemy {
             this.patrolTarget.x += (Math.random() - 0.5) * 4;
             this.patrolTarget.z += (Math.random() - 0.5) * 4;
           }
-        } else if (toP.length() > 14) {
+        } else if (toP.length() > 12) {
+          // Aggressive escort: slot ahead of the player facing, not only orbit.
           this.patrolTarget.copy(player.position);
-          this.patrolTarget.x += (Math.random() - 0.5) * 6;
-          this.patrolTarget.z += (Math.random() - 0.5) * 6;
+          const obj = player.getObject?.() || player.yawObject;
+          let fx = 0;
+          let fz = -1;
+          if (obj?.getWorldDirection) {
+            obj.getWorldDirection(_tmp);
+            fx = _tmp.x;
+            fz = _tmp.z;
+            const len = Math.hypot(fx, fz) || 1;
+            fx /= len;
+            fz /= len;
+          }
+          this.patrolTarget.x += fx * 4 + (Math.random() - 0.5) * 4;
+          this.patrolTarget.z += fz * 4 + (Math.random() - 0.5) * 4;
         }
       }
       if (!moving) {
@@ -690,7 +805,7 @@ export class Enemy {
       }
 
       if (this.tacticCd <= 0 || this.moveDir.lengthSq() < 0.01) {
-        this.replanCombat(toTarget, dist);
+        this.replanCombat(toTarget, dist, list);
       }
 
       const step = this.speed * this.sprintBoost * dt;
@@ -702,55 +817,63 @@ export class Enemy {
         this.stuckTimer += dt;
         if (this.stuckTimer > 0.35) {
           this.strafeSign *= -1;
-          this.replanCombat(toTarget, dist);
+          this.flankSlot = (this.flankSlot + 1) % 6;
+          this.replanCombat(toTarget, dist, list);
           this.stuckTimer = 0;
         }
       } else {
         this.stuckTimer = 0;
       }
       this.lastPos.copy(this.position);
+    }
 
-      // 有视线才开火；命中由真实射线判定（与弹道一致）
-      if (los && dist < this.fireRange && this.fireCd <= 0) {
-        const gap = this.baseFireGap || 0.45;
-        const burst = !this.weaponDef?.chamberMs && this.weaponId !== "shotgun" && Math.random() < 0.55;
-        this.fireCd = burst ? gap * 0.38 : gap * (0.7 + Math.random() * 0.3);
-
-        const origin = new THREE.Vector3(this.position.x, 1.48, this.position.z);
-        const aimPos =
-          target.kind === "player"
-            ? _aim.set(player.position.x, player.eyeHeight ?? 1.7, player.position.z)
-            : _aim.set(target.ref.position.x, 1.45, target.ref.position.z);
-        _shotDir.subVectors(aimPos, origin);
-        const spread = (this.shotSpread || 0.025) + dist * 0.0011;
-        _shotDir.x += (Math.random() - 0.5) * spread;
-        _shotDir.y += (Math.random() - 0.5) * spread * 0.7;
-        _shotDir.z += (Math.random() - 0.5) * spread;
-        _shotDir.normalize();
-
-        const wallDist = this.world.raycastSolid(origin, _shotDir, this.fireRange + 2);
-        const maxShot = Number.isFinite(wallDist) ? wallDist : this.fireRange + 2;
-        const hitInfo = rayHitsStandingTarget(origin, _shotDir, target.ref.position, maxShot);
-        const hit =
-          !!hitInfo &&
-          (!Number.isFinite(wallDist) || hitInfo.dist + 0.05 <= wallDist);
-
-        onFire?.({
-          damage: this.damage,
-          hit,
-          headshot: !!(hit && hitInfo.headshot),
-          origin,
-          dir: _shotDir.clone(),
-          dist,
-          traceDist: hit
-            ? hitInfo.dist
-            : Math.min(Number.isFinite(wallDist) ? wallDist : dist + 2, this.fireRange + 4),
-          team: this.team,
-          weaponId: this.weaponId,
-          targetKind: target.kind,
-          targetUnit: target.kind === "unit" ? target.ref : null,
-        });
+    // Fire whenever we have LOS — including peek shots while entering cover.
+    if (toTarget && los && dist < this.fireRange && this.fireCd <= 0) {
+      if (dist > 0.01) {
+        this.mesh.lookAt(
+          this.position.x + toTarget.x,
+          this.position.y,
+          this.position.z + toTarget.z
+        );
       }
+      const gap = this.baseFireGap || 0.45;
+      const burst = !this.weaponDef?.chamberMs && this.weaponId !== "shotgun" && Math.random() < 0.55;
+      this.fireCd = burst ? gap * 0.38 : gap * (0.7 + Math.random() * 0.3);
+
+      const origin = new THREE.Vector3(this.position.x, 1.48, this.position.z);
+      const aimPos =
+        target.kind === "player"
+          ? _aim.set(player.position.x, player.eyeHeight ?? 1.7, player.position.z)
+          : _aim.set(target.ref.position.x, 1.45, target.ref.position.z);
+      _shotDir.subVectors(aimPos, origin);
+      const spread = (this.shotSpread || 0.025) + dist * 0.0011;
+      _shotDir.x += (Math.random() - 0.5) * spread;
+      _shotDir.y += (Math.random() - 0.5) * spread * 0.7;
+      _shotDir.z += (Math.random() - 0.5) * spread;
+      _shotDir.normalize();
+
+      const wallDist = this.world.raycastSolid(origin, _shotDir, this.fireRange + 2);
+      const maxShot = Number.isFinite(wallDist) ? wallDist : this.fireRange + 2;
+      const hitInfo = rayHitsStandingTarget(origin, _shotDir, target.ref.position, maxShot);
+      const hit =
+        !!hitInfo &&
+        (!Number.isFinite(wallDist) || hitInfo.dist + 0.05 <= wallDist);
+
+      onFire?.({
+        damage: this.damage,
+        hit,
+        headshot: !!(hit && hitInfo.headshot),
+        origin,
+        dir: _shotDir.clone(),
+        dist,
+        traceDist: hit
+          ? hitInfo.dist
+          : Math.min(Number.isFinite(wallDist) ? wallDist : dist + 2, this.fireRange + 4),
+        team: this.team,
+        weaponId: this.weaponId,
+        targetKind: target.kind,
+        targetUnit: target.kind === "unit" ? target.ref : null,
+      });
     }
 
     // 顺路捡补给

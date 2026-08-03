@@ -504,9 +504,10 @@ export class AiSystem {
     const variants = ['vanguard', 'irregular', 'breacher'];
     // Scale garrison with hub quality — skinned AI dominates CPU/GPU after the street.
     const qName = this.ctx?.config?.quality || 'medium';
+    // Fewer bodies on weak GPUs — tactics carry the fight, not headcount.
     const qDefault =
-      qName === 'low' ? { squads: 1, perSquad: 2 }
-        : qName === 'medium' ? { squads: 1, perSquad: 3 }
+      qName === 'low' ? { squads: 1, perSquad: 1 }
+        : qName === 'medium' ? { squads: 1, perSquad: 2 }
           : { squads: 2, perSquad: 3 };
     const squads = opts.squads ?? qDefault.squads;
     const per = opts.perSquad ?? qDefault.perSquad;

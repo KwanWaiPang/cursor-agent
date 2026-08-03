@@ -88,7 +88,7 @@ Do **not** ship the Vite source HTML as the live entry — production must load 
 |---|---|---|
 | 定位 Role | 轻量红蓝街战 Light TDM | 全程序化 CoD 向街战 Full procedural FPS |
 | 技术 Stack | Three r160，单页脚本 | Three r180，Vite 多子系统引擎 |
-| 阵营 Teams | 红（玩家+队友）vs 蓝 | 玩家 `team 0` + 2 盟友 vs 敌方波次 |
+| 阵营 Teams | 红（玩家+约 4 队友）vs 蓝（约 5） | 玩家 `team 0` + 2 盟友 vs 少量敌方波次 |
 | 开局 Start | 选模式（据点 / 大逃杀） | 点击进入；突击波 + 队友 |
 | 键位 Keys | Q/E 探头，Z 下蹲，H 求助 | Q/E 探头，Z 下蹲；趴下 Ctrl/C |
 | 部署 Deploy | 纯静态 Static | 需构建产物 Built artifacts |

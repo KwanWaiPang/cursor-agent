@@ -102,15 +102,15 @@ export function installAssaultDirector(engine, { minAlive = 2, waveSize = 3, coo
   const q = engine.config?.quality || 'medium';
   if (q === 'low') {
     minAlive = 1;
-    waveSize = 2;
-    cooldown = 18;
+    waveSize = 1;
+    cooldown = 16;
   } else if (q === 'medium') {
-    minAlive = 2;
-    waveSize = 2;
-    cooldown = 14;
+    minAlive = 1;
+    waveSize = 1;
+    cooldown = 13;
   }
-  // Cap *alive* agents — dead bodies still sit in the array until cleaned up.
-  const hardCap = q === 'low' ? 4 : q === 'medium' ? 6 : 12;
+  // Cap *alive* hostiles — fewer on weak GPUs so each can afford smarter tactics.
+  const hardCap = q === 'low' ? 3 : q === 'medium' ? 4 : 12;
   let cool = 2.0;
   let pending = 0;
   const onUpdate = (dt) => {
