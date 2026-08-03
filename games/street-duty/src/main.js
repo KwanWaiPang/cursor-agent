@@ -139,10 +139,11 @@ const enter = () => {
   if (!capture) {
     const q = config.quality;
     // low/medium: fewer hostiles, smarter tactics (see ai/agent + squad roles).
+    // Hostiles open at the far end of the street (player at the near end).
     const wave =
-      q === 'low' ? { n: 1, minD: 12, maxD: 20, minAlive: 1, waveSize: 1, cooldown: 16 }
-        : q === 'medium' ? { n: 2, minD: 12, maxD: 22, minAlive: 1, waveSize: 1, cooldown: 13 }
-          : { n: 5, minD: 11, maxD: 24, minAlive: 3, waveSize: 3, cooldown: 11 };
+      q === 'low' ? { n: 1, minD: 40, maxD: 52, minAlive: 1, waveSize: 1, cooldown: 16 }
+        : q === 'medium' ? { n: 2, minD: 42, maxD: 55, minAlive: 1, waveSize: 1, cooldown: 13 }
+          : { n: 5, minD: 40, maxD: 58, minAlive: 3, waveSize: 3, cooldown: 11 };
     spawnAllyFireteam(engine, 2);
     spawnAssaultWave(engine, wave.n, wave.minD, wave.maxD);
     stopDirector = installAssaultDirector(engine, {

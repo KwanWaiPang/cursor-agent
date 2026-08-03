@@ -560,6 +560,32 @@ const CSS = `
 .ow-prompt-sub { font-size: calc(9.5px * var(--k)); letter-spacing:.2em; color:var(--ink-2); }
 .ow-prompt-arc { position:absolute; left:calc(-6px * var(--k)); top:50%; }
 
+/* ========================================================== death / respawn */
+.ow-death {
+  position:absolute; left:50%; top:42%;
+  transform: translate(-50%,-50%);
+  text-align:center;
+  padding: calc(var(--u) * 5) calc(var(--u) * 28);
+  pointer-events:none;
+}
+.ow-death::before {
+  content:''; position:absolute; inset:0; z-index:-1;
+  background: linear-gradient(to bottom,
+    rgba(4,7,10,0) 0%, rgba(4,7,10,.72) 22%, rgba(4,7,10,.72) 78%, rgba(4,7,10,0) 100%);
+  -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, #000 18%, #000 82%, rgba(0,0,0,0) 100%);
+          mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, #000 18%, #000 82%, rgba(0,0,0,0) 100%);
+}
+.ow-death-t {
+  font-family: var(--fd);
+  font-size: calc(34px * var(--k)); letter-spacing:.36em; font-weight:700;
+  color: var(--red); text-shadow: var(--sh-o2);
+}
+.ow-death-s {
+  margin-top: calc(var(--u) * 2);
+  font-size: calc(13px * var(--k)); letter-spacing:.28em; color: var(--ink-2); font-weight:700;
+  text-shadow: var(--sh-o1);
+}
+
 /* ================================================================ banner */
 .ow-banner {
   position:absolute; left:50%; top:31%;

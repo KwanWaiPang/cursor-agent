@@ -105,6 +105,9 @@ export class PlayerSystem {
     this._adsExternalAge = 0;
     this.adsRequested = false;
 
+    /** Countdown while dead; < 0 means not waiting to respawn. */
+    this._respawnTimer = -1;
+
     this._lookFrame = -1;
     this._prevYaw = 0;
 
@@ -124,6 +127,7 @@ export class PlayerSystem {
     // Preallocated HUD snapshot polled by `ui` (see getHudState).
     this._hudState = {
       health: HEALTH.max, maxHealth: HEALTH.max, regen: false, dead: false,
+      respawnIn: -1,
       move: 0, sprint: false, crouch: false, ads: false, airborne: false,
       suppression: 0, position: null,
     };
@@ -188,6 +192,7 @@ export class PlayerSystem {
     on('damage:dealt', (e) => this._onDamageDealt(e));
     on('explosion', (e) => this._onExplosion(e));
     on('bullet:impact', (e) => this._onBulletImpact(e));
+    on('player:death', () => this._beginRespawn());
 
     console.info(
       `[player] spawn ${spawn.feet.x.toFixed(1)}, ${spawn.feet.y.toFixed(2)}, ` +
@@ -280,6 +285,7 @@ export class PlayerSystem {
     this._updateAds(dt);
     this._drainMovementEvents();
     this.health.update(dt);
+    this._tickRespawn(dt);
 
     this.rig.update(dt, this.movement, this.health);
     if (this.controlEnabled) this.rig.applyTo(ctx.camera);
@@ -288,6 +294,23 @@ export class PlayerSystem {
     this.lowHealthPass?.sync(this.health);
     this._syncHitbox();
     this._publishState();
+  }
+
+  /** Lock input and start the post-death respawn countdown. */
+  _beginRespawn() {
+    if (this._respawnTimer >= 0) return;
+    this._respawnTimer = HEALTH.respawnDelay;
+    this.setControlEnabled(false);
+  }
+
+  _tickRespawn(dt) {
+    if (this._respawnTimer < 0) return;
+    this._respawnTimer -= dt;
+    if (this._respawnTimer > 0) return;
+    this._respawnTimer = -1;
+    this.respawn(0);
+    this.setControlEnabled(true);
+    this.ctx.events.emit('player:respawn', { position: this.position });
   }
 
   /** Keep the AI-facing hitbox on the interpolated capsule. */
@@ -413,9 +436,12 @@ export class PlayerSystem {
   /* ==================================================================== */
 
   _onDamageDealt(e) {
-    if (!e) return;
+    if (!e || this.health.dead) return;
     const t = e.target;
     if (t !== this && t !== 'player' && t?.isPlayer !== true) return;
+    // Fireteam never wounds the player (defence in depth — AI also skips).
+    const src = e.source;
+    if (src && (src.team === 0 || src.isAlly === true)) return;
     // Direction indicators need the *shooter*, not the impact point: `ai` sets
     // `point` to where the round landed (which is the player), and `from` to the
     // muzzle. Using `point` pinned every arc to dead ahead.
@@ -424,7 +450,10 @@ export class PlayerSystem {
   }
 
   _onExplosion(e) {
-    if (!e?.position) return;
+    if (!e?.position || this.health.dead) return;
+    // Ally / fireteam blasts do not wound the player.
+    const src = e.source;
+    if (src && (src.team === 0 || src.isAlly === true || src === this)) return;
     const eye = this.ctx.camera.position;
     const r = e.radius ?? 5;
     const d = this._tmp.copy(e.position).distanceTo(eye);
@@ -470,6 +499,7 @@ export class PlayerSystem {
     h.maxHealth = hp.max;
     h.regen = hp.regenerating;
     h.dead = hp.dead;
+    h.respawnIn = this._respawnTimer;
     h.suppression = hp.suppression;
     // 0..1 against tactical sprint, which is the fastest the player can move —
     // `ui` uses this directly as the reticle-bloom weight.
@@ -657,6 +687,7 @@ export class PlayerSystem {
   respawn(index = 0) {
     const world = this.ctx.peek('world');
     const sp = world?.spawn?.(index);
+    this._respawnTimer = -1;
     this.health.reset(true);
     if (!sp?.position) return;
     const gy = this.physics.groundHeight(sp.position.x, sp.position.z, sp.position.y + 6);
@@ -665,6 +696,9 @@ export class PlayerSystem {
     this.movement.pitch = 0;
     this.movement.teleport(sp.position.x, feetY, sp.position.z);
     this.rig.reset(STANCE.stand.eye);
+    this.rig.update(1 / 60, this.movement, this.health);
+    if (this.controlEnabled) this.rig.applyTo(this.ctx.camera);
+    this._syncHitbox();
   }
 
   /** Named states for dev overlays and future shots. */

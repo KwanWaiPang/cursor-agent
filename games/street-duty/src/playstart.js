@@ -58,7 +58,7 @@ export function spawnAllyFireteam(engine, n = 2) {
 }
 
 /** Spawn `n` hostiles ahead of the camera between minD..maxD metres. */
-export function spawnAssaultWave(engine, n = 5, minD = 12, maxD = 26) {
+export function spawnAssaultWave(engine, n = 5, minD = 38, maxD = 56) {
   const ai = engine.ctx.peek('ai');
   if (!ai?.spawn || !ai.createSquad) return 0;
   const cam = engine.camera;
@@ -117,7 +117,7 @@ export function installAssaultDirector(engine, { minAlive = 2, waveSize = 3, coo
     // Spread respawns across ticks — spawning a full wave on the frame after a
     // wipe stacks with the kill hitch (new skeletons + hitboxes).
     if (pending > 0) {
-      spawnAssaultWave(engine, 1, 14, 28);
+      spawnAssaultWave(engine, 1, 32, 48);
       pending -= 1;
       cool = pending > 0 ? 0.35 : cooldown;
       return;
@@ -140,7 +140,7 @@ export function installAssaultDirector(engine, { minAlive = 2, waveSize = 3, coo
       cool = cooldown;
       return;
     }
-    spawnAssaultWave(engine, 1, 14, 28);
+    spawnAssaultWave(engine, 1, 32, 48);
     pending -= 1;
     cool = pending > 0 ? 0.35 : cooldown;
   };
