@@ -335,10 +335,17 @@ export class AiSystem {
     on('explosion', (e) => {
       if (!e || !e.position) return;
       const radius = e.radius ?? 5;
+      const src = e.source;
+      const srcTeam = src?.team;
+      const player = this.ctx.peek('player');
       for (const a of this.agents) {
         if (!a.alive) continue;
-        // Player grenades should not wipe the fireteam.
-        if (a.team === 0 && !e.source) continue;
+        // No friendly fire: player / fireteam blasts never wound team 0.
+        if (a.team === 0) {
+          if (!src || src === player || srcTeam === 0 || src?.isAlly) continue;
+        } else if (src instanceof Agent && srcTeam === a.team) {
+          continue;
+        }
         const d = a.position.distanceTo(e.position) + 0.001;
         a.hear(e.position, 120);
         if (d > radius) continue;
@@ -494,11 +501,11 @@ export class AiSystem {
     const spawns = world?.spawnPoints ?? [];
     if (!spawns.length || !this.grid) return 0;
     const player = this.playerPosition(this._v3).clone();
-    // rank the spawn points by distance from the player, take the far half
+    // Rank spawn points by distance — garrison occupies the far end of the street.
     const ranked = spawns
       .map((s, i) => ({ s, i, d: s.position.distanceTo(player) }))
       .sort((a, b) => b.d - a.d)
-      .filter((e) => e.d > 18);
+      .filter((e) => e.d > 36);
     if (!ranked.length) return 0;
 
     const variants = ['vanguard', 'irregular', 'breacher'];

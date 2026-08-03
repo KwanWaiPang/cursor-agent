@@ -92,6 +92,12 @@ export class UiSystem {
     this.banner = new Banner(this.chromeLayer);
     this.menu = new PauseMenu(this.root, ctx);
 
+    // Death / respawn countdown (centre of the hurt layer).
+    this.death = el('div', 'ow-death', this.hurtLayer);
+    this.deathTitle = el('div', 'ow-death-t', this.death, '阵亡');
+    this.deathSub = el('div', 'ow-death-s', this.death, '');
+    setStyle(this.death, 'display', 'none');
+
     this.health.onBeat = (i) => this.sfx('heartbeat', 0.35 + i * 0.5);
 
     /** Single source of truth for everything the HUD draws. */
@@ -101,6 +107,8 @@ export class UiSystem {
       armour: 0,
       maxArmour: 150,
       regen: false,
+      dead: false,
+      respawnIn: -1,
       ammo: 30,
       reserve: 210,
       magSize: 30,
@@ -180,6 +188,8 @@ export class UiSystem {
       // rounds that connect with the player, which must not draw a hitmarker or
       // a "YOU killed" killfeed row — that arrives as `damage:taken` below.
       if (this._isPlayerTarget(e.target)) return;
+      // Friendly fire is disabled — do not flash hitmarkers on the fireteam.
+      if (e.target?.team === 0 || e.target?.isAlly === true || e.target?.friendly === true) return;
       const kind = e.killed ? 'kill' : e.headshot ? 'head' : e.armour ? 'armour' : 'hit';
       this.hitmarker(kind);
       if (e.point) {
@@ -257,6 +267,17 @@ export class UiSystem {
   _isPlayerTarget(t) {
     if (!t) return false;
     return t === 'player' || t === this.ctx.peek('player') || t.isPlayer === true;
+  }
+
+  _updateDeathOverlay(s) {
+    if (!this.death) return;
+    if (!s.dead) {
+      setStyle(this.death, 'display', 'none');
+      return;
+    }
+    const sec = Math.max(0, Math.ceil(s.respawnIn ?? 0));
+    this.deathSub.textContent = sec > 0 ? `${sec} 秒后复活` : '复活中…';
+    setStyle(this.death, 'display', '');
   }
 
   _playerState() {
@@ -443,6 +464,8 @@ export class UiSystem {
       if (ps.armour !== undefined) s.armour = ps.armour;
       else if (ps.armor !== undefined) s.armour = ps.armor;
       if (ps.regen !== undefined) s.regen = !!ps.regen;
+      if (ps.dead !== undefined) s.dead = !!ps.dead;
+      if (ps.respawnIn !== undefined) s.respawnIn = ps.respawnIn;
       if (ps.move !== undefined) s.move = ps.move;
       if (ps.sprint !== undefined) s.sprint = !!ps.sprint;
       if (ps.crouch !== undefined) s.crouch = !!ps.crouch;
@@ -451,6 +474,8 @@ export class UiSystem {
     } else if (player && typeof player.health === 'number') {
       s.health = player.health;
     }
+
+    this._updateDeathOverlay(s);
 
     // ---- movement-derived reticle bloom (works with any player system) ----
     const pos = this._playerPos();

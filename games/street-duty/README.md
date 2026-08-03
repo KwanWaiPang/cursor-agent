@@ -33,7 +33,7 @@ Click the canvas after load to lock the cursor.
 | G | Grenade |
 | Esc | Pause / release pointer |
 
-Hub play starts with **2 allies** + an assault wave ahead of the camera. Use `?q=low|medium|high|ultra` and `?prewarm=0` as needed.
+Hub play starts with **2 allies** at the near end and hostiles at the **far end** of the street (~40–58 m). No friendly fire in the fireteam; the player **respawns 10 s** after death. Use `?q=low|medium|high|ultra` and `?prewarm=0` as needed.
 
 ---
 

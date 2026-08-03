@@ -260,6 +260,8 @@ export const HEALTH = {
   regenRamp: 0.55,
   lowThreshold: 0.36,
   criticalThreshold: 0.18,
+  /** Seconds after death before the player is restored at a spawn point. */
+  respawnDelay: 10,
   /** Directional damage indicators live this long. */
   indicatorTime: 1.8,
   indicatorMax: 4,
