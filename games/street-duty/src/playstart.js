@@ -112,7 +112,16 @@ export function installAssaultDirector(engine, { minAlive = 2, waveSize = 3, coo
   // Cap *alive* agents — dead bodies still sit in the array until cleaned up.
   const hardCap = q === 'low' ? 4 : q === 'medium' ? 6 : 12;
   let cool = 2.0;
+  let pending = 0;
   const onUpdate = (dt) => {
+    // Spread respawns across ticks — spawning a full wave on the frame after a
+    // wipe stacks with the kill hitch (new skeletons + hitboxes).
+    if (pending > 0) {
+      spawnAssaultWave(engine, 1, 14, 28);
+      pending -= 1;
+      cool = pending > 0 ? 0.35 : cooldown;
+      return;
+    }
     cool -= dt;
     if (cool > 0) return;
     const hostiles = (ai.agents || []).filter((a) => a.alive && a.team !== 0);
@@ -126,8 +135,14 @@ export function installAssaultDirector(engine, { minAlive = 2, waveSize = 3, coo
       cool = cooldown;
       return;
     }
-    spawnAssaultWave(engine, waveSize, 14, 28);
-    cool = cooldown;
+    pending = Math.min(waveSize, hardCap - alive);
+    if (pending <= 0) {
+      cool = cooldown;
+      return;
+    }
+    spawnAssaultWave(engine, 1, 14, 28);
+    pending -= 1;
+    cool = pending > 0 ? 0.35 : cooldown;
   };
   const id = setInterval(() => {
     if (!engine._running) return;

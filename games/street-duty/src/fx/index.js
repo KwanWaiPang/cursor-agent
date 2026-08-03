@@ -165,6 +165,8 @@ export class FxSystem {
       this._off.push(off);
     };
     this._off = [];
+    /** Blood decals deferred one frame off the kill hitch. */
+    this._pendingDeathDecals = [];
     on('bullet:impact', (e) => this.onImpact(e));
     on('bullet:tracer', (e) => this.tracer(e.from, e.to, e.speed));
     on('weapon:fire', (e) => this.onWeaponFire(e));
@@ -658,9 +660,11 @@ export class FxSystem {
     if (!e?.point) return;
     this.now = this.ctx.time.elapsed;
     const rng = this.rng;
-    // a heavier burst of mist than a body shot, plus spatter on the ground
+    // Light mist only on the kill frame — blood projection waits one update so
+    // it does not stack on top of ragdoll construction.
     this._n.set(0, 1, 0);
-    for (let i = 0; i < Math.round(8 * this.pScale) + 3; i++) {
+    const nMist = Math.max(2, Math.round(3 * this.pScale) + 1);
+    for (let i = 0; i < nMist; i++) {
       cone(V, rng, 0, 1, 0, 1.4, 0.7);
       const s = resetSpawn();
       s.x = e.point.x; s.y = e.point.y; s.z = e.point.z;
@@ -683,21 +687,31 @@ export class FxSystem {
       s.seed = rng.float();
       this.emitLit(s);
     }
-    const ph = this.physics;
-    if (ph?.groundHeight) {
-      const gy = ph.groundHeight(e.point.x, e.point.z, e.point.y + 1);
-      if (Number.isFinite(gy)) {
-        this._tmpA.set(e.point.x, gy, e.point.z);
-        this._tmpB.set(0, 1, 0);
-        this.addDecal(this._tmpA, this._tmpB, {
-          tile: this.rng.float() < 0.5 ? D.BLOOD_A : D.BLOOD_B,
-          size: this.rng.range(0.5, 0.9),
-          life: 120,
-          fade: 0.85,
-          maxAngle: 80,
-        });
-      }
+    if (this._pendingDeathDecals.length < 6) {
+      this._pendingDeathDecals.push(e.point.x, e.point.y, e.point.z);
     }
+  }
+
+  _flushDeathDecals() {
+    const q = this._pendingDeathDecals;
+    if (!q.length) return;
+    // One decal per frame keeps BVH projection off the kill hitch.
+    const x = q.shift();
+    const y = q.shift();
+    const z = q.shift();
+    const ph = this.physics;
+    if (!ph?.groundHeight) return;
+    const gy = ph.groundHeight(x, z, y + 1);
+    if (!Number.isFinite(gy)) return;
+    this._tmpA.set(x, gy, z);
+    this._tmpB.set(0, 1, 0);
+    this.addDecal(this._tmpA, this._tmpB, {
+      tile: this.rng.float() < 0.5 ? D.BLOOD_A : D.BLOOD_B,
+      size: this.rng.range(0.5, 0.9),
+      life: 120,
+      fade: 0.85,
+      maxAngle: 80,
+    });
   }
 
   onLand(e) {
@@ -780,6 +794,7 @@ export class FxSystem {
 
   update(dt, ctx) {
     this.now = ctx.time.elapsed;
+    this._flushDeathDecals();
     this._syncLighting(ctx);
     this.lights.update(dt);
     this.viewLights?.update(dt);

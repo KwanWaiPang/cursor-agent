@@ -665,33 +665,43 @@ export class Ragdoll {
   /** Push the simulated transforms into the adopted skeleton. */
   writeToSkeleton() {
     if (!this.bones3D) return;
-    // A settled corpse re-derives 25 bone transforms per frame from particle
+    // A settled corpse re-derives bone transforms per frame from particle
     // positions that `step()` has already stopped touching (it early-returns on
     // `sleeping`), so every one of those writes is the same value it wrote last
-    // frame. Skip them — but only AFTER one write has landed while asleep: the
-    // frame the ragdoll falls asleep, `step()` has already moved the particles
-    // one last time before setting the flag, and dropping that write would leave
-    // the skeleton one step stale forever. `sleeping` going false re-arms this on
-    // the next call, so a re-woken ragdoll writes again immediately.
+    // frame. Skip them — but only AFTER one write has landed while asleep.
     if (this.sleeping && this._sleepWritten) return;
     this._sleepWritten = this.sleeping;
     const pos = this._v3;
     const quat = this._q;
+    // Spec order is parents-before-children. Once a bone is written we stamp
+    // its world matrix from the solver; unmapped parents (clavicles) are
+    // refreshed at most once instead of walking to root for every bone.
     for (let i = 0; i < this.boneCount; i++) {
       const bone = this.bones3D[i];
       if (!bone) continue;
       this.getBoneTransform(i, pos, quat);
       this._m4b.compose(pos, quat, this._scale);
       if (bone.parent) {
-        bone.parent.updateWorldMatrix(true, false);
+        if (!bone.parent.__rdWorld) {
+          bone.parent.updateWorldMatrix(true, false);
+          bone.parent.__rdWorld = 1;
+        }
         this._m4.copy(bone.parent.matrixWorld).invert().multiply(this._m4b);
+        this._m4.decompose(bone.position, bone.quaternion, this._v3b);
       } else {
-        this._m4.copy(this._m4b);
+        this._m4b.decompose(bone.position, bone.quaternion, this._v3b);
       }
-      this._m4.decompose(bone.position, bone.quaternion, this._v3b);
       bone.updateMatrix();
+      bone.matrixWorld.copy(this._m4b);
+      bone.matrixWorldNeedsUpdate = false;
+      bone.__rdWorld = 1;
     }
-    this.bones3D[0]?.updateMatrixWorld(true);
+    for (let i = 0; i < this.boneCount; i++) {
+      const bone = this.bones3D[i];
+      if (!bone) continue;
+      bone.__rdWorld = 0;
+      if (bone.parent) bone.parent.__rdWorld = 0;
+    }
   }
 
   dispose() {
@@ -758,6 +768,61 @@ export function specFromSkeleton(skeleton, opts = {}) {
     vol += s.mass;
   }
   if (vol > 0) for (const s of spec) s.mass = Math.max(0.4, (s.mass / vol) * totalMass);
+
+  return { spec, boneMap };
+}
+
+/* Scratch for specFromBoneTable — kill-frame path must not allocate. */
+const _boneByName = new Map();
+const _tblHead = new THREE.Vector3();
+const _tblTail = new THREE.Vector3();
+
+/**
+ * Build a ragdoll spec from an authored bone table:
+ *   [ headName, tailName, radius, massFraction, parentIndex, coneDeg, twistDeg, mapped? ]
+ *
+ * One hierarchical `updateWorldMatrix` + O(table) lookups — far cheaper than
+ * walking every skeleton bone with per-bone world updates on the kill frame.
+ */
+export function specFromBoneTable(skeleton, table, opts = {}) {
+  const bones = skeleton?.bones;
+  if (!bones?.length || !table?.length) return { spec: [], boneMap: [] };
+
+  _boneByName.clear();
+  for (let i = 0; i < bones.length; i++) _boneByName.set(bones[i].name, bones[i]);
+
+  // Refresh the whole bind/animated pose once; then read matrixWorld.
+  bones[0].updateWorldMatrix(true, true);
+
+  const totalMass = opts.mass ?? 82;
+  const radiusScale = opts.radiusScale ?? 1;
+  const spec = [];
+  const boneMap = [];
+  const tableToSpec = new Int32Array(table.length).fill(-1);
+
+  for (let i = 0; i < table.length; i++) {
+    const row = table[i];
+    const hb = _boneByName.get(row[0]);
+    const tb = _boneByName.get(row[1]);
+    if (!hb || !tb) continue;
+    _tblHead.setFromMatrixPosition(hb.matrixWorld);
+    _tblTail.setFromMatrixPosition(tb.matrixWorld);
+    if (_tblHead.distanceToSquared(_tblTail) < 1e-8) continue;
+    const parentTable = Number.isFinite(row[4]) ? row[4] : -1;
+    const parentIdx = parentTable >= 0 ? tableToSpec[parentTable] : -1;
+    tableToSpec[i] = spec.length;
+    spec.push({
+      name: row[0],
+      head: [_tblHead.x, _tblHead.y, _tblHead.z],
+      tail: [_tblTail.x, _tblTail.y, _tblTail.z],
+      radius: Math.max(0.025, (row[2] ?? 0.06) * radiusScale),
+      mass: Math.max(0.4, (row[3] ?? 0.05) * totalMass),
+      parent: parentIdx,
+      cone: (row[5] ?? 70) * DEG,
+      twist: (row[6] ?? 35) * DEG,
+    });
+    boneMap.push(hb);
+  }
 
   return { spec, boneMap };
 }

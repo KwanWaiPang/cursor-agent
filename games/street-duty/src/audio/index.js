@@ -105,6 +105,8 @@ export class AudioSystem {
     this._budget = { impact: 0, step: 0, shell: 0, whizz: 0 };
     this._lastBarkTime = -99;
     this._lastEnemyFire = -99;
+    /** Death bark/bodyfall deferred off the kill frame (ragdoll alloc frame). */
+    this._deferredDeaths = [];
 
     this._health = 100;
     this._heartTimer = 0;
@@ -234,6 +236,30 @@ export class AudioSystem {
         this._probeTimer = 0.45;
         this._lastProbe.x = e[12]; this._lastProbe.y = e[13]; this._lastProbe.z = e[14];
         this._probeSpace(ctx, e[12], e[13], e[14]);
+      }
+
+      /* ---- deferred kill-frame audio (one death cue per frame) --- */
+      if (this._deferredDeaths.length) {
+        const d = this._deferredDeaths.shift();
+        this.bark('death', d, {
+          level: 1,
+          force: true,
+          voice: d.voice,
+          occlusion: 0,
+        });
+        this._playAt(
+          'bodyfall',
+          d.x,
+          d.y,
+          d.z,
+          {
+            level: 1,
+            extraDelay: 0.45 + this.rng.range(0, 0.4),
+            occlusion: 0,
+          },
+          'foley',
+          0.6
+        );
       }
 
       /* ---- subsystems -------------------------------------------- */
@@ -499,8 +525,14 @@ export class AudioSystem {
       level: opts.level ?? 1,
       radio: opts.radio ?? false,
       send: opts.send,
+      occlusion: opts.occlusion,
     };
-    if (position) return this._playAt('bark', position.x, position.y, position.z, o, 'voice', 0.85);
+    if (position) {
+      const x = position.x ?? position[0];
+      const y = position.y ?? position[1];
+      const z = position.z ?? position[2];
+      return this._playAt('bark', x, y, z, o, 'voice', 0.85);
+    }
     return this._playDry('bark', o, 'voice', 0.25);
   }
 
@@ -721,10 +753,16 @@ export class AudioSystem {
     if (!this.running) return;
     const pt = p?.point;
     if (!pt) return;
-    this.bark('death', pt, { level: 1, force: true, voice: (p?.actor?.id ?? 0) | 0 });
-    this._playAt('bodyfall', pt.x, pt.y, pt.z, {
-      level: 1, extraDelay: 0.45 + this.rng.range(0, 0.4),
-    }, 'foley', 0.6);
+    // Queue for later audio updates — keeps Web Audio graph build + occlusion
+    // rays off the same frame as ragdoll construction.
+    if (this._deferredDeaths.length < 4) {
+      this._deferredDeaths.push({
+        x: pt.x,
+        y: pt.y,
+        z: pt.z,
+        voice: (p?.actor?.id ?? 0) | 0,
+      });
+    }
   }
 
   /* ================================================================ */
