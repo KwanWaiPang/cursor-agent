@@ -296,7 +296,7 @@ export class Enemy {
     this.helpFocus = null;
     /** 据点模式：优先靠近战术区 */
     this.holdZone = opts.holdZone || null;
-    this.isAlly = this.team === "red";
+    // isAlly is a getter (team === "red") — do not assign; that throws and aborts start.
     this.lootCd = 0.4 + Math.random() * 0.8;
     this.equipWeapon(startWeapon, { silent: true, damageOverride: opts.damage });
   }

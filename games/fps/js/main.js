@@ -38,6 +38,15 @@ function start(mode) {
     // Demo / automation hook (hub recordings, smoke tests)
     window.__FPS_GAME__ = game;
   } catch (e) {
+    // Partial constructs may have already appended a canvas — tear it down.
+    try {
+      game?.dispose?.();
+    } catch (_) {
+      /* ignore dispose errors during failed boot */
+    }
+    game = null;
+    window.__FPS_GAME__ = null;
+    document.querySelectorAll("body > canvas").forEach((c) => c.remove());
     if (String(e.message) === "WEBGL") {
       hide(menu);
       show(webglFail);
