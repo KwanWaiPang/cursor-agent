@@ -977,16 +977,14 @@ export class Agent {
     // Impulse is N·s, and the ragdoll turns it into a velocity change on the
     // particles it lands near: a 5.56 round carries ~4 N·s, so anything in the
     // hundreds launches the body across the street instead of dropping it.
-    this.group.updateMatrixWorld(true);
     const impulse = this._v2
       .copy(dir ?? this._v.set(0, 0, 1))
       .normalize()
       .multiplyScalar(Math.min(5.5, 1.5 + amount * 0.02));
     const hitPoint = point ?? this._v.copy(this.position).setY(this.position.y + 1.2);
 
-    // Own the hand-off: build the capsule spec from the *live* animated pose,
-    // hand it to the solver and let it drive the skeleton from here. Setting
-    // __ragdoll stops physics creating a second one off our death event.
+    // Own the hand-off via the authored DOLL table (not a full skeleton walk).
+    // Setting __ragdoll stops physics creating a second doll off our death event.
     const rd = this._makeRagdoll(impulse, hitPoint);
     if (rd) {
       this.__ragdoll = rd;
@@ -1002,10 +1000,9 @@ export class Agent {
   }
 
   /**
-   * Hand the live pose to the ragdoll solver. `physics` derives the capsule
-   * chain from the skeleton itself, so the doll starts exactly in the pose the
-   * animator left — the death has no pop. `radiusRatio` fattens the capsules
-   * (its default is thin enough that a settled body reads as a pancake).
+   * Hand the live pose to the ragdoll solver using the authored DOLL capsule
+   * table — one hierarchy update + O(table) bone lookups on the kill frame,
+   * instead of walking all 25 skeleton bones with per-bone world refreshes.
    */
   _makeRagdoll(impulse, point) {
     const phys = this.phys;
@@ -1017,15 +1014,26 @@ export class Agent {
     const lift = 0.15 * this.scale;
     this.group.position.y += lift;
     this.group.updateMatrixWorld(true);
-    const rd = phys.createRagdollFromSkeleton(this.mesh, {
-      actor: this,
-      mass: this.mass,
-      radiusRatio: 0.42,
-      cone: 74,
-      twist: 38,
-      iterations: 8,
-      velocity: { x: this.velocity.x * 0.6, y: 0, z: this.velocity.z * 0.6 },
-    });
+    const make =
+      typeof phys.createRagdollFromBoneTable === 'function'
+        ? () =>
+            phys.createRagdollFromBoneTable(this.mesh, DOLL, {
+              actor: this,
+              mass: this.mass,
+              iterations: 5,
+              velocity: { x: this.velocity.x * 0.6, y: 0, z: this.velocity.z * 0.6 },
+            })
+        : () =>
+            phys.createRagdollFromSkeleton(this.mesh, {
+              actor: this,
+              mass: this.mass,
+              radiusRatio: 0.42,
+              cone: 74,
+              twist: 38,
+              iterations: 5,
+              velocity: { x: this.velocity.x * 0.6, y: 0, z: this.velocity.z * 0.6 },
+            });
+    const rd = make();
     this.group.position.y -= lift;
     this.group.updateMatrixWorld(true);
     if (!rd) return null;

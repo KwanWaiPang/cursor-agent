@@ -71,7 +71,7 @@ import { UNITS } from '../core/config.js';
 import { StaticWorld } from './bvh.js';
 import { CharacterController } from './character.js';
 import { RigidBody, RigidBodyWorld } from './rigidbody.js';
-import { Ragdoll, humanoidSpec, specFromSkeleton } from './ragdoll.js';
+import { Ragdoll, humanoidSpec, specFromSkeleton, specFromBoneTable } from './ragdoll.js';
 import { Ballistics } from './penetration.js';
 import { PhysicsDebugView } from './debug.js';
 import {
@@ -835,6 +835,21 @@ export class PhysicsSystem {
     const skeleton = skinnedMesh?.skeleton ?? skinnedMesh;
     if (!skeleton?.bones?.length) return null;
     const { spec, boneMap } = specFromSkeleton(skeleton, opts);
+    if (!spec.length) return null;
+    const rd = this.createRagdoll({ ...opts, bones: spec, transform: null });
+    rd.adoptSkeleton(skeleton, boneMap);
+    rd.actor = opts.actor ?? skinnedMesh;
+    return rd;
+  }
+
+  /**
+   * Faster kill-frame path: authored bone table + one hierarchy update, instead
+   * of walking every skeleton bone with per-bone world-matrix refreshes.
+   */
+  createRagdollFromBoneTable(skinnedMesh, table, opts = {}) {
+    const skeleton = skinnedMesh?.skeleton ?? skinnedMesh;
+    if (!skeleton?.bones?.length || !table?.length) return null;
+    const { spec, boneMap } = specFromBoneTable(skeleton, table, opts);
     if (!spec.length) return null;
     const rd = this.createRagdoll({ ...opts, bones: spec, transform: null });
     rd.adoptSkeleton(skeleton, boneMap);
