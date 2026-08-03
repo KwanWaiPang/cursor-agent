@@ -46,6 +46,14 @@
   background: radial-gradient(circle, rgba(107, 74, 46, 0.24), transparent 65%);
 }
 
+.game-card-pocket .mark {
+  color: #2f6b3a;
+}
+
+.game-card-pocket::before {
+  background: radial-gradient(circle, rgba(47, 107, 58, 0.22), transparent 65%);
+}
+
 .game-card {
   position: relative;
   display: grid;
