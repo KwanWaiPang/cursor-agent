@@ -43,7 +43,7 @@ jobs:
       - name: Prepare site
         run: |
           mkdir -p _site
-          cp index.html .nojekyll README.md THIRD_PARTY_NOTICES.md _site/
+          cp index.html .nojekyll README.md ARCHITECTURE.md THIRD_PARTY_NOTICES.md _site/
           cp -r css games assets _site/
           # 街战突击：发布同步后的构建（index.html + assets/），去掉源码树
           # （仓库 Pages 当前为 legacy/branch 部署时，main 上的同内容也会生效）
