@@ -22,8 +22,10 @@ Hub architecture: [ARCHITECTURE.md](../../ARCHITECTURE.md).
 
 - 加载完成后点击进入街区，锁定鼠标。  
   After load, click to enter and lock the pointer.
-- 开局 **2 名队友**（蓝灰外观，跟随并协助开火，不伤玩家）+ 镜头前突击波 + 远处驻军。  
-  Start with **2 allies** (blue-grey, escort + fire support, no friendly fire) plus a forward assault wave and a distant garrison.
+- 开局 **2 名队友**（蓝灰外观，积极跟推、包抄，不伤玩家）+ 镜头前突击波 + 远处驻军。  
+  Start with **2 allies** (blue-grey, aggressive push/flank, no friendly fire) plus a forward assault wave and a distant garrison.
+- 敌我都会在挨打时找掩体，小队交替压制 / 包抄；弱画质 **少人但更聪明**。  
+  Both sides seek cover under fire and rotate suppress/flank roles; low/medium quality uses **fewer, smarter** hostiles.
 - 存活敌方过少时，导演会分批补兵（避免同帧刷整波）。  
   When hostiles drop too low, a director respawns them **one at a time** to avoid spawn hitches.
 

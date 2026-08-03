@@ -497,26 +497,29 @@ export class Agent {
         break;
 
       case STATE.SUPPRESSED:
-        this.crouch = true;
-        this.desiredSpeed = 0;
-        this.wantFire = false;
-        this.peeking = false;
-        if (this.suppression < 0.45) this._setState(STATE.COMBAT);
+        this._suppressedMove(dt);
         break;
 
       case STATE.FLANK: {
-        this.crouch = false;
-        this.desiredSpeed = 4.4;
-        this.wantFire = false;
+        this.crouch = this.suppression > 0.55;
+        this.desiredSpeed = this.crouch ? 2.8 : 4.6;
+        // Suppressing fire while relocating — keeps enemy heads down for the mate.
+        this.wantFire = this.hasTarget && this.lastKnownAge < 1.6 && this.rng.float() < 0.2;
+        this.peeking = false;
         if (!this.hasMoveTarget || this.position.distanceTo(this.moveTarget) < 1.2 || this.stateTime > 7) {
           this._setState(STATE.COMBAT);
           this.cover = null;
+          this.repathTimer = 0;
         }
-        if (this.suppression > 1.0) this._setState(STATE.COMBAT);
         break;
       }
 
       case STATE.RETREAT: {
+        // Allies almost never peel — they push with the player.
+        if (this.isAlly) {
+          this._setState(STATE.COMBAT);
+          break;
+        }
         this.crouch = false;
         this.desiredSpeed = 4.6;
         this.wantFire = false;
@@ -528,8 +531,48 @@ export class Agent {
       }
     }
 
-    if (this.suppression > 1.15 && this.state === STATE.COMBAT && this.cover) {
+    // Under fire: enter suppressed even in the open so we seek cover instead of
+    // standing still. Allies tolerate a bit more lead before ducking.
+    const suppressThresh = this.isAlly ? 1.35 : 1.05;
+    if (this.suppression > suppressThresh && this.state === STATE.COMBAT) {
       this._setState(STATE.SUPPRESSED);
+    }
+  }
+
+  /**
+   * Under fire: crouch-run to the nearest protecting cover. Standing still in
+   * SUPPRESSED was the main "dumb AI" tell — relocate, then return to COMBAT.
+   */
+  _suppressedMove(dt) {
+    this.crouch = true;
+    this.wantFire = false;
+    this.peeking = false;
+    const threat = this.hasTarget || this.lastKnownAge < 6 ? this.lastKnown : null;
+    const needCover =
+      !this.cover ||
+      this.position.distanceTo(this.coverPos) > 1.1 ||
+      this.repathTimer <= 0;
+    if (threat && needCover) {
+      const pick = this.ai.cover?.pick(this.position, threat, {
+        id: this.id,
+        squad: this.squad?.members,
+        minRange: this.isAlly ? 4 : 5,
+        maxRange: this.isAlly ? 18 : 22,
+        maxTravel: 14,
+      });
+      this.repathTimer = this.rng.range(1.2, 2.2);
+      if (pick) {
+        if (this.cover && this.cover !== pick) this.ai.cover?.release(this.id);
+        this.cover = pick;
+        this.coverPos.set(pick.x, pick.y, pick.z);
+        this._goTo(this.coverPos);
+      }
+    }
+    const atCover = this.cover && this.position.distanceTo(this.coverPos) < 0.9;
+    this.desiredSpeed = atCover ? 0 : 2.9;
+    if (this.suppression < 0.4 && (atCover || this.stateTime > 2.5)) {
+      this._setState(STATE.COMBAT);
+      this.repathTimer = 0;
     }
   }
 
@@ -539,7 +582,10 @@ export class Agent {
     this.repathTimer = 0;
   }
 
-  /** Keep a lateral slot behind the player when not fighting. */
+  /**
+   * Escort the player. Out of contact: lateral rear slots. When the player is
+   * fighting or advancing, push to a forward-oblique slot so allies lead the push.
+   */
   _followPlayer(dt) {
     const player = this.ai.playerPosition(this._v3);
     if (!player) {
@@ -553,8 +599,13 @@ export class Agent {
     const rx = Math.cos(yaw);
     const rz = -Math.sin(yaw);
     const side = this.allySlot || 1;
-    const sx = player.x + fx * -2.6 + rx * side * 2.1;
-    const sz = player.z + fz * -2.6 + rz * side * 2.1;
+    const playerMoving = (pSys?.movement?.speed ?? pSys?.speed ?? 0) > 1.2;
+    const push = this.hasTarget || this.lastKnownAge < 5 || playerMoving;
+    // Aggressive: ahead-oblique when pushing; trail when idle.
+    const along = push ? 1.8 : -2.6;
+    const lat = push ? 2.8 : 2.1;
+    const sx = player.x + fx * along + rx * side * lat;
+    const sz = player.z + fz * along + rz * side * lat;
     const dist = Math.hypot(this.position.x - sx, this.position.z - sz);
     if (dist < 1.4) {
       this.desiredSpeed = 0;
@@ -562,9 +613,9 @@ export class Agent {
       this.targetYaw = yaw;
       return;
     }
-    this.desiredSpeed = dist > 8 ? 4.2 : dist > 4 ? 2.8 : 1.6;
+    this.desiredSpeed = dist > 8 ? 4.6 : dist > 4 ? 3.2 : push ? 2.4 : 1.6;
     if (!this.pathPending && (this._followRepath = (this._followRepath ?? 0) - dt) <= 0) {
-      this._followRepath = 0.55;
+      this._followRepath = push ? 0.35 : 0.55;
       this._goTo(this._v.set(sx, player.y, sz));
     }
   }
@@ -572,14 +623,24 @@ export class Agent {
   _combat(dt) {
     const target = this.hasTarget ? this.lastKnown : this.lastKnownAge < 5 ? this.lastKnown : null;
     if (!target) {
+      if (this.isAlly) {
+        this._followPlayer(dt);
+        return;
+      }
       this._setState(STATE.ALERT);
       return;
     }
     const sq = this.squad;
     const dist = this.position.distanceTo(target);
+    const underFire = this.suppression > 0.65;
 
-    // wounded and outgunned: fall back
-    if (this.health < 34 && this.stateTime > 1.5 && this.rng.float() < dt * 0.5) {
+    // Hostiles may peel when wounded; allies keep pressing.
+    if (
+      !this.isAlly &&
+      this.health < 34 &&
+      this.stateTime > 1.5 &&
+      this.rng.float() < dt * 0.5
+    ) {
       const away = this._v
         .copy(this.position)
         .sub(target)
@@ -593,16 +654,19 @@ export class Agent {
       }
     }
 
-    // no cover yet, or the current one no longer protects: find one
-    if (!this.cover || this.repathTimer <= 0) {
+    // Allies prefer cover closer to the fight / nearer the player.
+    const minR = this.isAlly ? 4 : 6;
+    const maxR = this.isAlly ? 20 : 28;
+    const travel = underFire ? 12 : this.cover ? 12 : 26;
+    if (!this.cover || this.repathTimer <= 0 || (underFire && !this.hasMoveTarget)) {
       const pick = this.ai.cover?.pick(this.position, target, {
         id: this.id,
         squad: sq?.members,
-        minRange: 7,
-        maxRange: 30,
-        maxTravel: this.cover ? 12 : 26,
+        minRange: minR,
+        maxRange: maxR,
+        maxTravel: travel,
       });
-      this.repathTimer = this.rng.range(2.2, 4.5);
+      this.repathTimer = underFire ? this.rng.range(1.0, 2.0) : this.rng.range(1.8, 3.6);
       if (pick && pick !== this.cover) {
         this.cover = pick;
         this.coverPos.set(pick.x, pick.y, pick.z);
@@ -610,80 +674,63 @@ export class Agent {
       }
     }
 
-    // A cover point we cannot actually reach must not mute the agent for ever.
-    // `_goTo` fails outright when A* finds no route (which happens for a cover
-    // point across an unwalkable seam), and a path can also run out short of the
-    // point. The branch below reads "has cover, not standing in it" as "walk,
-    // weapon down, hold fire", so without this the agent stands in the open with
-    // the player in plain sight and never pulls the trigger.
+    // Unreachable cover must not mute the agent forever.
     if (
       this.cover &&
       !this.hasMoveTarget &&
-      !this.pathPending && // still queued behind the frame's A* budget
+      !this.pathPending &&
       this.position.distanceTo(this.coverPos) > 0.85
     ) {
       this.cover = null;
       this.ai.cover?.release(this.id);
-      this.repathTimer = Math.min(this.repathTimer, 0.6);
+      this.repathTimer = Math.min(this.repathTimer, 0.4);
     }
 
-    const atCover = this.cover
-      ? this.position.distanceTo(this.coverPos) < 0.85
-      : false;
+    const atCover = this.cover ? this.position.distanceTo(this.coverPos) < 0.85 : false;
+    const suppressor = sq?.isSuppressor?.(this);
 
     if (this.cover && !atCover) {
-      // moving into position: run, weapon down, no shooting
-      this.desiredSpeed = 4.3;
-      this.crouch = false;
+      this.desiredSpeed = underFire ? 3.2 : 4.3;
+      this.crouch = underFire;
       this.wantFire = false;
       this.aimWeight = 0.35;
     } else {
       this.desiredSpeed = 0;
       this.hasMoveTarget = false;
-      // peek-and-shoot, gated by the squad so they alternate
       const allowed = !sq || sq.requestPeek(this, dt);
       if (this.peekTimer <= 0) {
-        this.peeking = allowed && this.targetVisible !== false;
-        this.peekTimer = this.peeking ? this.rng.range(1.1, 2.4) : this.rng.range(0.7, 1.8);
+        // Suppressors peek more often; movers stay tighter.
+        const preferPeek = suppressor || allowed;
+        this.peeking = preferPeek && this.targetVisible !== false;
+        this.peekTimer = this.peeking
+          ? this.rng.range(suppressor ? 1.4 : 1.0, suppressor ? 2.8 : 2.2)
+          : this.rng.range(0.55, 1.4);
         if (this.peeking && this.cover) {
           this.peekSide = this.ai.cover.peekOffset(this.cover, target, this.eyeHeight, this._v2);
           this.coverPos.copy(this._v2);
         }
       }
-      this.crouch = this.cover ? !this.cover.high || !this.peeking : false;
+      this.crouch = this.cover ? !this.cover.high || !this.peeking : underFire;
       this.aimWeight = this.peeking ? 1 : 0.55;
-      this.wantFire = this.peeking && this.targetVisible && this.hasTarget && dist < this.weaponRange;
-      // suppressing fire at the last known spot even without a clean shot
-      if (!this.wantFire && this.hasTarget && this.lastKnownAge < 2.2 && this.peeking) {
-        this.wantFire = this.rng.float() < 0.35;
+      this.wantFire =
+        this.peeking && this.targetVisible && this.hasTarget && dist < this.weaponRange;
+      // Suppressing fire at last-known — especially when holding for a relocating mate.
+      if (!this.wantFire && this.hasTarget && this.lastKnownAge < 2.4 && this.peeking) {
+        this.wantFire = this.rng.float() < (suppressor ? 0.7 : 0.4);
       }
     }
 
-    // flank when the player has been static and we have friends shooting
+    // Coordinated relocate / flank: one mover while mates suppress.
+    const flankChance = this.isAlly ? dt * 0.55 : dt * 0.4;
     if (
       sq &&
-      this.stateTime > 4 &&
-      this.grenadeCooldown < 0 === false &&
-      sq.canFlank(this) &&
-      this.rng.float() < dt * 0.25
+      this.stateTime > 2.2 &&
+      (sq.canFlank(this) || sq.canMoveUnderFire?.(this)) &&
+      this.rng.float() < flankChance
     ) {
-      const side = this.rng.float() < 0.5 ? 1 : -1;
-      const perp = this._v.copy(target).sub(this.position).setY(0).normalize();
-      const flank = this._v2
-        .set(-perp.z * side, 0, perp.x * side)
-        .multiplyScalar(this.rng.range(8, 15))
-        .add(this.position)
-        .addScaledVector(perp, 4);
-      if (this._goTo(flank)) {
-        this.cover = null;
-        this.ai.cover?.release(this.id);
-        this._setState(STATE.FLANK);
-        sq.claimFlank(this);
-        return;
-      }
+      if (this._tryFlank(target, sq)) return;
     }
 
-    // grenade when the player is pinned and we have line of fire
     if (
       this.hasGrenade &&
       this.grenadeCooldown <= 0 &&
@@ -694,6 +741,38 @@ export class Agent {
     ) {
       this._throwGrenade(target);
     }
+  }
+
+  /** Push around the threat into cover on the far side — surround, don't just strafe. */
+  _tryFlank(target, sq) {
+    const toThreat = this._v.copy(target).sub(this.position).setY(0);
+    if (toThreat.lengthSq() < 1e-4) return false;
+    toThreat.normalize();
+    const side = (this.allySlot || (this.id & 1 ? 1 : -1)) >= 0 ? 1 : -1;
+    const along = this.isAlly ? this.rng.range(3, 7) : this.rng.range(2, 6);
+    const lat = this.rng.range(7, 14);
+    const dest = this._v2
+      .set(-toThreat.z * side, 0, toThreat.x * side)
+      .multiplyScalar(lat)
+      .addScaledVector(toThreat, along)
+      .add(this.position);
+    // Prefer ending the flank in cover that still faces the threat.
+    const pick = this.ai.cover?.pick(dest, target, {
+      id: this.id,
+      squad: sq?.members,
+      minRange: 5,
+      maxRange: 22,
+      maxTravel: 10,
+    });
+    const goal = pick ? this._v.set(pick.x, pick.y, pick.z) : dest.setY(this.position.y);
+    if (!this._goTo(goal)) return false;
+    if (this.cover) this.ai.cover?.release(this.id);
+    this.cover = pick || null;
+    if (pick) this.coverPos.set(pick.x, pick.y, pick.z);
+    this._setState(STATE.FLANK);
+    sq.claimFlank?.(this);
+    sq.claimMover?.(this);
+    return true;
   }
 
   /* ================================================================== */
