@@ -1,5 +1,9 @@
 # OVERWATCH — engine contract
 
+> **中文提要：** 本文是街战突击引擎的协调合同（子系统所有权、禁止跨目录改文件、事件表、表面类型）。  
+> 游戏馆级结构、两款 FPS 边界与部署流程见仓库根目录 [`ARCHITECTURE.md`](../../ARCHITECTURE.md)；玩法/键位见 [`README.zh.md`](./README.zh.md)。  
+> **English:** This file is the Street Duty *engine* contract. For hub-level layout and the `fps` vs `street-duty` boundary, see [`ARCHITECTURE.md`](../../ARCHITECTURE.md). Gameplay/controls: [`README.zh.md`](./README.zh.md) (ZH) · [`README.md`](./README.md) (EN).
+
 **Every agent must read this before writing code. It is the only coordination mechanism.**
 
 Target: a browser FPS whose *visual and tactile quality* stands next to a modern
