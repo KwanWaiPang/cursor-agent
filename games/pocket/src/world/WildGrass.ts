@@ -22,9 +22,9 @@ import type { SpeciesId } from '../gameplay/battle/data';
  * and a grace distance after each battle.
  */
 
-/* The shelf: z in [19.5, 24.6], with a gap where the south path runs. */
+/* Route 1 shelf south of town, with a gap where the dirt path runs. */
 const Z0 = 19.4;
-const Z1 = 23.8;
+const Z1 = 32.4;
 const X_MIN = -13.5;
 const X_MAX = 13.5;
 
@@ -33,7 +33,7 @@ function pathX(z: number): number {
   return 0.9 + (z - 19) * 0.08;
 }
 
-const PATH_HALF = 2.3;
+const PATH_HALF = 2.15;
 
 /** Inside either tall-grass lobe? */
 export function inWildGrass(x: number, z: number): boolean {
@@ -261,7 +261,13 @@ export function buildWildGrass(ctx: GameContext): void {
   function rollEncounter(px: number, pz: number): void {
     counter++;
     const eRng = makeRng((ctx.seed ^ (counter * 2654435761)) >>> 0);
-    const species: SpeciesId = eRng() < 0.55 ? 'pidgey' : 'rattata';
+    // Route 1 table: common birds/rats, with Oddish and Caterpie in the weeds.
+    const roll = eRng();
+    let species: SpeciesId;
+    if (roll < 0.34) species = 'pidgey';
+    else if (roll < 0.60) species = 'rattata';
+    else if (roll < 0.82) species = 'oddish';
+    else species = 'caterpie';
     const level = 3 + Math.floor(eRng() * 3); // 3..5
     const seed = Math.floor(eRng() * 0xffffffff) >>> 0;
     rustle(px, ctx.collision.groundHeight(px, pz), pz);

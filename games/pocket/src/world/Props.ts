@@ -684,6 +684,116 @@ function buildTownSign(ctx: GameContext, kit: PropKit): void {
   });
 }
 
+const ROUTE_SIGN_LINES = [
+  '１号道路',
+  '北边：真新镇　·　南边：常青市',
+  '草丛里潜伏着野生宝可梦。',
+  '选好伙伴后再前进——冒险才刚刚开始！',
+];
+
+/** Route 1 fingerpost on the south approach out of town. */
+function buildRouteSign(ctx: GameContext, kit: PropKit): void {
+  const sx = -3.35;
+  const sz = 28.6;
+  const yaw = -0.18;
+  const g0 = ctx.collision.groundHeight(sx, sz);
+
+  const BW = 1.52;
+  const BH = 0.62;
+  const BT = 0.1;
+  const boardY = 1.14;
+  const postX = 0.66;
+  const postH = 1.68;
+
+  const root = new THREE.Object3D();
+  root.position.set(sx, g0, sz);
+  root.rotation.y = yaw;
+  root.updateMatrixWorld(true);
+
+  const local: { g: THREE.BufferGeometry; b: Bucket; c: number }[] = [];
+  const add = (g: THREE.BufferGeometry, b: Bucket, c: number, t: Xform) => {
+    local.push({ g: place(g, t), b, c });
+  };
+
+  for (const sgn of [-1, 1]) {
+    const px = sgn * postX;
+    const wx = sx + Math.cos(yaw) * px;
+    const wz = sz - Math.sin(yaw) * px;
+    const gy = ctx.collision.groundHeight(wx, wz) - g0;
+    const h = postH - gy;
+    add(rbox(0.15, h + 0.36, 0.15, 0.05, 2, 1.2), 'timber', C.wood, {
+      x: px,
+      y: gy + (h + 0.36) / 2 - 0.36,
+      rz: sgn * 0.01,
+    });
+    add(rbox(0.18, 0.08, 0.18, 0.04, 2, 1.4), 'timber', C.woodPale, { x: px, y: gy + h + 0.02 });
+    const rock = noiseDisplace(new THREE.IcosahedronGeometry(0.17, 1), 0.05, 3.4, 71 + sgn * 5, 3);
+    rock.scale(1, 0.5, 1);
+    rock.deleteAttribute('uv');
+    rock.setAttribute('uv', boxProjectedUV(rock, 1.6));
+    add(rock, 'granite', C.stone, { x: px + sgn * 0.14, y: gy + 0.03, z: 0.08 });
+    kit.decal(wx, wz, 0.78, yaw + sgn, 0.75, 0xdcc9a8);
+  }
+
+  add(rbox(BW, BH, BT, 0.035, 2, 1.1), 'timber', C.woodPale, { y: boardY });
+  add(rbox(BW + 0.18, 0.065, 0.22, 0.03, 2, 1.4), 'timber', C.wood, {
+    y: boardY + BH / 2 + 0.1,
+    z: 0.06,
+    rx: -0.34,
+  });
+  add(rbox(BW + 0.18, 0.065, 0.22, 0.03, 2, 1.4), 'timber', C.wood, {
+    y: boardY + BH / 2 + 0.1,
+    z: -0.06,
+    rx: 0.34,
+  });
+
+  for (const { g, b, c } of local) {
+    g.applyMatrix4(root.matrixWorld);
+    kit.add(g, b, c);
+  }
+
+  const PW = BW - 0.12;
+  const PH = BH - 0.1;
+  // Latin glyphs — the carved baker's font stack has no CJK coverage.
+  const maps = carvedSignMaps('route1', {
+    title: 'ROUTE 1',
+    subtitle: 'Viridian City ahead',
+    aspect: PW / PH,
+    ink: 0x2f5a3a,
+    timber: 0xc59a68,
+  });
+  const panel = new THREE.PlaneGeometry(PW, PH, 160, 60);
+  place(panel, { y: boardY, z: BT / 2 + 0.006 });
+  panel.applyMatrix4(root.matrixWorld);
+  const panelMat = new THREE.MeshStandardMaterial({
+    map: maps.map,
+    normalMap: maps.normalMap,
+    roughnessMap: maps.roughnessMap,
+    displacementMap: maps.displacementMap,
+    displacementScale: 0.014,
+    roughness: 1,
+    metalness: 0,
+  });
+  const panelMesh = new THREE.Mesh(panel, panelMat);
+  panelMesh.name = 'props.routeSignFace';
+  panelMesh.castShadow = true;
+  panelMesh.receiveShadow = true;
+  kit.group.add(panelMesh);
+
+  ctx.collision.addBox(sx, sz, 0.86, 0.16, g0 - 0.5, g0 + 1.8, yaw, 'route-sign');
+
+  const anchor = new THREE.Vector3(sx, g0 + boardY, sz);
+  ctx.interaction.register({
+    id: 'sign.route1',
+    position: anchor,
+    radius: 3.2,
+    label: '阅读路牌',
+    onInteract: () => {
+      ctx.events.emit(EVENTS.SAY, { speaker: '１号道路', lines: ROUTE_SIGN_LINES });
+    },
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Mailboxes                                                           */
 /* ------------------------------------------------------------------ */
@@ -1421,6 +1531,7 @@ export function buildProps(ctx: GameContext): void {
   const kit = new PropKit(ctx);
   const { posts } = buildFences(ctx, kit);
   buildTownSign(ctx, kit);
+  buildRouteSign(ctx, kit);
   buildMailboxes(ctx, kit);
   buildDressing(ctx, kit);
   buildRocks(ctx, kit, posts);

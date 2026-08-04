@@ -9,6 +9,8 @@ import { buildCharmander } from './pokemon/Charmander';
 import { buildSquirtle } from './pokemon/Squirtle';
 import { buildPidgey } from './pokemon/Pidgey';
 import { buildRattata } from './pokemon/Rattata';
+import { buildOddish } from './pokemon/Oddish';
+import { buildCaterpie } from './pokemon/Caterpie';
 import type { Creature, SpeciesId, StarterId } from './pokemon/shared';
 
 export { buildBulbasaur } from './pokemon/Bulbasaur';
@@ -16,6 +18,8 @@ export { buildCharmander } from './pokemon/Charmander';
 export { buildSquirtle } from './pokemon/Squirtle';
 export { buildPidgey } from './pokemon/Pidgey';
 export { buildRattata } from './pokemon/Rattata';
+export { buildOddish } from './pokemon/Oddish';
+export { buildCaterpie } from './pokemon/Caterpie';
 export { buildPokeBall, type PokeBall } from './pokemon/PokeBall';
 export { STARTERS, SPECIES, type Creature, type StarterId, type SpeciesId } from './pokemon/shared';
 
@@ -27,6 +31,8 @@ export function buildCreature(id: SpeciesId): Creature {
     case 'squirtle': return buildSquirtle();
     case 'pidgey': return buildPidgey();
     case 'rattata': return buildRattata();
+    case 'oddish': return buildOddish();
+    case 'caterpie': return buildCaterpie();
   }
 }
 

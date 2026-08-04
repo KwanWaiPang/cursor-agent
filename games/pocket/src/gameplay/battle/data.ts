@@ -11,9 +11,16 @@
  * random roll.
  */
 
-export type SpeciesId = 'bulbasaur' | 'charmander' | 'squirtle' | 'pidgey' | 'rattata';
+export type SpeciesId =
+  | 'bulbasaur'
+  | 'charmander'
+  | 'squirtle'
+  | 'pidgey'
+  | 'rattata'
+  | 'oddish'
+  | 'caterpie';
 
-export type TypeId = 'normal' | 'flying' | 'grass' | 'fire' | 'water' | 'poison' | 'ground';
+export type TypeId = 'normal' | 'flying' | 'grass' | 'fire' | 'water' | 'poison' | 'ground' | 'bug';
 
 export type StatId = 'atk' | 'def' | 'spe' | 'acc';
 
@@ -78,6 +85,15 @@ export const MOVES: Record<string, MoveDef> = {
     pp: 15, priority: 0, category: 'status', fx: 'sand',
     effect: { stat: 'acc', delta: -1, target: 'foe' },
   },
+  absorb: {
+    id: 'absorb', name: '吸取', type: 'grass', power: 20, accuracy: 1,
+    pp: 25, priority: 0, category: 'physical', fx: 'vine',
+  },
+  'string-shot': {
+    id: 'string-shot', name: '吐丝', type: 'bug', power: 0, accuracy: 0.95,
+    pp: 40, priority: 0, category: 'status', fx: 'growl',
+    effect: { stat: 'spe', delta: -1, target: 'foe' },
+  },
 };
 
 export interface SpeciesBattleData {
@@ -116,20 +132,31 @@ export const SPECIES: Record<SpeciesId, SpeciesBattleData> = {
     base: { hp: 30, atk: 56, def: 35, spe: 72 },
     moves: ['tackle', 'tail-whip', 'quick-attack'],
   },
+  oddish: {
+    id: 'oddish', name: '走路草', types: ['grass', 'poison'],
+    base: { hp: 45, atk: 50, def: 55, spe: 30 },
+    moves: ['absorb', 'growl', 'vine-whip'],
+  },
+  caterpie: {
+    id: 'caterpie', name: '绿毛虫', types: ['bug'],
+    base: { hp: 45, atk: 30, def: 35, spe: 45 },
+    moves: ['tackle', 'string-shot'],
+  },
 };
 
 /**
  * Type effectiveness, attacker -> defender. Only pairs that differ from 1 are
- * listed; everything else is neutral. Covers every type the five species and
+ * listed; everything else is neutral. Covers every type the Route 1 species and
  * their movepools can produce.
  */
 const CHART: Partial<Record<TypeId, Partial<Record<TypeId, number>>>> = {
-  flying: { grass: 2 },
-  grass: { water: 2, ground: 2, fire: 0.5, grass: 0.5, poison: 0.5, flying: 0.5 },
-  fire: { grass: 2, fire: 0.5, water: 0.5 },
+  flying: { grass: 2, bug: 2 },
+  grass: { water: 2, ground: 2, fire: 0.5, grass: 0.5, poison: 0.5, flying: 0.5, bug: 0.5 },
+  fire: { grass: 2, bug: 2, fire: 0.5, water: 0.5 },
   water: { fire: 2, ground: 2, water: 0.5, grass: 0.5 },
-  poison: { grass: 2, poison: 0.5, ground: 0.5 },
+  poison: { grass: 2, bug: 2, poison: 0.5, ground: 0.5 },
   ground: { fire: 2, poison: 2, grass: 0.5, flying: 0 },
+  bug: { grass: 2, poison: 2, flying: 0.5, fire: 0.5 },
 };
 
 /** Combined effectiveness of a move type against a defender's type list. */

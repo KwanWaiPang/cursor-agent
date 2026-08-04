@@ -62,11 +62,14 @@ export const TERRAIN = {
   playMinX: -21.0,
   playMaxX: 21.0,
   playMinZ: -26.2,
-  playMaxZ: 25.0,
+  /** South edge past Route 1 tall grass toward Viridian. */
+  playMaxZ: 33.8,
 } as const;
 
 /** Hand-authored spine of the north–south dirt path, south entrance -> lab. */
 const MAIN_PATH: [number, number][] = [
+  [2.0, 36.2],
+  [1.7, 31.0],
   [1.6, 27.5],
   [1.1, 21.5],
   [0.1, 15.4],
@@ -223,9 +226,15 @@ function makeField(seed: number) {
     // the player can never see over the edge of the world.
     h += smoothstep(13, 22, ax) * 0.62 * bank;
     h += smoothstep(22, 32, ax) * 1.95 * bank;
-    // South: tall-grass shelf, then the closing bank.
-    h += smoothstep(19, 27, z) * 0.5;
-    h += smoothstep(27, 36, z) * 1.9;
+    // South: gentle Route 1 shelf inside the playable corridor, then the
+    // closing bank pushed past the walkable edge so the path stays climbable.
+    h += smoothstep(19, 29, z) * 0.32;
+    h += smoothstep(33.5, 40, z) * 1.85;
+    // Soften the south bank along the dirt corridor so Route 1 does not
+    // become a cliff the moment the player leaves town.
+    const southCorridor =
+      smoothstep(2.8, 1.1, Math.abs(x - (1.5 + (z - 20) * 0.05))) * smoothstep(24, 28, z);
+    h -= southCorridor * smoothstep(28, 34, z) * 0.55;
     // The mesh stops somewhere, and ground that stops level draws a straight
     // line against the sky. So the last few metres before the boundary lift
     // into a ridge whose crest is noise-driven: what reaches the edge of the
@@ -239,9 +248,9 @@ function makeField(seed: number) {
     // boundary behind the crest from any eye height inside the play area, so
     // what reaches the skyline is a noise-driven hilltop and the edge is never
     // visible at all.
-    const rimFall = 1 - 0.3 * smoothstep(29.5, 32, ax) - 0.3 * smoothstep(33, 36, z);
+    const rimFall = 1 - 0.3 * smoothstep(29.5, 32, ax) - 0.3 * smoothstep(38, 42, z);
     const rim =
-      Math.max(smoothstep(24, 29.5, ax), smoothstep(28, 33, z)) *
+      Math.max(smoothstep(24, 29.5, ax), smoothstep(35, 40, z) * (1 - southCorridor)) *
       (1 - smoothstep(-18, -26, z)) *
       rimFall;
     if (rim > 0) {

@@ -11,6 +11,7 @@ const TYPE_ZH: Record<TypeId, string> = {
   water: '水',
   poison: '毒',
   ground: '地面',
+  bug: '虫',
 };
 
 /**
