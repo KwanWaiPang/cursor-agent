@@ -47,9 +47,9 @@ export class LoadingScreen {
     const inner = el('div', 'pt-loading__inner');
     inner.appendChild(el('div', 'pt-mark'));
 
-    const h1 = el('h1', 'pt-title', 'PALLET TOWN');
+    const h1 = el('h1', 'pt-title', '真新镇');
     inner.appendChild(h1);
-    inner.appendChild(el('p', 'pt-subtitle', 'Shades of your journey'));
+    inner.appendChild(el('p', 'pt-subtitle', '口袋冒险 · 第一人称开局'));
 
     const bar = el('div', 'pt-bar');
     this.fill = el('div', 'pt-bar__fill');
@@ -57,7 +57,7 @@ export class LoadingScreen {
     inner.appendChild(bar);
 
     const row = el('div', 'pt-loading__row');
-    this.stepEl = el('div', 'pt-loading__step', 'Waking the town…');
+    this.stepEl = el('div', 'pt-loading__step', '正在唤醒小镇…');
     this.pctEl = el('div', 'pt-loading__pct', '0%');
     row.appendChild(this.stepEl);
     row.appendChild(this.pctEl);
@@ -140,6 +140,10 @@ export class LoadingScreen {
 function prettyStep(label: string): string {
   if (!label) return '加载中…';
   const s = label.trim();
+  // Chinese step labels from World.build — don't English-title-case them.
+  if (/[\u4e00-\u9fff]/.test(s)) {
+    return /[…。！？]$/.test(s) ? s : `${s}…`;
+  }
   const cased = s.charAt(0).toUpperCase() + s.slice(1);
   return /[.…!?]$/.test(cased) ? cased : `${cased}…`;
 }
@@ -236,9 +240,11 @@ export class StartCard {
     this.continueBtn = el('button', 'pt-cta') as HTMLButtonElement;
     this.continueBtn.type = 'button';
     this.continueBtn.textContent = '继续旅程';
+    this.continueBtn.hidden = true;
     this.newBtn = el('button', 'pt-cta pt-cta--ghost') as HTMLButtonElement;
     this.newBtn.type = 'button';
     this.newBtn.textContent = '重新开始';
+    this.newBtn.hidden = true;
     this.actions.appendChild(this.cta);
     this.actions.appendChild(this.continueBtn);
     this.actions.appendChild(this.newBtn);

@@ -17,10 +17,11 @@ const SPAWN_YAW = -0.62;
 function resolveQuality(): QualityTier['name'] {
   const q = new URLSearchParams(location.search).get('q')?.toLowerCase();
   if (q && q in QUALITY) return q as QualityTier['name'];
-  // Leaner default on small / low-core devices; ?q=high restores full foliage.
+  // Leaner default on small / low-core / memory-tight devices; ?q=high for full foliage.
   const cores = navigator.hardwareConcurrency || 4;
   const small = matchMedia('(max-width: 900px)').matches;
-  if (small || cores <= 4) return 'medium';
+  const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  if (small || cores <= 4 || (typeof mem === 'number' && mem <= 4)) return 'medium';
   return 'high';
 }
 

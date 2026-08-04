@@ -104,6 +104,11 @@ export class BattleUI {
   show(): void {
     this.el.classList.add('is-on');
     document.querySelector('.pt-ui')?.classList.add('in-battle');
+    // Keep title/pause card from sitting above the fight UI if lock is lost.
+    document.querySelectorAll('.pt-start').forEach((node) => {
+      const el = node as HTMLElement;
+      el.classList.add('is-hidden', 'is-gone');
+    });
   }
 
   hide(): void {
@@ -248,6 +253,7 @@ export class BattleUI {
       }
       if (d.sub) sub.appendChild(el('span', undefined, d.sub));
       b.appendChild(sub);
+      b.setAttribute('aria-label', d.sub ? `${d.label}，${d.sub}` : d.label);
       b.addEventListener('mouseenter', () => this.select(i));
       b.addEventListener('click', (e) => {
         e.stopPropagation();
