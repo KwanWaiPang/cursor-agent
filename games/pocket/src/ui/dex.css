@@ -124,6 +124,16 @@
   border-radius: 999px;
 }
 
+.pt-dex__badge {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #5a4a28;
+  background: rgba(232, 196, 96, 0.35);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
 .pt-dex__detail {
   overflow: auto;
   padding: 22px 24px;
@@ -148,7 +158,18 @@
   background: transparent;
 }
 
-.pt-dex__stage.is-unknown .pt-dex__viewer {
+.pt-dex__sprite {
+  display: block;
+  width: 100%;
+  height: 220px;
+  object-fit: contain;
+  padding: 12px 16px;
+  image-rendering: auto;
+  background: transparent;
+}
+
+.pt-dex__stage.is-unknown .pt-dex__viewer,
+.pt-dex__stage.is-unknown .pt-dex__sprite {
   filter: brightness(0.18) contrast(1.15);
 }
 

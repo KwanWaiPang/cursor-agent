@@ -4,7 +4,7 @@
  * Owns four things and nothing else:
  *   • the loading curtain and the start / pause card   (Menu.ts)
  *   • the conversation panel                           (Dialogue.ts)
- *   • the Kanto Pokédex browser                        (DexUI.ts)
+ *   • the national Pokédex browser                     (DexUI.ts)
  *   • the interaction prompt driven by InteractionSystem.onFocusChange
  *   • the crosshair
  *
