@@ -1,0 +1,280 @@
+{
+  "note": "这些全国图鉴编号在 pokemon-3d-api 的 JSON 里有条目，但在 GitHub 仓库 Pokemon-3D-api/assets 的全部 .glb（含 regular/shiny/gmax/galar/multiform 等目录）中均不存在。已对仓库 tree（1322 个 glb）与 CDN HEAD 探测核实。上游 scripts/model_map.json 当前为空数组，README 也写明 Regular Forms Available=971 / Total=1028。",
+  "sourceRepo": "https://github.com/Pokemon-3D-api/assets",
+  "liveSite": "https://pokemon-3d-api.oneapp.dev/",
+  "checkedAt": "2026-08-04T12:08:38.572Z",
+  "haveRegular": 971,
+  "missingCount": 54,
+  "missing": [
+    {
+      "id": 850,
+      "slug": "sizzlipede",
+      "name": "烧火蚣"
+    },
+    {
+      "id": 851,
+      "slug": "centiskorch",
+      "name": "焚焰蚣"
+    },
+    {
+      "id": 852,
+      "slug": "clobbopus",
+      "name": "拳拳蛸"
+    },
+    {
+      "id": 853,
+      "slug": "grapploct",
+      "name": "八爪武师"
+    },
+    {
+      "id": 854,
+      "slug": "sinistea",
+      "name": "来悲茶"
+    },
+    {
+      "id": 859,
+      "slug": "impidimp",
+      "name": "捣蛋小妖"
+    },
+    {
+      "id": 860,
+      "slug": "morgrem",
+      "name": "诈唬魔"
+    },
+    {
+      "id": 861,
+      "slug": "grimmsnarl",
+      "name": "长毛巨魔"
+    },
+    {
+      "id": 863,
+      "slug": "perrserker",
+      "name": "喵头目"
+    },
+    {
+      "id": 864,
+      "slug": "cursola",
+      "name": "魔灵珊瑚"
+    },
+    {
+      "id": 866,
+      "slug": "mr-rime",
+      "name": "踏冰人偶"
+    },
+    {
+      "id": 868,
+      "slug": "milcery",
+      "name": "小仙奶"
+    },
+    {
+      "id": 873,
+      "slug": "frosmoth",
+      "name": "雪绒蛾"
+    },
+    {
+      "id": 878,
+      "slug": "cufant",
+      "name": "铜象"
+    },
+    {
+      "id": 879,
+      "slug": "copperajah",
+      "name": "大王铜象"
+    },
+    {
+      "id": 882,
+      "slug": "dracovish",
+      "name": "鳃鱼龙"
+    },
+    {
+      "id": 883,
+      "slug": "arctovish",
+      "name": "鳃鱼海兽"
+    },
+    {
+      "id": 918,
+      "slug": "spidops",
+      "name": "操陷蛛"
+    },
+    {
+      "id": 919,
+      "slug": "nymble",
+      "name": "豆蟋蟀"
+    },
+    {
+      "id": 931,
+      "slug": "squawkabilly",
+      "name": "怒鹦哥"
+    },
+    {
+      "id": 935,
+      "slug": "charcadet",
+      "name": "炭小侍"
+    },
+    {
+      "id": 936,
+      "slug": "armarouge",
+      "name": "红莲铠骑"
+    },
+    {
+      "id": 938,
+      "slug": "tadbulb",
+      "name": "光蚪仔"
+    },
+    {
+      "id": 939,
+      "slug": "bellibolt",
+      "name": "电肚蛙"
+    },
+    {
+      "id": 940,
+      "slug": "wattrel",
+      "name": "电海燕"
+    },
+    {
+      "id": 944,
+      "slug": "shroodle",
+      "name": "滋汁鼹"
+    },
+    {
+      "id": 950,
+      "slug": "klawf",
+      "name": "毛崖蟹"
+    },
+    {
+      "id": 951,
+      "slug": "capsakid",
+      "name": "热辣娃"
+    },
+    {
+      "id": 952,
+      "slug": "scovillain",
+      "name": "狠辣椒"
+    },
+    {
+      "id": 953,
+      "slug": "rellor",
+      "name": "虫滚泥"
+    },
+    {
+      "id": 954,
+      "slug": "rabsca",
+      "name": "虫甲圣"
+    },
+    {
+      "id": 955,
+      "slug": "flittle",
+      "name": "飘飘雏"
+    },
+    {
+      "id": 956,
+      "slug": "espathra",
+      "name": "超能艳鸵"
+    },
+    {
+      "id": 961,
+      "slug": "wugtrio",
+      "name": "三海地鼠"
+    },
+    {
+      "id": 963,
+      "slug": "finizen",
+      "name": "波普海豚"
+    },
+    {
+      "id": 964,
+      "slug": "palafin",
+      "name": "海豚侠"
+    },
+    {
+      "id": 968,
+      "slug": "orthworm",
+      "name": "拖拖蚓"
+    },
+    {
+      "id": 969,
+      "slug": "glimmet",
+      "name": "晶光芽"
+    },
+    {
+      "id": 970,
+      "slug": "glimmora",
+      "name": "晶光花"
+    },
+    {
+      "id": 971,
+      "slug": "greavard",
+      "name": "墓仔狗"
+    },
+    {
+      "id": 972,
+      "slug": "houndstone",
+      "name": "墓扬犬"
+    },
+    {
+      "id": 976,
+      "slug": "veluza",
+      "name": "轻身鳕"
+    },
+    {
+      "id": 977,
+      "slug": "dondozo",
+      "name": "吃吼霸"
+    },
+    {
+      "id": 986,
+      "slug": "brute-bonnet",
+      "name": "猛恶菇"
+    },
+    {
+      "id": 988,
+      "slug": "slither-wing",
+      "name": "爬地翅"
+    },
+    {
+      "id": 989,
+      "slug": "sandy-shocks",
+      "name": "沙铁皮"
+    },
+    {
+      "id": 991,
+      "slug": "iron-bundle",
+      "name": "铁包袱"
+    },
+    {
+      "id": 992,
+      "slug": "iron-hands",
+      "name": "铁臂膀"
+    },
+    {
+      "id": 993,
+      "slug": "iron-jugulis",
+      "name": "铁脖颈"
+    },
+    {
+      "id": 1011,
+      "slug": "dipplin",
+      "name": "裹蜜虫"
+    },
+    {
+      "id": 1012,
+      "slug": "poltchageist",
+      "name": "斯魔茶"
+    },
+    {
+      "id": 1013,
+      "slug": "sinistcha",
+      "name": "来悲粗茶"
+    },
+    {
+      "id": 1022,
+      "slug": "iron-boulder",
+      "name": "鐵磐岩"
+    },
+    {
+      "id": 1024,
+      "slug": "terapagos",
+      "name": "太乐巴戈斯"
+    }
+  ]
+}

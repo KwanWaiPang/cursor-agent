@@ -17,3 +17,10 @@ node tools/download-pokemon-glbs.mjs
 - Fan redistribution only; not affiliated with The Pokémon Company.
 
 `manifest.json` lists every national dex id present in this mirror.
+
+## Missing models
+
+See `regular/MISSING.json`. About 54 national-dex IDs are advertised by the
+Pokemon-3D API JSON but have **no GLB file** anywhere in the upstream assets
+repo (Regular Available 971 / Total 1028 per their README). They cannot be
+mirrored until upstream adds Sketchfab sources to `scripts/model_map.json`.
