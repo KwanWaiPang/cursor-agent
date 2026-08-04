@@ -11,6 +11,7 @@ import {
   makePartyMon,
   applyXp,
   catchRate,
+  effectiveness,
 } from "./data.js";
 import { Battle } from "./battle.js";
 import { MAPS, tileAt, isSolid, isTallGrass, pickWild } from "./maps.js";
@@ -771,6 +772,30 @@ export class Game {
     this.renderBattle();
   }
 
+  /** 开战菜单默认选到期望伤害最高的招式，避免撞击被岩石双抗坑死。 */
+  bestMoveIndex() {
+    if (!this.battle) return 0;
+    const atk = this.battle.player;
+    const defTypes = SPECIES[this.battle.wild.species]?.types || [];
+    const atkTypes = SPECIES[atk.species]?.types || [];
+    let best = 0;
+    let score = -1;
+    atk.moves.forEach((m, i) => {
+      const mv = MOVES[m.id];
+      if (!mv || m.pp <= 0) return;
+      let s = mv.power || 0;
+      if (s > 0) {
+        s *= effectiveness(mv.type, defTypes);
+        if (atkTypes.includes(mv.type)) s *= 1.5;
+      }
+      if (s > score) {
+        score = s;
+        best = i;
+      }
+    });
+    return best;
+  }
+
   battleKey(key) {
     const ui = this.battleUi;
     if (!ui) return;
@@ -791,7 +816,7 @@ export class Game {
         const choice = mainOpts[ui.cursor];
         if (choice === "战斗") {
           ui.menu = "fight";
-          ui.cursor = 0;
+          ui.cursor = this.bestMoveIndex();
         } else if (choice === "捕捉") this.tryCatch();
         else this.resolveBattleAction({ type: "run" });
       }
@@ -963,13 +988,25 @@ export class Game {
     this.mode = "play";
     if (blackout) {
       this.healSilent();
-      this.mapId = "house";
-      const sp = MAPS.house.spawn;
+      this.trainerQueue = null;
+      // 按进度送回最近的恢复点，避免从森林黑掉还要徒步重跑整条主线
+      const nearPewter = ["pewter", "pewter_center", "pewter_mart", "gym", "forest"].includes(this.mapId);
+      const nearViridian = ["viridian", "center", "mart", "route2", "route1"].includes(this.mapId);
+      let dest = "house";
+      let lines = ["你匆匆赶回了家……", "妈妈：没事吧？好好休息。", "宝可梦恢复了精神。"];
+      if (nearPewter || this.flags.badgeBoulder) {
+        dest = "pewter_center";
+        lines = ["眼前一黑……", "醒过来时，已在尼比市的宝可梦中心。", "护士：慢慢来，别太勉强。"];
+      } else if (nearViridian || this.flags.gotPokedex) {
+        dest = "center";
+        lines = ["眼前一黑……", "醒过来时，已在常青市的宝可梦中心。", "护士：宝可梦都恢复精神了。"];
+      }
+      this.mapId = dest;
+      const sp = MAPS[dest].spawn;
       this.player.x = sp.x;
       this.player.y = sp.y;
-      this.player.facing = "down";
-      this.trainerQueue = null;
-      this.queueLines(["你匆匆赶回了家……", "妈妈：没事吧？好好休息。", "宝可梦恢复了精神。"], () => {
+      this.player.facing = sp.facing || "down";
+      this.queueLines(lines, () => {
         cb?.onLose?.();
       });
     } else if (result === "victory" || result === "caught") {

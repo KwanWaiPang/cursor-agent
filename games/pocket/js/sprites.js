@@ -316,5 +316,3 @@ function eyes(ctx, x, y, size) {
   ctx.arc(x - 0.5, y - 0.5, Math.max(0.8, size * 0.02), 0, Math.PI * 2);
   ctx.fill();
 }
-
-export { TILE };
