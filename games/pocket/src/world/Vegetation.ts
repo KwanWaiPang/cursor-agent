@@ -1880,7 +1880,8 @@ export function buildVegetation(ctx: GameContext): void {
   const treeDensity = (x: number, z: number): number => {
     // Sides and the southern bank.
     const side = smoothstep(15.0, 21.0, Math.abs(x));
-    const south = smoothstep(21.5, 27.0, z);
+    // Hold the southern wall past Route 1 so the road stays a clearing.
+    const south = smoothstep(31.0, 37.0, z);
     // Northern headlands only — the middle of the north edge is the bay.
     const head = smoothstep(17.0, 22.0, Math.abs(x)) * smoothstep(-20.0, -26.0, z);
     let d = Math.max(Math.max(side, south), head);
@@ -2147,7 +2148,7 @@ export function buildVegetation(ctx: GameContext): void {
     if (ground(x, z) < 0.35) return 0;
     // Bushes hug things: the skirt of the wood, and the corners of buildings.
     const nearWood = smoothstep(11.5, 15.0, Math.abs(x)) * smoothstep(21.0, 16.5, Math.abs(x));
-    const nearSouth = smoothstep(18.5, 22.5, z) * smoothstep(28, 24.5, z);
+    const nearSouth = smoothstep(18.5, 22.5, z) * smoothstep(33.5, 29.5, z);
     let corner = 0;
     for (const f of FOOTPRINTS) {
       const dx = Math.abs(x - f.cx) - f.hx;

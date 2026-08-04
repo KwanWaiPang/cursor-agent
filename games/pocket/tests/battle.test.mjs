@@ -28,6 +28,19 @@ test('type chart: super effective, resisted and neutral pairs', () => {
   assert.equal(effectiveness('normal', ['normal', 'flying']), 1);
   // Immunity.
   assert.equal(effectiveness('ground', ['normal', 'flying']), 0);
+  // Route 1 bug / grass fauna.
+  assert.equal(effectiveness('bug', ['grass', 'poison']), 4);
+  assert.equal(effectiveness('fire', ['bug']), 2);
+  assert.equal(effectiveness('flying', ['bug']), 2);
+});
+
+test('route 1 wild species are registered', () => {
+  assert.equal(SPECIES.oddish.name, '走路草');
+  assert.equal(SPECIES.caterpie.name, '绿毛虫');
+  assert.ok(MOVES.absorb);
+  assert.ok(MOVES['string-shot']);
+  assert.deepEqual(SPECIES.oddish.types, ['grass', 'poison']);
+  assert.deepEqual(SPECIES.caterpie.types, ['bug']);
 });
 
 /* ------------------------------------------------------------------ */

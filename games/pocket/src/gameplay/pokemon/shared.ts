@@ -14,7 +14,7 @@ import { makeRng, clamp } from '../../core/Noise';
 export type StarterId = 'bulbasaur' | 'charmander' | 'squirtle';
 
 /** Every buildable species — the three starters plus the Route 1 wild fauna. */
-export type SpeciesId = StarterId | 'pidgey' | 'rattata';
+export type SpeciesId = StarterId | 'pidgey' | 'rattata' | 'oddish' | 'caterpie';
 
 export const SPECIES: Record<SpeciesId, { name: string; types: string[] }> = {
   bulbasaur: { name: '妙蛙种子', types: ['草', '毒'] },
@@ -22,6 +22,8 @@ export const SPECIES: Record<SpeciesId, { name: string; types: string[] }> = {
   squirtle: { name: '杰尼龟', types: ['水'] },
   pidgey: { name: '波波', types: ['一般', '飞行'] },
   rattata: { name: '小拉达', types: ['一般'] },
+  oddish: { name: '走路草', types: ['草', '毒'] },
+  caterpie: { name: '绿毛虫', types: ['虫'] },
 };
 
 export interface Creature {
