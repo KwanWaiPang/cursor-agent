@@ -38,8 +38,8 @@ export const MOVES = {
   scratch: M("scratch", "抓", "normal", 40, 1, 35, { fx: "tackle" }),
   "quick-attack": M("quick-attack", "电光一闪", "normal", 40, 1, 30, { priority: 1, fx: "quick" }),
   "vine-whip": M("vine-whip", "藤鞭", "grass", 45, 1, 25, { fx: "vine" }),
-  ember: M("ember", "火花", "fire", 40, 1, 25, { fx: "ember" }),
-  "water-gun": M("water-gun", "水枪", "water", 40, 1, 25, { fx: "water" }),
+  ember: M("ember", "火花", "fire", 45, 1, 25, { fx: "ember" }),
+  "water-gun": M("water-gun", "水枪", "water", 45, 1, 25, { fx: "water" }),
   gust: M("gust", "起风", "flying", 40, 1, 35, { fx: "gust" }),
   growl: M("growl", "叫声", "normal", 0, 1, 40, {
     fx: "growl",
