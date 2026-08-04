@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { bakeCavityAO } from '../../fx/Sculpt';
 import { makeEye } from '../../fx/CreatureMaterials';
 import { makeRng, clamp } from '../../core/Noise';
+import { KANTO_BY_SLUG, type SpeciesId as DexSpeciesId } from '../dex';
 
 /**
  * Shared creature rig, idle performance, and eye assembly.
@@ -13,18 +14,26 @@ import { makeRng, clamp } from '../../core/Noise';
 
 export type StarterId = 'bulbasaur' | 'charmander' | 'squirtle';
 
-/** Every buildable species — the three starters plus the Route 1 wild fauna. */
-export type SpeciesId = StarterId | 'pidgey' | 'rattata' | 'oddish' | 'caterpie';
+/** Any Kanto Pokédex slug (#001–151). */
+export type SpeciesId = DexSpeciesId;
 
-export const SPECIES: Record<SpeciesId, { name: string; types: string[] }> = {
-  bulbasaur: { name: '妙蛙种子', types: ['草', '毒'] },
-  charmander: { name: '小火龙', types: ['火'] },
-  squirtle: { name: '杰尼龟', types: ['水'] },
-  pidgey: { name: '波波', types: ['一般', '飞行'] },
-  rattata: { name: '小拉达', types: ['一般'] },
-  oddish: { name: '走路草', types: ['草', '毒'] },
-  caterpie: { name: '绿毛虫', types: ['虫'] },
-};
+/** Display catalog — names/types from the official Kanto dex. */
+export const SPECIES: Record<string, { name: string; types: string[] }> = Object.fromEntries(
+  Object.values(KANTO_BY_SLUG).map((e) => [
+    e.slug,
+    {
+      name: e.name,
+      types: e.types.map((t) => {
+        const zh: Record<string, string> = {
+          normal: '一般', fighting: '格斗', flying: '飞行', poison: '毒', ground: '地面',
+          rock: '岩石', bug: '虫', ghost: '幽灵', steel: '钢', fire: '火', water: '水',
+          grass: '草', electric: '电', psychic: '超能力', ice: '冰', dragon: '龙', fairy: '妖精',
+        };
+        return zh[t] ?? t;
+      }),
+    },
+  ]),
+);
 
 export interface Creature {
   readonly id: SpeciesId;

@@ -28,8 +28,9 @@ test('type chart: super effective, resisted and neutral pairs', () => {
   assert.equal(effectiveness('normal', ['normal', 'flying']), 1);
   // Immunity.
   assert.equal(effectiveness('ground', ['normal', 'flying']), 0);
-  // Route 1 bug / grass fauna.
-  assert.equal(effectiveness('bug', ['grass', 'poison']), 4);
+  // Modern chart: Bug is SE vs Grass but NVE vs Poison → 2 * 0.5 = 1.
+  assert.equal(effectiveness('bug', ['grass', 'poison']), 1);
+  assert.equal(effectiveness('bug', ['grass']), 2);
   assert.equal(effectiveness('fire', ['bug']), 2);
   assert.equal(effectiveness('flying', ['bug']), 2);
 });

@@ -158,6 +158,7 @@ const LEGEND: LegendEntry[] = [
   { keys: ['Space'], text: '跳跃', wide: true },
   { keys: ['Mouse'], text: '视角', wide: true },
   { keys: ['E'], text: '互动' },
+  { keys: ['B'], text: '图鉴' },
   { keys: ['Esc'], text: '释放鼠标', wide: true },
 ];
 
