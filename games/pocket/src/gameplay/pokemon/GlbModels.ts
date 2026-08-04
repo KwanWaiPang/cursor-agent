@@ -7,13 +7,15 @@ import { dexEntry } from '../dex';
 import type { Creature, SpeciesId } from './shared';
 
 /**
- * Remote GLB creatures from Pokemon-3D-api/assets (Draco + WebP optimized).
+ * GLB creatures from Pokemon-3D-api/assets (Draco + WebP optimized).
  *
- * Models are loaded at runtime from jsDelivr/GitHub — not committed to the
- * repo. Nintendo owns the IP; this is a fan-integration path requested for
- * the hub build. Failures fall back to the procedural sculpt pipeline.
+ * Preferred path: vendored files under `./models/pokemon/regular/{id}.glb`
+ * (copied from `public/` by Vite / Pages sync). CDN / GitHub raw remain as
+ * fallbacks. Nintendo owns the IP; fan redistribution for this hub build.
  */
 
+/** Served from Vite `public/` and GitHub Pages game root. */
+const LOCAL_BASE = `${(import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL ?? './'}models/pokemon/regular`;
 const ASSET_BASE =
   'https://cdn.jsdelivr.net/gh/Pokemon-3D-api/assets@main/models/opt/regular';
 const ASSET_FALLBACK =
@@ -36,7 +38,11 @@ function getLoader(): GLTFLoader {
   return loader;
 }
 
-export function glbUrlForDexId(id: number, mirror: 'cdn' | 'raw' = 'cdn'): string {
+export function glbUrlForDexId(id: number, mirror: 'local' | 'cdn' | 'raw' = 'local'): string {
+  if (mirror === 'local') {
+    const base = LOCAL_BASE.endsWith('/') ? LOCAL_BASE.slice(0, -1) : LOCAL_BASE;
+    return `${base}/${id}.glb`;
+  }
   const base = mirror === 'cdn' ? ASSET_BASE : ASSET_FALLBACK;
   return `${base}/${id}.glb`;
 }
@@ -71,9 +77,13 @@ async function loadTemplate(id: number): Promise<THREE.Group> {
   if (!pending) {
     pending = (async () => {
       try {
-        return await loadGltf(glbUrlForDexId(id, 'cdn'));
+        return await loadGltf(glbUrlForDexId(id, 'local'));
       } catch {
-        return await loadGltf(glbUrlForDexId(id, 'raw'));
+        try {
+          return await loadGltf(glbUrlForDexId(id, 'cdn'));
+        } catch {
+          return await loadGltf(glbUrlForDexId(id, 'raw'));
+        }
       }
     })();
     templateCache.set(id, pending);
