@@ -6,7 +6,7 @@ import { clamp, lerp } from '../../core/Noise';
 import { buildPokeBall, type PokeBall } from '../pokemon/PokeBall';
 import { Battle, type BattleAction, type BattleEvent, type Side } from './BattleEngine';
 import { MOVES, SPECIES, type SpeciesId } from './data';
-import { buildCreature, type BattleCreature } from './creatures';
+import { loadCreature, type BattleCreature } from './creatures';
 import { BattleFX } from './BattleFX';
 import { PlayerData } from './PlayerData';
 import { DexProgress } from '../dex/DexProgress';
@@ -218,9 +218,9 @@ export class BattleSystem implements System {
     this.flash.style.opacity = '0';
     await this.wait(0.34);
 
-    // ---- Build the stage while the screen is black.
+    // ---- Build the stage while the screen is black (await remote GLBs).
     this.arena.setActive(true);
-    this.spawnCombatants(wildSpecies, partner.species, seed);
+    await this.spawnCombatants(wildSpecies, partner.species, seed);
     this.warmPrograms();
     s.chromatic = this.gradeBase.chromatic;
     s.saturation = this.gradeBase.saturation;
@@ -244,19 +244,20 @@ export class BattleSystem implements System {
     void this.intro();
   }
 
-  private spawnCombatants(wild: SpeciesId, ally: SpeciesId, seed: number): void {
-    this.wildMon = buildCreature(wild);
+  private async spawnCombatants(wild: SpeciesId, ally: SpeciesId, seed: number): Promise<void> {
+    const [wildMon, allyMon] = await Promise.all([loadCreature(wild), loadCreature(ally)]);
+    this.wildMon = wildMon;
     this.wildMon.group.position.copy(PAD_WILD).sub(ARENA_CENTER);
     this.wildMon.group.rotation.y = 0; // faces +Z, toward the player pad
     this.wildMon.group.scale.setScalar(0.001);
     this.wildMon.attention = 1;
     this.battleGroup.add(this.wildMon.group);
 
-    this.allyMon = buildCreature(ally);
+    this.allyMon = allyMon;
     this.allyMon.group.position.copy(PAD_PLAYER).sub(ARENA_CENTER);
     this.allyMon.group.rotation.y = Math.PI; // faces -Z, toward the wild pad
-    // Visible at zero scale rather than hidden: Charmander carries two point
-    // lights, and flipping them on mid-battle changes the scene's light count
+    // Visible at zero scale rather than hidden: some creatures carry lights,
+    // and flipping them on mid-battle changes the scene's light count
     // and recompiles every material on the send-out frame.
     this.allyMon.group.scale.setScalar(0.0001);
     this.allyMon.attention = 1;

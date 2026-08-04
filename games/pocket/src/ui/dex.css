@@ -130,7 +130,34 @@
 }
 
 .pt-dex__hero {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+}
+
+.pt-dex__stage {
+  margin: 0 0 16px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #dfe9f5 0%, #c5d4e8 100%);
+  border: 1px solid rgba(31, 48, 80, 0.12);
+}
+
+.pt-dex__viewer {
+  display: block;
+  width: 100%;
+  height: 220px;
+  background: transparent;
+}
+
+.pt-dex__stage.is-unknown .pt-dex__viewer {
+  filter: brightness(0.18) contrast(1.15);
+}
+
+.pt-dex__credit {
+  margin: 0;
+  padding: 6px 10px 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--pt-ink-faint);
 }
 
 .pt-dex__num {

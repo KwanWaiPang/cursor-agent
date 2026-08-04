@@ -5,6 +5,7 @@ import { World } from './world/World';
 import { PlayerController } from './player/PlayerController';
 import { buildStarterSequence } from './gameplay/StarterSequence';
 import { BattleSystem } from './gameplay/battle/BattleSystem';
+import { prefetchGlbIds } from './gameplay/Pokemon';
 import { HUD } from './ui/HUD';
 import { AudioDirector } from './audio/Audio';
 
@@ -27,6 +28,8 @@ async function boot(): Promise<void> {
   player.teleport(SPAWN, SPAWN_YAW);
 
   buildStarterSequence(world.ctx);
+  // Warm the remote GLB cache for starters + common Route 1 fauna.
+  prefetchGlbIds([1, 4, 7, 10, 13, 16, 19, 23, 25, 29, 32, 43]);
 
   const battle = new BattleSystem(world.ctx);
 

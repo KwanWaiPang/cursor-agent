@@ -9,11 +9,29 @@ import {
   type DexEntry,
 } from '../gameplay/dex';
 import { DexProgress } from '../gameplay/dex/DexProgress';
+import { glbUrlForDexId } from '../gameplay/pokemon/GlbModels';
 
 /**
  * DexUI — full Kanto Pokédex browser (#001–151).
  * Open with B; Esc / B closes. Suspends gameplay input while open.
+ * Detail pane embeds a model-viewer for the Pokemon-3D-api GLB.
  */
+
+let modelViewerReady: Promise<void> | null = null;
+function ensureModelViewer(): Promise<void> {
+  if (customElements.get('model-viewer')) return Promise.resolve();
+  if (!modelViewerReady) {
+    modelViewerReady = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = 'https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('model-viewer failed to load'));
+      document.head.appendChild(s);
+    });
+  }
+  return modelViewerReady;
+}
 
 export class DexUI {
   readonly el: HTMLElement;
@@ -170,6 +188,28 @@ export class DexUI {
     hero.appendChild(el('div', 'pt-dex__big-name', seen ? e.name : '？？？'));
     hero.appendChild(el('div', 'pt-dex__genus', seen ? e.genus : '尚未目击'));
     this.detailEl.appendChild(hero);
+
+    // GLB preview for every Kanto entry (silhouette when not yet seen).
+    const stage = el('div', `pt-dex__stage${seen ? '' : ' is-unknown'}`);
+    const viewer = document.createElement('model-viewer') as HTMLElement & {
+      src: string;
+      alt: string;
+    };
+    viewer.className = 'pt-dex__viewer';
+    viewer.setAttribute('camera-controls', '');
+    viewer.setAttribute('auto-rotate', '');
+    viewer.setAttribute('shadow-intensity', '0.6');
+    viewer.setAttribute('exposure', seen ? '1' : '0.55');
+    viewer.setAttribute('loading', 'eager');
+    viewer.setAttribute('reveal', 'auto');
+    viewer.setAttribute('alt', seen ? e.name : '未鉴定的宝可梦');
+    viewer.setAttribute('src', glbUrlForDexId(e.id));
+    stage.appendChild(viewer);
+    stage.appendChild(el('p', 'pt-dex__credit', '3D：Pokemon-3D-api（运行时加载）'));
+    this.detailEl.appendChild(stage);
+    void ensureModelViewer().catch(() => {
+      stage.appendChild(el('p', 'pt-dex__locked', '模型预览组件加载失败，对战中仍会尝试加载 GLB。'));
+    });
 
     if (!seen) {
       this.detailEl.appendChild(
