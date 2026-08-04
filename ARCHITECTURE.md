@@ -28,11 +28,11 @@ For the Street Duty engine contract (subsystems / events), see [`games/street-du
                     │  大厅导航 / landing │
                     └──────────┬──────────┘
                                │
-        ┌──────────────┬───────┴────────┬──────────────┐
-        ▼              ▼                ▼              ▼
-   games/go/…    games/fps/     games/street-duty/   …
-   静态棋类等      静态 FPS          Vite 构建 FPS
-   static boards   static FPS        built FPS bundle
+        ┌──────────┬───────────┴──────┬────────────┬──────────┐
+        ▼          ▼                  ▼            ▼          ▼
+   games/go/…  games/fps/   games/street-duty/  games/pocket/ …
+   静态棋类等    静态 FPS       Vite 构建 FPS      静态 2D RPG
+   boards       static FPS     built FPS          top-down RPG
 ```
 
 | 层 Layer | 职责 Responsibility |
@@ -51,7 +51,7 @@ The hub does not bootstrap game runtimes; each card is a full navigation.
 
 ### 3.1 纯静态 / Static games
 
-`go` · `xiangqi` · `gomoku` · `junqi` · `monopoly` · `chess3d` · `fps`
+`go` · `xiangqi` · `gomoku` · `junqi` · `monopoly` · `chess3d` · `fps` · `pocket`
 
 - 打开即玩，无需 `npm`。  
   Open and play; no `npm` required.

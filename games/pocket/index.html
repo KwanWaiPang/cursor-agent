@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>口袋冒险 · 游戏馆</title>
+    <meta
+      name="description"
+      content="口袋冒险：俯视 2D 粉丝向开局——真新镇、选御三家、1 号道路遇敌与回合战斗。浏览器本地可玩。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700&family=Noto+Serif+SC:wght@400;600&family=ZCOOL+XiaoWei&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../css/shared.css" />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body class="pocket-page">
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <h1>口袋冒险</h1>
+          <p>真新镇开局 · 俯视 2D · 本地存档</p>
+        </div>
+        <a class="btn" href="../../">← 返回游戏馆</a>
+      </header>
+
+      <div class="stage-wrap">
+        <canvas id="game" width="480" height="352" aria-label="口袋冒险画面"></canvas>
+
+        <div id="title" class="overlay">
+          <div class="title-card">
+            <h2>口袋冒险</h2>
+            <p class="sub">
+              在真新镇醒来，拜访大木博士，选择最初的伙伴，前往 1 号道路历练。
+            </p>
+            <div class="title-actions">
+              <button type="button" class="primary" id="btnNew">开始冒险</button>
+              <button type="button" id="btnContinue">继续游戏</button>
+            </div>
+            <p class="disclaimer">
+              非官方粉丝向作品。宝可梦及官方译名为任天堂 / Creatures / Game Freak
+              等权利方商标；本页仅供学习娱乐，与权利方无关。立绘与音乐均为程序化原创。
+            </p>
+          </div>
+        </div>
+
+        <div id="dialog" class="hidden">
+          <div id="dialogText"></div>
+          <div class="hint">点击或按 Z / 空格 继续</div>
+        </div>
+
+        <div id="starter" class="hidden">
+          <div class="starter-card">
+            <div id="starterTabs"></div>
+            <canvas id="starterCanvas" width="160" height="120"></canvas>
+            <div id="starterName"></div>
+            <div id="starterTypes"></div>
+            <div id="starterBlurb"></div>
+            <button type="button" id="starterConfirm">就决定是你了！</button>
+          </div>
+        </div>
+
+        <div id="battle" class="hidden">
+          <canvas id="battleCanvas" width="480" height="260"></canvas>
+          <div class="battle-hud-layer">
+            <div id="enemyHud"></div>
+            <div id="playerHud"></div>
+          </div>
+          <div class="battle-dock">
+            <div id="battleLog"></div>
+            <div id="battleMenu"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="touch" aria-label="触控操作">
+        <div class="pad">
+          <button type="button" class="u" data-pad="up">▲</button>
+          <button type="button" class="l" data-pad="left">◀</button>
+          <button type="button" class="r" data-pad="right">▶</button>
+          <button type="button" class="d" data-pad="down">▼</button>
+        </div>
+        <div class="ab">
+          <button type="button" id="btnB">B</button>
+          <button type="button" id="btnA">A</button>
+        </div>
+      </div>
+
+      <p class="help">
+        方向键 / WASD 移动 · Z / 空格 确认 · X / Esc 取消或状态<br />
+        流程：家中出发 → 大木研究所选御三家 → 南下 1 号道路遇敌
+      </p>
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>

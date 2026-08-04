@@ -23,11 +23,13 @@ For a fuller architecture overview, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 | [`games/chess3d/`](./games/chess3d/) | 国际象棋 · 3D | 3D Chess | 3D 棋类 |
 | [`games/fps/`](./games/fps/) | 战术突击 · 3D | Tactical Assault | 3D FPS（红蓝对抗） |
 | [`games/street-duty/`](./games/street-duty/) | 街战突击 | Street Duty | 3D FPS（全程序化街战） |
+| [`games/pocket/`](./games/pocket/) | 口袋冒险 | Pocket Adventure | 俯视 2D 粉丝向开局 |
 
 两款射击互不替换：
 
 - **战术突击** (`fps`)：红蓝各约 10 人、据点 / 大逃杀、可拾取武器。
 - **街战突击** (`street-duty`)：Claude-of-Duty 本地完整落地；玩家 + 2 队友 + 动态敌方波次。
+- **口袋冒险** (`pocket`)：俯视 2D 真新镇开局、选御三家、1 号道路遇敌；官方译名 + 中性作品名。
 
 The two shooters are separate products:
 
@@ -112,6 +114,7 @@ On push to `main`, the workflow builds Street Duty, strips its source tree from 
 | [games/street-duty/ARCHITECTURE.md](./games/street-duty/ARCHITECTURE.md) | 街战引擎合同（子系统 / 事件） |
 | [games/street-duty/README.zh.md](./games/street-duty/README.zh.md) | 街战馆内说明（中文） |
 | [games/fps/README.md](./games/fps/README.md) | 战术突击玩法说明 |
+| [games/pocket/README.md](./games/pocket/README.md) | 口袋冒险说明 |
 
 ---
 
