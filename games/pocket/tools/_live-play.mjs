@@ -110,6 +110,9 @@ if (bootMeta.loadingTitle && /PALLET/i.test(bootMeta.loadingTitle)) {
 }
 if (bootMeta.mv && /unpkg/.test(bootMeta.mv)) issue('MODEL_VIEWER_UNPKG');
 else if (bootMeta.mv) note('model-viewer hosted');
+if (!bootMeta.continueHidden || !bootMeta.newHidden) {
+  issue('SAVE_BUTTONS_VISIBLE_WITHOUT_SAVE');
+} else note('continue/new hidden until save');
 
 // Starter choose squirtle fully
 await page.evaluate(() => {
@@ -169,14 +172,22 @@ const battle = await page.evaluate(async () => {
     label: el.querySelector('.pt-bbtn__label')?.textContent,
     sub: el.querySelector('.pt-bbtn__sub')?.textContent,
   }));
-  // pause should not arm during battle
-  window.__GAME__.hud['pauseIfUnlocked']?.();
-  const pauseShown = window.__GAME__.hud.start?.visible;
-  return { phase: b.phase, startGone, startVisible, fight, pauseShown };
+  // auto=1 short-circuits pause; briefly clear it to verify the battle guard.
+  const hud = window.__GAME__.hud;
+  const wasAuto = hud.auto;
+  hud.auto = false;
+  hud.booted = true;
+  hud.pauseIfUnlocked?.();
+  const pauseShown = !!hud.start?.visible;
+  hud.auto = wasAuto;
+  if (pauseShown) hud.start?.hide?.();
+  const battleActive = !!window.__GAME__.world?.ctx?.scene?.userData?.battleActive;
+  return { phase: b.phase, startGone, startVisible, fight, pauseShown, battleActive };
 });
 log('battle', JSON.stringify(battle));
 if (battle.phase !== 'menu') issue('BATTLE_NOT_MENU ' + battle.phase);
 else note('battle menu ok');
+if (!battle.battleActive) issue('BATTLE_ACTIVE_FLAG_MISSING');
 if (battle.pauseShown) issue('PAUSE_OVER_BATTLE');
 else note('pause suppressed during battle');
 if (!battle.fight?.[0]?.aria?.includes('战斗')) issue('BATTLE_ARIA_MISSING');
