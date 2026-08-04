@@ -1,8 +1,9 @@
 /**
  * Barrel for the Pokemon creatures.
  *
- * Each creature owns its own module so they can be sculpted and reviewed
- * independently; this file is the single import site for the rest of the game.
+ * Hand-authored sculpts cover the starters and early Route 1 fauna. Every
+ * other Kanto species falls back to a type-coloured generic so the full
+ * Pokédex can appear in battle and in the dex browser.
  */
 import { buildBulbasaur } from './pokemon/Bulbasaur';
 import { buildCharmander } from './pokemon/Charmander';
@@ -11,6 +12,8 @@ import { buildPidgey } from './pokemon/Pidgey';
 import { buildRattata } from './pokemon/Rattata';
 import { buildOddish } from './pokemon/Oddish';
 import { buildCaterpie } from './pokemon/Caterpie';
+import { buildGenericCreature } from './pokemon/Generic';
+import { isKantoSpecies } from './dex';
 import type { Creature, SpeciesId, StarterId } from './pokemon/shared';
 
 export { buildBulbasaur } from './pokemon/Bulbasaur';
@@ -20,20 +23,29 @@ export { buildPidgey } from './pokemon/Pidgey';
 export { buildRattata } from './pokemon/Rattata';
 export { buildOddish } from './pokemon/Oddish';
 export { buildCaterpie } from './pokemon/Caterpie';
+export { buildGenericCreature } from './pokemon/Generic';
 export { buildPokeBall, type PokeBall } from './pokemon/PokeBall';
 export { STARTERS, SPECIES, type Creature, type StarterId, type SpeciesId } from './pokemon/shared';
 
-/** Builds any species by id. */
+const CUSTOM: Record<string, () => Creature> = {
+  bulbasaur: buildBulbasaur,
+  charmander: buildCharmander,
+  squirtle: buildSquirtle,
+  pidgey: buildPidgey,
+  rattata: buildRattata,
+  oddish: buildOddish,
+  caterpie: buildCaterpie,
+};
+
+/** Builds any Kanto species by slug. */
 export function buildCreature(id: SpeciesId): Creature {
-  switch (id) {
-    case 'bulbasaur': return buildBulbasaur();
-    case 'charmander': return buildCharmander();
-    case 'squirtle': return buildSquirtle();
-    case 'pidgey': return buildPidgey();
-    case 'rattata': return buildRattata();
-    case 'oddish': return buildOddish();
-    case 'caterpie': return buildCaterpie();
+  const custom = CUSTOM[id];
+  if (custom) return custom();
+  if (!isKantoSpecies(id)) {
+    console.warn(`[pokemon] unknown species "${id}", falling back to rattata`);
+    return buildRattata();
   }
+  return buildGenericCreature(id);
 }
 
 /** Builds a starter by id. */

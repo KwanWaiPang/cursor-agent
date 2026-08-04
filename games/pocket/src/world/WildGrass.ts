@@ -261,13 +261,19 @@ export function buildWildGrass(ctx: GameContext): void {
   function rollEncounter(px: number, pz: number): void {
     counter++;
     const eRng = makeRng((ctx.seed ^ (counter * 2654435761)) >>> 0);
-    // Route 1 table: common birds/rats, with Oddish and Caterpie in the weeds.
+    // Early Kanto roadside table (Route 1 flavour + neighbouring forest pests).
     const roll = eRng();
     let species: SpeciesId;
-    if (roll < 0.34) species = 'pidgey';
-    else if (roll < 0.60) species = 'rattata';
-    else if (roll < 0.82) species = 'oddish';
-    else species = 'caterpie';
+    if (roll < 0.26) species = 'pidgey';
+    else if (roll < 0.48) species = 'rattata';
+    else if (roll < 0.60) species = 'oddish';
+    else if (roll < 0.70) species = 'caterpie';
+    else if (roll < 0.78) species = 'weedle';
+    else if (roll < 0.86) species = 'spearow';
+    else if (roll < 0.91) species = 'nidoran-m';
+    else if (roll < 0.95) species = 'nidoran-f';
+    else if (roll < 0.98) species = 'ekans';
+    else species = 'pikachu';
     const level = 3 + Math.floor(eRng() * 3); // 3..5
     const seed = Math.floor(eRng() * 0xffffffff) >>> 0;
     rustle(px, ctx.collision.groundHeight(px, pz), pz);

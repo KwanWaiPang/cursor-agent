@@ -2,17 +2,7 @@ import './battle.css';
 import { el } from './Menu';
 import { MOVES, type MoveDef, type TypeId } from '../gameplay/battle/data';
 import type { MoveSlot } from '../gameplay/battle/BattleEngine';
-
-const TYPE_ZH: Record<TypeId, string> = {
-  normal: '一般',
-  flying: '飞行',
-  grass: '草',
-  fire: '火',
-  water: '水',
-  poison: '毒',
-  ground: '地面',
-  bug: '虫',
-};
+import { TYPE_ZH } from '../gameplay/dex';
 
 /**
  * BattleUI — the DOM layer of a battle. Two HP plates, a message strip with

@@ -4,6 +4,7 @@
  * Owns four things and nothing else:
  *   • the loading curtain and the start / pause card   (Menu.ts)
  *   • the conversation panel                           (Dialogue.ts)
+ *   • the Kanto Pokédex browser                        (DexUI.ts)
  *   • the interaction prompt driven by InteractionSystem.onFocusChange
  *   • the crosshair
  *
@@ -16,6 +17,7 @@ import type { GameContext } from '../core/Context';
 import type { Interactable } from '../world/Interaction';
 import { LoadingScreen, StartCard, el } from './Menu';
 import { DialogueBox } from './Dialogue';
+import { DexUI } from './DexUI';
 
 /** Pretty names for the raw key codes an interactable can ask for. */
 const KEY_LABEL: Record<string, string> = {
@@ -45,6 +47,7 @@ export class HUD {
 
   readonly root: HTMLElement;
   readonly dialogue: DialogueBox;
+  readonly dex: DexUI;
 
   private ctx: GameContext;
   private loading: LoadingScreen;
@@ -92,6 +95,11 @@ export class HUD {
     this.dialogue = new DialogueBox(ctx);
     this.root.appendChild(this.dialogue.el);
 
+    // --- pokedex ---------------------------------------------------------
+    this.dex = new DexUI();
+    this.dex.setCloseHandler(() => this.onDexClosed());
+    this.root.appendChild(this.dex.el);
+
     // --- overlays --------------------------------------------------------
     this.start = new StartCard();
     this.start.onStart = () => this.beginPlay();
@@ -129,6 +137,42 @@ export class HUD {
     ctx.engine.input.onLockError = () => this.onLockDenied();
 
     document.addEventListener('pointerlockchange', this.onLockChange);
+    window.addEventListener('keydown', this.onKey, true);
+  }
+
+  private onKey = (e: KeyboardEvent): void => {
+    if (this.dex.isOpen) {
+      if (this.dex.handleKey(e.code)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return;
+    }
+    if (!this.booted || this.start.visible || this.dialogue.isOpen) return;
+    if (this.ctx.scene.userData.battleActive) return;
+    if (e.code === 'KeyB') {
+      e.preventDefault();
+      e.stopPropagation();
+      this.openDex();
+    }
+  };
+
+  private openDex(): void {
+    if (this.dex.isOpen) return;
+    // Release the cursor so list scrolling / clicking works.
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.ctx.engine.input.suspended = true;
+    this.setPrompt(false);
+    this.crosshair.classList.remove('is-on');
+    this.dex.show();
+  }
+
+  private onDexClosed(): void {
+    if (this.auto || !this.booted || this.start.visible) return;
+    this.ctx.engine.input.suspended = false;
+    this.crosshair.classList.add('is-on');
+    this.setFocus(this.ctx.interaction.focused);
+    // Ask for the lock again on the next click (gesture-gated).
   }
 
   /* ------------------------------------------------------------ loading */
@@ -261,6 +305,8 @@ export class HUD {
       this.setFocus(this.ctx.interaction.focused);
     } else if (this.wasPointerLocked && this.booted && !this.auto) {
       this.wasPointerLocked = false;
+      // Opening the dex intentionally releases the lock — don't flash pause.
+      if (this.dex.isOpen) return;
       // Small grace period so a relock inside the same gesture cannot flash
       // the pause card.
       this.lockReturn = 0.35;
@@ -271,6 +317,7 @@ export class HUD {
     window.clearTimeout(this.hintTimer);
     this.ctx.engine.input.onLockError = null;
     document.removeEventListener('pointerlockchange', this.onLockChange);
+    window.removeEventListener('keydown', this.onKey, true);
     this.dialogue.dispose();
     this.root.remove();
   }

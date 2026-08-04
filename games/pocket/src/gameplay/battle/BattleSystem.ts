@@ -9,6 +9,7 @@ import { MOVES, SPECIES, type SpeciesId } from './data';
 import { buildCreature, type BattleCreature } from './creatures';
 import { BattleFX } from './BattleFX';
 import { PlayerData } from './PlayerData';
+import { DexProgress } from '../dex/DexProgress';
 import { ARENA_CENTER, PAD_PLAYER, PAD_WILD, type BattleArena } from './BattleScene';
 import { BattleUI, type MenuChoice } from '../../ui/BattleUI';
 
@@ -136,6 +137,7 @@ export class BattleSystem implements System {
     };
 
     PlayerData.init(ctx);
+    DexProgress.init(ctx);
 
     ctx.events.on('battle:encounter', (payload) => {
       const p = payload as { species?: SpeciesId; level?: number; seed?: number } | undefined;
