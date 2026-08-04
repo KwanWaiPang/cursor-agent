@@ -14,11 +14,15 @@ A top-down 2D fan opening set in Pallet Town. Runs locally in the browser; GitHu
 
 ## 玩法 / Gameplay
 
-1. 在家中醒来，出门进入 **真新镇**  
-2. 前往 **大木研究所**，与博士对话后选择御三家（妙蛙种子 / 小火龙 / 杰尼龟）  
-3. 南下 **1 号道路**，在长草中遇敌，进行 Gen1 风格回合战斗  
+1. **真新镇**：大木研究所领取御三家，与劲敌对战  
+2. **1 号道路 → 常青市**：商店取包裹，中心回复体力  
+3. 交还包裹获得 **图鉴** 与精灵球（可捕捉野生）  
+4. **2 号道路 → 常青森林 → 尼比市**：训练家战、稀有遇敌（含皮卡丘）  
+5. **尼比道馆**：击败小刚，获得灰色徽章  
 
-战斗、种族与招式数据参考 [PauliusOS/pallet-town-3d](https://github.com/PauliusOS/pallet-town-3d)（MIT）的战斗层设计，但本作是 **2D 俯视**，并非其第一人称 3D 移植。
+图鉴约 **25** 种（官方中文译名）；X 键打开菜单查看队伍 / 图鉴 / 任务。
+
+战斗公式受 [PauliusOS/pallet-town-3d](https://github.com/PauliusOS/pallet-town-3d)（MIT）启发；本作是 **2D 俯视**，非其 3D 移植。
 
 ---
 
@@ -37,10 +41,11 @@ A top-down 2D fan opening set in Pallet Town. Runs locally in the browser; GitHu
 
 | 目标 | 建议落点 |
 |---|---|
-| 新宝可梦 | `js/data.js` 的 `SPECIES` / `MOVES`，并在 `sprites.js` 增加剪影 |
-| 新地图 | `js/maps.js` 增加地图字符串与 `warps` / `npcs` / `spawns` |
-| 剧情旗标 | `game.js` 的 `flags` + NPC `id` 分支 |
-| 进化 / 道具 / 多队伍 | 在 `makePartyMon` 与战斗结算处扩展 |
+| 新宝可梦 | `js/data.js` 的 `SPECIES` / `MOVES` / `DEX_ORDER`，`shape` 驱动剪影 |
+| 新地图 | `js/maps.js`：`tiles` + `warps` / `npcs` / `spawns` |
+| 训练家 | NPC 上挂 `trainer: { beatenFlag, party, intro, win, lose }` |
+| 剧情旗标 | `game.js` → `defaultFlags()` + `questLines()` |
+| 进化 / 商店购物 | 仍可继续扩展 |
 
 立绘与音效保持 **程序化原创**，勿直接加入官方 ROM 素材。
 

@@ -28,9 +28,17 @@ function buildCombatant(side, init) {
 }
 
 export class Battle {
-  constructor({ player, wild, seed = (Math.random() * 1e9) | 0 }) {
+  constructor({
+    player,
+    wild,
+    seed = (Math.random() * 1e9) | 0,
+    canRun = true,
+    trainer = false,
+  }) {
     this.player = buildCombatant("player", player);
     this.wild = buildCombatant("wild", wild);
+    this.canRun = canRun;
+    this.trainer = !!trainer;
     this.result = null;
     this.runAttempts = 0;
     let s = seed >>> 0 || 1;
@@ -49,6 +57,12 @@ export class Battle {
     const events = [];
 
     if (action.type === "run") {
+      if (!this.canRun) {
+        events.push({ kind: "run", success: false });
+        this.act(this.wild, this.player, this.pickWildMove(), events);
+        this.checkEnd(events);
+        return events;
+      }
       this.runAttempts++;
       if (this.tryRun()) {
         events.push({ kind: "run", success: true });
