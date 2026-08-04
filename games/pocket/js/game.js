@@ -502,9 +502,15 @@ export class Game {
       return;
     }
     const foe = RIVAL_STARTER[this.party[0].species] || "charmander";
+    // 刚入手：只用基础招式，避免属性三角让开局必败
+    const rivalMoves = {
+      charmander: ["scratch", "growl"],
+      squirtle: ["tackle", "tail-whip"],
+      bulbasaur: ["tackle", "growl"],
+    };
     this.queueLines(["劲敌：等等！我也选好了——来对战！"], () => {
       this.startBattle({
-        wild: { species: foe, level: 5 },
+        wild: { species: foe, level: 4, moves: rivalMoves[foe] || ["tackle", "growl"] },
         canRun: false,
         trainer: true,
         trainerName: "劲敌",
