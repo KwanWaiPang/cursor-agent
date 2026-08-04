@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { Engine } from './core/Engine';
+import { Engine, QUALITY, type QualityTier } from './core/Engine';
 import { EVENTS } from './core/Context';
 import { World } from './world/World';
 import { PlayerController } from './player/PlayerController';
 import { buildStarterSequence } from './gameplay/StarterSequence';
 import { BattleSystem } from './gameplay/battle/BattleSystem';
 import { prefetchGlbIds } from './gameplay/Pokemon';
+import { installAutosave, loadSave } from './gameplay/SaveGame';
 import { HUD } from './ui/HUD';
 import { AudioDirector } from './audio/Audio';
 
@@ -13,10 +14,23 @@ import { AudioDirector } from './audio/Audio';
 const SPAWN = new THREE.Vector3(-7.6, 0, 6.2);
 const SPAWN_YAW = -0.62;
 
+function resolveQuality(): QualityTier['name'] {
+  const q = new URLSearchParams(location.search).get('q')?.toLowerCase();
+  if (q && q in QUALITY) return q as QualityTier['name'];
+  // Leaner default on small / low-core devices; ?q=high restores full foliage.
+  const cores = navigator.hardwareConcurrency || 4;
+  const small = matchMedia('(max-width: 900px)').matches;
+  if (small || cores <= 4) return 'medium';
+  return 'high';
+}
+
 async function boot(): Promise<void> {
   const container = document.getElementById('app')!;
   const engine = new Engine(container);
   engine.initPost();
+  const tier = resolveQuality();
+  engine.setQuality(tier);
+  console.info(`[boot] quality=${tier}`);
 
   const world = new World(engine);
   const hud = new HUD(world.ctx);
@@ -28,8 +42,12 @@ async function boot(): Promise<void> {
   player.teleport(SPAWN, SPAWN_YAW);
 
   buildStarterSequence(world.ctx);
-  // Warm the remote GLB cache for starters + common Route 1 fauna.
-  prefetchGlbIds([1, 4, 7, 10, 13, 16, 19, 23, 25, 29, 32, 43]);
+  // Warm Three.js GLB cache for starters + Route 1 fauna (skipped on low).
+  if (tier !== 'low') {
+    prefetchGlbIds([1, 4, 7, 10, 13, 16, 19, 23, 25, 29, 32, 43]);
+  } else {
+    prefetchGlbIds([1, 4, 7, 16, 19]);
+  }
 
   const battle = new BattleSystem(world.ctx);
 
@@ -50,10 +68,6 @@ async function boot(): Promise<void> {
         engine.input.wasPressed('Enter') ||
         engine.input.wasPressed('NumpadEnter')
       ) {
-        // Dialogue gets first refusal because its capture-phase key handler
-        // may have closed the panel before this frame runs. Without this
-        // explicit consumption check, that closing press would immediately
-        // reactivate a still-focused sign or doorway.
         if (!dialogueConsumed && !engine.input.suspended) {
           world.interaction.activate();
         }
@@ -62,21 +76,26 @@ async function boot(): Promise<void> {
     },
   });
 
+  // Expose before save hydrate so loadSave can teleport the player.
+  Object.assign(window, { __GAME__: { engine, world, player, hud, battle, THREE } });
+
+  hud.bindSaveActions({
+    onContinue: () => {
+      loadSave(world.ctx);
+    },
+    onNewGame: () => {
+      /* HUD clears the slot and reloads */
+    },
+  });
+
+  installAutosave(world.ctx);
+
   hud.hideLoading();
   engine.start();
 
-  // Expose for the automated visual-QA harness.
-  Object.assign(window, { __GAME__: { engine, world, player, hud, battle, THREE } });
   window.dispatchEvent(new CustomEvent('game:ready'));
   world.ctx.events.emit(EVENTS.WORLD_READY);
 
-  // Pointer lock on every click that reaches the container, not just the first:
-  // a request can be refused (Chrome ignores one for about a second after Esc),
-  // and the next click has to be able to try again.
-  //
-  // The lock is asked for first and synchronously. Browsers only honour a
-  // request made directly inside the gesture that triggered it, so nothing may
-  // be awaited ahead of it — `audio.unlock()` follows for that reason.
   container.addEventListener('click', () => {
     engine.input.requestLock();
     audio.unlock();

@@ -15,3 +15,6 @@ tools/tmp/
 tools/.labtmp/
 .vercel
 .env*
+
+# Pages sync output — source of truth is public/vendor/
+/vendor/

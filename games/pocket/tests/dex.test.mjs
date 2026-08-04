@@ -27,15 +27,18 @@ test('every dex entry has battle data and moves', () => {
   assert.equal(Object.keys(SPECIES).length, 151);
 });
 
-test('dex progress tracks seen and owned', () => {
+test('dex progress tracks seen and owned across gens', () => {
   DexProgress.reset();
   assert.equal(DexProgress.seenCount(), 0);
   DexProgress.markSeen('pidgey');
   DexProgress.markOwned('charmander');
+  DexProgress.markSeen('sizzlipede');
   assert.ok(DexProgress.hasSeen('pidgey'));
   assert.ok(DexProgress.hasSeen('charmander'));
+  assert.ok(DexProgress.hasSeen('sizzlipede'));
   assert.ok(DexProgress.hasOwned('charmander'));
   assert.equal(DexProgress.ownedCount(), 1);
+  assert.equal(DexProgress.kantoSeenCount(), 2);
   assert.ok(KANTO_BY_SLUG.pidgey);
 });
 

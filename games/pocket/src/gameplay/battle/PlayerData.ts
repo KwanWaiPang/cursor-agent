@@ -41,6 +41,21 @@ class PlayerDataStore {
     this.mon = { species, level, hp: maxHp, maxHp };
   }
 
+  /** Restore a full party mon from a save slot (keeps HP). */
+  restorePartner(mon: PartyMon): void {
+    const maxHp = Math.max(1, mon.maxHp | 0);
+    this.mon = {
+      species: mon.species,
+      level: Math.max(1, mon.level | 0),
+      hp: Math.max(0, Math.min(maxHp, mon.hp | 0)),
+      maxHp,
+    };
+  }
+
+  clearPartner(): void {
+    this.mon = null;
+  }
+
   /** Ensures a partner exists (debug/battleDebug path). */
   ensurePartner(fallback: SpeciesId = 'charmander'): PartyMon {
     if (!this.mon) this.setPartner(fallback, 5);

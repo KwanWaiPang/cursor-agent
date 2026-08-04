@@ -15,6 +15,13 @@
 import './ui.css';
 import type { GameContext } from '../core/Context';
 import type { Interactable } from '../world/Interaction';
+import {
+  clearSave,
+  formatSaveAge,
+  hasSave,
+  peekSave,
+  saveNow,
+} from '../gameplay/SaveGame';
 import { LoadingScreen, StartCard, el } from './Menu';
 import { DialogueBox } from './Dialogue';
 import { DexUI } from './DexUI';
@@ -67,6 +74,8 @@ export class HUD {
   private lockReturn = 0;
   /** True only after this game canvas has actually owned pointer lock. */
   private wasPointerLocked = false;
+  private saveContinue: (() => void) | null = null;
+  private saveNewGame: (() => void) | null = null;
 
   constructor(ctx: GameContext) {
     this.ctx = ctx;
@@ -103,6 +112,13 @@ export class HUD {
     // --- overlays --------------------------------------------------------
     this.start = new StartCard();
     this.start.onStart = () => this.beginPlay();
+    this.start.onContinue = () => this.saveContinue?.();
+    this.start.onNewGame = () => {
+      clearSave();
+      this.saveNewGame?.();
+      // Full reload so lab starter state / world pose reset cleanly.
+      location.reload();
+    };
     this.root.appendChild(this.start.el);
 
     this.loading = new LoadingScreen();
@@ -189,13 +205,23 @@ export class HUD {
     this.loading.set(label, pct);
   }
 
+  /** Wire continue / new-game hooks from boot (after __GAME__ exists). */
+  bindSaveActions(handlers: { onContinue: () => void; onNewGame: () => void }): void {
+    this.saveContinue = handlers.onContinue;
+    this.saveNewGame = handlers.onNewGame;
+  }
+
   hideLoading(): void {
     this.loading.hide(() => {
       this.booted = true;
       if (this.auto) this.crosshair.classList.add('is-on');
       else {
         this.ctx.engine.input.suspended = true;
-        this.start.show('title');
+        const save = hasSave() ? peekSave() : null;
+        const foot = save
+          ? `检测到存档（${formatSaveAge(save.savedAt)}）${save.partner ? ` · ${save.partner.species}` : ''}。可继续或重新开始。`
+          : null;
+        this.start.show('title', 120, foot);
       }
     }, this.auto);
   }
@@ -214,6 +240,7 @@ export class HUD {
   private pauseIfUnlocked(): void {
     if (this.auto || !this.booted) return;
     if (document.pointerLockElement === this.ctx.engine.renderer.domElement) return;
+    saveNow(this.ctx);
     this.start.show('paused', this.relockWait());
     this.ctx.engine.input.suspended = true;
     this.setPrompt(false);

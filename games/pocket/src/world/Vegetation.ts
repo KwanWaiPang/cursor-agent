@@ -1711,7 +1711,27 @@ function weedGeometry(seed: number, size: number): THREE.BufferGeometry {
 /* Build                                                               */
 /* ------------------------------------------------------------------ */
 
+/** Scale Poisson attempts / grass density by engine quality tier. */
+function vegBudget(tier: string): { attempts: number; grassCell: number } {
+  switch (tier) {
+    case 'low':
+      return { attempts: 0.28, grassCell: 0.55 };
+    case 'medium':
+      return { attempts: 0.55, grassCell: 0.42 };
+    case 'ultra':
+      return { attempts: 1.1, grassCell: 0.3 };
+    default:
+      return { attempts: 1, grassCell: VEG.grassCell };
+  }
+}
+
+function vegAttempts(base: number, scale: number): number {
+  return Math.max(400, Math.floor(base * scale));
+}
+
 export function buildVegetation(ctx: GameContext): void {
+  const budget = vegBudget(ctx.engine.quality.name);
+  const grassCell = budget.grassCell;
   const rng = makeRng(ctx.seed ^ 0x5eed1e5);
   const ground = ctx.collision.groundHeight;
   const mask = new PlantMask(ctx);
@@ -1915,7 +1935,7 @@ export function buildVegetation(ctx: GameContext): void {
   {
     const copses = poisson(rng, {
       minX: -30.5, maxX: 30.5, minZ: -31, maxZ: 34,
-      minDist: 3.7, attempts: 24000, density: treeDensity,
+      minDist: 3.7, attempts: vegAttempts(24000, budget.attempts), density: treeDensity,
     });
     // Bucketed by copse for the separation test: over a few hundred trees a
     // naive all-pairs check is fine, but a copse only ever collides with its own
@@ -2167,7 +2187,7 @@ export function buildVegetation(ctx: GameContext): void {
 
   const bushSpots = poisson(rng, {
     minX: -24, maxX: 24, minZ: -24, maxZ: 30,
-    minDist: 2.5, attempts: 9000, density: bushDensity,
+    minDist: 2.5, attempts: vegAttempts(9000, budget.attempts), density: bushDensity,
   });
 
   const bushBuckets: { x: number; z: number }[][] = [[], [], []];
@@ -2276,7 +2296,7 @@ export function buildVegetation(ctx: GameContext): void {
       minX: -28, maxX: 28, minZ: -28, maxZ: 32,
       // Widened with the patch size, so the drift covers the same ground for
       // roughly half the instances it used to take.
-      minDist: 1.25, attempts: 14000,
+      minDist: 1.25, attempts: vegAttempts(14000, budget.attempts),
       density: (x, z) => {
         if (mask.at(x, z) < 0.6) return 0;
         // The z band starts at 19 rather than 17. Litter is what falls off a
@@ -2337,7 +2357,7 @@ export function buildVegetation(ctx: GameContext): void {
       // couple of paces, which is not a forest floor, it is a woodpile — and
       // deadfall is the most expensive floor detail per unit of read, since each
       // stick is a swept tube rather than a card. Fewer, further apart, larger.
-      minDist: 3.5, attempts: 5000,
+      minDist: 3.5, attempts: vegAttempts(5000, budget.attempts),
       density: (x, z) => {
         if (mask.at(x, z) < 0.7) return 0;
         if (ground(x, z) < 0.3) return 0;
@@ -2445,7 +2465,7 @@ export function buildVegetation(ctx: GameContext): void {
   };
 
   {
-    const cell = VEG.grassCell;
+    const cell = grassCell;
     const gRng = makeRng(ctx.seed ^ 0x9ea5501);
     const nx = Math.ceil((VEG.scatterMaxX - VEG.scatterMinX) / cell);
     const nz = Math.ceil((VEG.scatterMaxZ - VEG.scatterMinZ) / cell);
@@ -2547,7 +2567,7 @@ export function buildVegetation(ctx: GameContext): void {
     const patches = poisson(cRng, {
       minX: VEG.scatterMinX, maxX: VEG.scatterMaxX,
       minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
-      minDist: 2.3, attempts: 2600,
+      minDist: 2.3, attempts: vegAttempts(2600, budget.attempts),
       density: (x, z) => (mask.at(x, z) > 0.85 ? 0.85 * outsideBuildings(x, z, 0.1) : 0),
     });
 
@@ -2609,7 +2629,7 @@ export function buildVegetation(ctx: GameContext): void {
     const drifts = poisson(fRng, {
       minX: VEG.scatterMinX + 1, maxX: VEG.scatterMaxX - 1,
       minZ: VEG.scatterMinZ + 1, maxZ: VEG.scatterMaxZ - 1,
-      minDist: 3.1, attempts: 2200,
+      minDist: 3.1, attempts: vegAttempts(2200, budget.attempts),
       density: (x, z) => {
         if (mask.at(x, z) < 0.9) return 0;
         // Denser on the town green and along the treeline skirt.
@@ -2698,7 +2718,7 @@ export function buildVegetation(ctx: GameContext): void {
     const spots = poisson(wRng, {
       minX: VEG.scatterMinX, maxX: VEG.scatterMaxX,
       minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
-      minDist: 0.7, attempts: 12000,
+      minDist: 0.7, attempts: vegAttempts(12000, budget.attempts),
       density: (x, z) => {
         if (mask.at(x, z) < 0.8) return 0;
         // Weeds go where a mower would not: against the wood, the south shelf,

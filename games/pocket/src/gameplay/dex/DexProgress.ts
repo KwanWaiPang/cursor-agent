@@ -1,10 +1,10 @@
 import type { GameContext } from '../../core/Context';
 import { EVENTS } from '../../core/Context';
-import { isKantoSpecies } from './index';
+import { NATIONAL_BY_SLUG } from './national';
 
 /**
- * DexProgress — which Kanto species the player has seen or obtained.
- * In-memory for this session (no save slot yet).
+ * DexProgress — which national-dex species the player has seen or obtained.
+ * Persist via SaveGame; in-memory until then.
  */
 class DexProgressStore {
   private seen = new Set<string>();
@@ -23,13 +23,26 @@ class DexProgressStore {
     for (const id of ['bulbasaur', 'charmander', 'squirtle']) this.markSeen(id);
   }
 
+  private known(species: string): boolean {
+    return species in NATIONAL_BY_SLUG;
+  }
+
+  private sanitizeList(list: unknown): string[] {
+    if (!Array.isArray(list)) return [];
+    const out: string[] = [];
+    for (const id of list) {
+      if (typeof id === 'string' && this.known(id)) out.push(id);
+    }
+    return out;
+  }
+
   markSeen(species: string): void {
-    if (!isKantoSpecies(species)) return;
+    if (!this.known(species)) return;
     this.seen.add(species);
   }
 
   markOwned(species: string): void {
-    if (!isKantoSpecies(species)) return;
+    if (!this.known(species)) return;
     this.seen.add(species);
     this.owned.add(species);
   }
@@ -50,7 +63,30 @@ class DexProgressStore {
     return this.owned.size;
   }
 
-  /** Debug / tests. */
+  kantoSeenCount(): number {
+    let n = 0;
+    for (const id of this.seen) {
+      const e = NATIONAL_BY_SLUG[id];
+      if (e && e.id >= 1 && e.id <= 151) n++;
+    }
+    return n;
+  }
+
+  exportSeen(): string[] {
+    return [...this.seen];
+  }
+
+  exportOwned(): string[] {
+    return [...this.owned];
+  }
+
+  importProgress(seen: unknown, owned: unknown): void {
+    this.seen = new Set(this.sanitizeList(seen));
+    this.owned = new Set(this.sanitizeList(owned));
+    for (const id of this.owned) this.seen.add(id);
+  }
+
+  /** Debug / new-game. */
   reset(): void {
     this.seen.clear();
     this.owned.clear();
