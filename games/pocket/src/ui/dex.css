@@ -53,8 +53,26 @@
   color: var(--pt-blue-deep);
 }
 
-.pt-dex__hint {
+.pt-dex__search {
+  width: min(200px, 42vw);
   margin-left: auto;
+  padding: 6px 10px;
+  border: 1px solid rgba(31, 48, 80, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--pt-ink);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.pt-dex__search:focus {
+  outline: 2px solid rgba(74, 134, 196, 0.45);
+  outline-offset: 1px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.pt-dex__hint {
   font-size: 0.78rem;
   color: var(--pt-ink-faint);
 }

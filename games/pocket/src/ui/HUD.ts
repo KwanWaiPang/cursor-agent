@@ -142,6 +142,14 @@ export class HUD {
 
   private onKey = (e: KeyboardEvent): void => {
     if (this.dex.isOpen) {
+      // Typing in the jump field must not be swallowed by WASD / letter absorb.
+      if (this.dex.searchFocused && e.code !== 'Escape' && e.code !== 'KeyB') {
+        if (this.dex.handleKey(e.code)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        return;
+      }
       if (this.dex.handleKey(e.code)) {
         e.preventDefault();
         e.stopPropagation();

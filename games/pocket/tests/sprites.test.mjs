@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   MISSING_GLB_IDS,
   NATIONAL_DEX,
+  findDexIndex,
   hasRegularGlb,
   spriteFallbackUrls,
 } from '../src/gameplay/dex/index.ts';
@@ -31,4 +32,12 @@ test('sprite fallbacks prefer PokeAPI artwork then Showdown', () => {
   assert.match(urls[3], /sprites\/pokemon\/850\.png$/);
   assert.equal(showdownSpriteId('mr-rime'), 'mrrime');
   assert.equal(showdownSpriteId('tapu-koko'), 'tapukoko');
+});
+
+test('dex jump resolves national id and names', () => {
+  assert.equal(findDexIndex('850'), 849);
+  assert.equal(findDexIndex('#025'), 24);
+  assert.equal(findDexIndex('烧火蚣'), 849);
+  assert.equal(findDexIndex('sizzlipede'), 849);
+  assert.equal(findDexIndex(''), -1);
 });

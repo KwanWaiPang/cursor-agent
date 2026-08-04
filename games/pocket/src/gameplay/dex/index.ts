@@ -9,6 +9,7 @@ import {
   type NationalEntry,
 } from './national';
 import { MISSING_GLB_IDS, hasRegularGlb, spriteFallbackUrls } from './sprites';
+import { findDexIndex } from './search';
 
 export {
   KANTO_BY_ID,
@@ -20,6 +21,7 @@ export {
   MISSING_GLB_IDS,
   hasRegularGlb,
   spriteFallbackUrls,
+  findDexIndex,
   type DexEntry,
   type DexTypeId,
   type NationalEntry,
