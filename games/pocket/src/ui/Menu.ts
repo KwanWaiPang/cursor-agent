@@ -170,13 +170,13 @@ const COPY: Record<StartMode, { eyebrow: string; title: string; cta: string; foo
     eyebrow: '关都 · 真新镇',
     title: '口袋冒险',
     cta: '点击开始',
-    foot: '将锁定鼠标指针。按 Esc 可释放。',
+    foot: '将锁定鼠标指针。按 Esc 可释放。进度自动保存在本机。',
   },
   paused: {
     eyebrow: '已暂停',
     title: '歇一口气',
     cta: '点击继续',
-    foot: '小镇还在你离开的地方等着。',
+    foot: '进度已自动保存。小镇还在你离开的地方等着。',
   },
   retry: {
     eyebrow: '还差一点',
@@ -194,13 +194,19 @@ const COPY: Record<StartMode, { eyebrow: string; title: string; cta: string; foo
 export class StartCard {
   readonly el: HTMLElement;
   onStart: (() => void) | null = null;
+  onContinue: (() => void) | null = null;
+  onNewGame: (() => void) | null = null;
 
   private eyebrow: HTMLElement;
   private title: HTMLElement;
   private cta: HTMLButtonElement;
+  private continueBtn: HTMLButtonElement;
+  private newBtn: HTMLButtonElement;
+  private actions: HTMLElement;
   private foot: HTMLElement;
   private shown = false;
   private armed = false;
+  private saveMode = false;
 
   constructor() {
     this.el = el('div', 'pt-overlay pt-start is-hidden is-gone');
@@ -223,28 +229,58 @@ export class StartCard {
     }
     card.appendChild(legend);
 
+    this.actions = el('div', 'pt-card__actions');
     this.cta = el('button', 'pt-cta') as HTMLButtonElement;
     this.cta.type = 'button';
     this.cta.textContent = '点击开始';
-    card.appendChild(this.cta);
+    this.continueBtn = el('button', 'pt-cta') as HTMLButtonElement;
+    this.continueBtn.type = 'button';
+    this.continueBtn.textContent = '继续旅程';
+    this.newBtn = el('button', 'pt-cta pt-cta--ghost') as HTMLButtonElement;
+    this.newBtn.type = 'button';
+    this.newBtn.textContent = '重新开始';
+    this.actions.appendChild(this.cta);
+    this.actions.appendChild(this.continueBtn);
+    this.actions.appendChild(this.newBtn);
+    card.appendChild(this.actions);
 
-    this.foot = el('p', 'pt-card__foot', 'Your mouse will be captured. Press Esc to let it go.');
+    this.foot = el('p', 'pt-card__foot', '将锁定鼠标指针。按 Esc 可释放。');
     card.appendChild(this.foot);
 
     this.el.appendChild(card);
 
-    // Deliberately *not* stopping propagation: the click must reach the app
-    // container so the engine's own gesture handler can unlock audio and take
-    // pointer lock in the same user gesture.
-    const fire = (e: Event): void => {
+    const fireStart = (e: Event): void => {
       e.preventDefault();
-      if (!this.shown || !this.armed) return;
-      // The button sits inside the overlay, so one click reaches both handlers.
+      e.stopPropagation();
+      if (!this.shown || !this.armed || this.saveMode) return;
       this.armed = false;
       this.onStart?.();
     };
-    this.cta.addEventListener('click', fire);
-    this.el.addEventListener('click', fire);
+    const fireContinue = (e: Event): void => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!this.shown || !this.armed || !this.saveMode) return;
+      this.armed = false;
+      this.onContinue?.();
+      this.onStart?.();
+    };
+    const fireNew = (e: Event): void => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!this.shown || !this.armed || !this.saveMode) return;
+      this.armed = false;
+      this.onNewGame?.();
+      this.onStart?.();
+    };
+    this.cta.addEventListener('click', fireStart);
+    this.continueBtn.addEventListener('click', fireContinue);
+    this.newBtn.addEventListener('click', fireNew);
+    // Backdrop click = primary action (start or continue).
+    this.el.addEventListener('click', (e) => {
+      if (e.target !== this.el) return;
+      if (this.saveMode) fireContinue(e);
+      else fireStart(e);
+    });
   }
 
   get visible(): boolean {
@@ -257,18 +293,22 @@ export class StartCard {
    *   raises it to sit out Chrome's post-Escape relock cooldown, because a card
    *   that can be dismissed during the cooldown sends the player back into the
    *   world with a request that is guaranteed to be refused.
+   * @param saveFoot Optional footnote when a local save is available (title only).
    */
-  show(mode: StartMode = 'title', armDelayMs = 120): void {
+  show(mode: StartMode = 'title', armDelayMs = 120, saveFoot?: string | null): void {
     if (this.shown) return;
     this.shown = true;
     this.armed = false;
     const copy = COPY[mode];
     this.eyebrow.textContent = copy.eyebrow;
     this.title.textContent = copy.title;
+    this.saveMode = mode === 'title' && !!saveFoot;
+    this.cta.hidden = this.saveMode;
+    this.continueBtn.hidden = !this.saveMode;
+    this.newBtn.hidden = !this.saveMode;
     this.cta.textContent = copy.cta;
-    this.foot.textContent = copy.foot;
+    this.foot.textContent = saveFoot || copy.foot;
     this.el.classList.remove('is-gone');
-    // Next frame, so the transition actually runs from the hidden state.
     requestAnimationFrame(() => {
       this.el.classList.remove('is-hidden');
       window.setTimeout(() => (this.armed = true), Math.max(0, armDelayMs));

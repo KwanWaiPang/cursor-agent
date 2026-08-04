@@ -335,10 +335,25 @@ export function buildStarterSequence(ctx: GameContext): void {
     }
   });
 
+  /** Silent restore after loading a save — no dialogue, no STARTER_CHOSEN re-emit. */
+  function restore(id: string): void {
+    const i = slots.findIndex((s) => s.id === id);
+    if (i < 0) return;
+    phase = 'chosen';
+    chosenId = slots[i].id;
+    active = i;
+    for (let j = 0; j < slots.length; j++) {
+      slots[j].target = j === i ? 1 : 0;
+      slots[j].release = j === i ? 1 : 0;
+    }
+    updateLabels();
+  }
+
   // Exposed so the capture harness can stage the reveal for screenshots.
   ctx.scene.userData.starterDebug = {
     preview: (i: number) => onSlotInteract(i),
     commit: (i: number) => commit(i),
+    restore,
     setRelease: (i: number, v: number) => {
       slots[i].target = v;
       slots[i].release = v;

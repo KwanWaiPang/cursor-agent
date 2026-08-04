@@ -17,13 +17,13 @@ import { hasRegularGlb, spriteFallbackUrls } from '../gameplay/dex/sprites';
 
 /**
  * DexUI — national Pokédex browser (#001–1025).
- * Open with B; Esc / B closes. Suspends gameplay input while open.
- * Prefers Pokemon-3D-api GLB; missing / failed loads fall back to
- * PokeAPI official artwork and Showdown sprites.
+ * Virtualized list, GLB with 2D fallback, jump search.
  */
 
 const DEX_LIST = NATIONAL_DEX;
 const KANTO_TOTAL = 151;
+const ROW_H = 42;
+const OVERSCAN = 8;
 
 let modelViewerReady: Promise<void> | null = null;
 function ensureModelViewer(): Promise<void> {
@@ -32,7 +32,8 @@ function ensureModelViewer(): Promise<void> {
     modelViewerReady = new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.type = 'module';
-      s.src = 'https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js';
+      const base = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL ?? './';
+      s.src = `${base.endsWith('/') ? base : `${base}/`}vendor/model-viewer.min.js`;
       s.onload = () => resolve();
       s.onerror = () => reject(new Error('model-viewer failed to load'));
       document.head.appendChild(s);
@@ -45,24 +46,28 @@ function kantoEntry(e: NationalEntry): DexEntry | undefined {
   return KANTO_BY_ID[e.id];
 }
 
-/** Adventure-locked Kanto rows stay ??? until seen; later gens are catalog-open. */
+/** Every national entry stays locked until seen (silhouette + ???). */
 function isRevealed(e: NationalEntry): boolean {
-  const k = kantoEntry(e);
-  if (!k) return true;
-  return DexProgress.hasSeen(k.slug);
+  return DexProgress.hasSeen(e.slug);
 }
 
 export class DexUI {
   readonly el: HTMLElement;
 
   private listEl: HTMLElement;
+  private spacerEl: HTMLElement;
+  private windowEl: HTMLElement;
   private detailEl: HTMLElement;
   private countEl: HTMLElement;
   private searchEl: HTMLInputElement;
-  private listBuilt = false;
+  private pool: HTMLButtonElement[] = [];
   private open = false;
   private index = 0;
+  private windowStart = 0;
+  private detailTimer = 0;
+  private detailToken = 0;
   private onClose: (() => void) | null = null;
+  private onScroll = (): void => this.paintWindow();
 
   constructor() {
     this.el = el('div', 'pt-dex');
@@ -90,35 +95,36 @@ export class DexUI {
       if (e.code === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        if (this.searchEl.value) {
-          this.searchEl.value = '';
-        } else {
-          this.close();
-        }
+        if (this.searchEl.value) this.searchEl.value = '';
+        else this.close();
       }
     });
     head.appendChild(this.searchEl);
-    head.appendChild(el('span', 'pt-dex__hint', 'B / Esc 关闭 · ↑↓ 选择 · Enter 跳转'));
+    head.appendChild(el('span', 'pt-dex__hint', 'B / Esc 关闭 · / 搜索 · ↑↓ 选择'));
     panel.appendChild(head);
 
     const body = el('div', 'pt-dex__body');
     this.listEl = el('div', 'pt-dex__list');
+    this.spacerEl = el('div', 'pt-dex__spacer');
+    this.windowEl = el('div', 'pt-dex__window');
+    this.listEl.appendChild(this.spacerEl);
+    this.listEl.appendChild(this.windowEl);
+    this.listEl.addEventListener('scroll', this.onScroll, { passive: true });
     this.detailEl = el('div', 'pt-dex__detail');
     body.appendChild(this.listEl);
     body.appendChild(this.detailEl);
     panel.appendChild(body);
     this.el.appendChild(panel);
 
-    this.ensureList();
-    this.renderDetail();
+    this.spacerEl.style.height = `${DEX_LIST.length * ROW_H}px`;
     this.refreshCount();
+    this.scheduleDetail();
 
     this.el.addEventListener('click', (e) => {
       if (e.target === this.el) this.close();
     });
   }
 
-  /** True while the jump field owns typing. */
   get searchFocused(): boolean {
     return document.activeElement === this.searchEl;
   }
@@ -136,9 +142,8 @@ export class DexUI {
     this.el.classList.add('is-on');
     this.el.setAttribute('aria-hidden', 'false');
     this.refreshCount();
-    this.ensureList();
-    this.refreshListState();
-    this.renderDetail();
+    this.paintWindow(true);
+    this.scheduleDetail();
     this.scrollToIndex();
   }
 
@@ -148,6 +153,7 @@ export class DexUI {
     this.el.classList.remove('is-on');
     this.el.setAttribute('aria-hidden', 'true');
     this.searchEl.blur();
+    this.detailEl.replaceChildren();
     this.onClose?.();
   }
 
@@ -156,21 +162,17 @@ export class DexUI {
     else this.show();
   }
 
-  /** Keyboard navigation while open. Returns true if consumed. */
   handleKey(code: string): boolean {
     if (!this.open) return false;
-    // Let the jump field own typing; Esc still closes (handled on the input too).
     if (this.searchFocused && code !== 'Escape' && code !== 'KeyB') {
       if (
-        code === 'ArrowUp' ||
-        code === 'ArrowDown' ||
-        code === 'PageUp' ||
-        code === 'PageDown' ||
-        code === 'Home' ||
-        code === 'End'
+        code !== 'ArrowUp' &&
+        code !== 'ArrowDown' &&
+        code !== 'PageUp' &&
+        code !== 'PageDown' &&
+        code !== 'Home' &&
+        code !== 'End'
       ) {
-        // keep navigating the list even from the search box
-      } else {
         return false;
       }
     }
@@ -213,10 +215,9 @@ export class DexUI {
       this.syncSelection();
       return true;
     }
-    return true; // absorb other keys while open
+    return true;
   }
 
-  /** Jump by national id (`850`, `#850`) or Chinese / slug substring. */
   jumpToQuery(raw: string): boolean {
     const hit = findDexIndex(raw);
     if (hit < 0) return false;
@@ -225,62 +226,97 @@ export class DexUI {
     return true;
   }
 
-  private ensureList(): void {
-    if (this.listBuilt) return;
-    this.listEl.replaceChildren();
-    for (let i = 0; i < DEX_LIST.length; i++) {
-      const e = DEX_LIST[i];
-      const row = el('button', 'pt-dex__row');
-      row.type = 'button';
-      row.dataset.index = String(i);
-      row.appendChild(el('span', 'pt-dex__no', formatDexNo(e.id)));
-      row.appendChild(el('span', 'pt-dex__name', ''));
-      row.addEventListener('click', () => {
-        this.index = i;
-        this.syncSelection();
-      });
-      this.listEl.appendChild(row);
-    }
-    this.listBuilt = true;
-    this.refreshListState();
-  }
-
-  private refreshListState(): void {
-    const rows = this.listEl.children;
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i] as HTMLElement;
-      const e = DEX_LIST[i];
-      const seen = isRevealed(e);
-      row.className = `pt-dex__row${seen ? '' : ' is-unknown'}${i === this.index ? ' is-active' : ''}`;
-      const nameEl = row.querySelector('.pt-dex__name');
-      if (nameEl) nameEl.textContent = seen ? e.name : '？？？';
-
-      row.querySelector('.pt-dex__badge')?.remove();
-      row.querySelector('.pt-dex__owned')?.remove();
-      if (!hasRegularGlb(e.id)) {
-        row.appendChild(el('span', 'pt-dex__badge', '2D'));
-      }
-      if (DexProgress.hasOwned(e.slug)) {
-        row.appendChild(el('span', 'pt-dex__owned', '拥有'));
-      }
-    }
-  }
-
   private syncSelection(): void {
-    const rows = this.listEl.querySelectorAll('.pt-dex__row');
-    rows.forEach((row, i) => {
-      row.classList.toggle('is-active', i === this.index);
-    });
-    this.renderDetail();
+    this.paintWindow();
+    this.scheduleDetail();
     this.scrollToIndex();
   }
 
   private scrollToIndex(): void {
-    const row = this.listEl.children[this.index] as HTMLElement | undefined;
-    row?.scrollIntoView({ block: 'nearest' });
+    const top = this.index * ROW_H;
+    const view = this.listEl.clientHeight;
+    const scroll = this.listEl.scrollTop;
+    if (top < scroll) this.listEl.scrollTop = top;
+    else if (top + ROW_H > scroll + view) this.listEl.scrollTop = top + ROW_H - view;
   }
 
-  private renderDetail(): void {
+  private paintWindow(force = false): void {
+    const viewH = Math.max(this.listEl.clientHeight, ROW_H * 8);
+    const visible = Math.ceil(viewH / ROW_H) + OVERSCAN * 2;
+    const start = Math.max(0, Math.floor(this.listEl.scrollTop / ROW_H) - OVERSCAN);
+    const end = Math.min(DEX_LIST.length, start + visible);
+    if (!force && start === this.windowStart && this.pool.length >= end - start) {
+      this.restylePool();
+      return;
+    }
+    this.windowStart = start;
+    this.windowEl.style.transform = `translateY(${start * ROW_H}px)`;
+
+    while (this.pool.length < end - start) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'pt-dex__row';
+      row.style.height = `${ROW_H}px`;
+      row.appendChild(el('span', 'pt-dex__no', ''));
+      row.appendChild(el('span', 'pt-dex__name', ''));
+      row.addEventListener('click', () => {
+        const idx = Number(row.dataset.index);
+        if (!Number.isFinite(idx)) return;
+        this.index = idx;
+        this.syncSelection();
+      });
+      this.pool.push(row);
+      this.windowEl.appendChild(row);
+    }
+    for (let i = 0; i < this.pool.length; i++) {
+      const row = this.pool[i];
+      const idx = start + i;
+      if (idx >= end) {
+        row.hidden = true;
+        continue;
+      }
+      row.hidden = false;
+      row.dataset.index = String(idx);
+      this.fillRow(row, idx);
+    }
+  }
+
+  private restylePool(): void {
+    for (const row of this.pool) {
+      if (row.hidden) continue;
+      const idx = Number(row.dataset.index);
+      if (!Number.isFinite(idx)) continue;
+      this.fillRow(row, idx);
+    }
+  }
+
+  private fillRow(row: HTMLButtonElement, idx: number): void {
+    const e = DEX_LIST[idx];
+    const seen = isRevealed(e);
+    row.className = `pt-dex__row${seen ? '' : ' is-unknown'}${idx === this.index ? ' is-active' : ''}`;
+    const no = row.querySelector('.pt-dex__no');
+    const name = row.querySelector('.pt-dex__name');
+    if (no) no.textContent = formatDexNo(e.id);
+    if (name) name.textContent = seen ? e.name : '？？？';
+    row.querySelector('.pt-dex__badge')?.remove();
+    row.querySelector('.pt-dex__owned')?.remove();
+    if (!hasRegularGlb(e.id)) row.appendChild(el('span', 'pt-dex__badge', '2D'));
+    if (DexProgress.hasOwned(e.slug)) row.appendChild(el('span', 'pt-dex__owned', '拥有'));
+  }
+
+  /** Debounce GLB / sprite mounts while scrubbing the list. */
+  private scheduleDetail(): void {
+    window.clearTimeout(this.detailTimer);
+    const token = ++this.detailToken;
+    // Immediate text chrome; heavy media after a short settle.
+    this.renderDetailShell();
+    this.detailTimer = window.setTimeout(() => {
+      if (token !== this.detailToken) return;
+      this.mountMedia();
+    }, 140);
+  }
+
+  private renderDetailShell(): void {
     const e = DEX_LIST[this.index];
     const kanto = kantoEntry(e);
     const seen = isRevealed(e);
@@ -293,13 +329,9 @@ export class DexUI {
     this.detailEl.appendChild(hero);
 
     const stage = el('div', `pt-dex__stage${seen ? '' : ' is-unknown'}`);
+    stage.dataset.role = 'stage';
+    stage.appendChild(el('p', 'pt-dex__credit', '加载预览…'));
     this.detailEl.appendChild(stage);
-
-    if (!hasRegularGlb(e.id)) {
-      this.mountSprite(stage, e, seen, '无上游 3D，已用 2D 立绘兜底');
-    } else {
-      this.mountGlbWithSpriteFallback(stage, e, seen);
-    }
 
     if (!seen) {
       this.detailEl.appendChild(
@@ -310,12 +342,9 @@ export class DexUI {
 
     const types = el('div', 'pt-dex__types');
     for (const t of e.types) {
-      const chip = el(
-        'span',
-        `pt-dex__type pt-dex__type--${t}`,
-        TYPE_ZH[t as DexTypeId] ?? t,
+      types.appendChild(
+        el('span', `pt-dex__type pt-dex__type--${t}`, TYPE_ZH[t as DexTypeId] ?? t),
       );
-      types.appendChild(chip);
     }
     this.detailEl.appendChild(types);
 
@@ -335,6 +364,19 @@ export class DexUI {
     }
   }
 
+  private mountMedia(): void {
+    const e = DEX_LIST[this.index];
+    const seen = isRevealed(e);
+    const stage = this.detailEl.querySelector('[data-role="stage"]') as HTMLElement | null;
+    if (!stage) return;
+    stage.replaceChildren();
+    if (!hasRegularGlb(e.id)) {
+      this.mountSprite(stage, e, seen, '无上游 3D，已用 2D 立绘兜底');
+    } else {
+      this.mountGlbWithSpriteFallback(stage, e, seen);
+    }
+  }
+
   private mountGlbWithSpriteFallback(
     stage: HTMLElement,
     e: NationalEntry,
@@ -349,19 +391,18 @@ export class DexUI {
     viewer.setAttribute('auto-rotate', '');
     viewer.setAttribute('shadow-intensity', '0.6');
     viewer.setAttribute('exposure', seen ? '1' : '0.55');
-    viewer.setAttribute('loading', 'eager');
+    viewer.setAttribute('loading', 'lazy');
     viewer.setAttribute('reveal', 'auto');
     viewer.setAttribute('alt', seen ? e.name : '未鉴定的宝可梦');
     viewer.setAttribute('src', glbUrlForDexId(e.id));
     stage.appendChild(viewer);
-    const credit = el('p', 'pt-dex__credit', '3D：Pokemon-3D-api（本地 / CDN）');
-    stage.appendChild(credit);
+    stage.appendChild(el('p', 'pt-dex__credit', '3D：Pokemon-3D-api（本地 / CDN）'));
 
     const toSprite = (): void => {
+      if (!stage.isConnected) return;
       stage.replaceChildren();
       this.mountSprite(stage, e, seen, '3D 加载失败，已回退 2D 立绘');
     };
-
     viewer.addEventListener('error', toSprite);
     void ensureModelViewer().catch(() => toSprite());
   }
@@ -378,7 +419,7 @@ export class DexUI {
     img.className = 'pt-dex__sprite';
     img.alt = seen ? e.name : '未鉴定的宝可梦';
     img.decoding = 'async';
-    img.loading = 'eager';
+    img.loading = 'lazy';
     const tryNext = (): void => {
       if (i >= urls.length) {
         img.remove();
@@ -418,6 +459,6 @@ export class DexUI {
   }
 
   private refreshCount(): void {
-    this.countEl.textContent = `关都目击 ${DexProgress.seenCount()} / ${KANTO_TOTAL} · 浏览 ${DEX_LIST.length}`;
+    this.countEl.textContent = `目击 ${DexProgress.seenCount()} · 关都 ${DexProgress.kantoSeenCount()} / ${KANTO_TOTAL}`;
   }
 }

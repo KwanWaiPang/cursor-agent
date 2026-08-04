@@ -453,11 +453,19 @@
   text-overflow: ellipsis;
 }
 
+.pt-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: clamp(20px, 2.8vh, 32px);
+  pointer-events: auto;
+}
+
 .pt-cta {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  margin-top: clamp(20px, 2.8vh, 32px);
+  margin-top: 0;
   padding: 15px 34px;
   border: 0;
   border-radius: 999px;
@@ -474,6 +482,17 @@
   pointer-events: auto;
   animation: pt-pulse 2.6s var(--pt-ease) infinite;
   transition: transform 220ms var(--pt-spring), box-shadow 220ms var(--pt-ease);
+}
+
+.pt-cta--ghost {
+  color: var(--pt-ink);
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 3px 0 rgba(31, 48, 80, 0.18), 0 8px 18px rgba(20, 40, 70, 0.12);
+  animation: none;
+}
+
+.pt-cta[hidden] {
+  display: none !important;
 }
 
 .pt-cta:hover {

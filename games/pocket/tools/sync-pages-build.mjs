@@ -39,10 +39,20 @@ if (existsSync(distModels)) {
   cpSync(distModels, rootModels, { recursive: true });
 }
 
+// Self-hosted model-viewer (dex 3D preview) from public/vendor.
+const distVendor = resolve(dist, "vendor");
+const rootVendor = resolve(root, "vendor");
+if (existsSync(distVendor)) {
+  rmSync(rootVendor, { recursive: true, force: true });
+  cpSync(distVendor, rootVendor, { recursive: true });
+}
+
 const js = readdirSync(assets).filter((f) => f.endsWith(".js"));
 const modelCount = existsSync(resolve(rootModels, "pokemon/regular"))
   ? readdirSync(resolve(rootModels, "pokemon/regular")).filter((f) => f.endsWith(".glb")).length
   : 0;
+const hasViewer = existsSync(resolve(rootVendor, "model-viewer.min.js"));
 console.info(
-  `[sync-pages-build] wrote index.html + assets (${js.join(", ")}) + ${modelCount} glbs for Pages`,
+  `[sync-pages-build] wrote index.html + assets (${js.join(", ")}) + ${modelCount} glbs` +
+    `${hasViewer ? " + model-viewer" : ""} for Pages`,
 );
