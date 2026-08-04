@@ -1,9 +1,9 @@
 /**
  * Barrel for the Pokemon creatures.
  *
- * Hand-authored sculpts cover the starters and early Route 1 fauna. Every
- * other Kanto species falls back to a type-coloured generic so the full
- * Pokédex can appear in battle and in the dex browser.
+ * Preferred path: remote GLB models from Pokemon-3D-api/assets via
+ * `loadCreature()`. Procedural sculpts remain as a synchronous offline
+ * fallback (`buildCreature`) when the network/Draco path fails.
  */
 import { buildBulbasaur } from './pokemon/Bulbasaur';
 import { buildCharmander } from './pokemon/Charmander';
@@ -13,6 +13,7 @@ import { buildRattata } from './pokemon/Rattata';
 import { buildOddish } from './pokemon/Oddish';
 import { buildCaterpie } from './pokemon/Caterpie';
 import { buildGenericCreature } from './pokemon/Generic';
+import { loadGlbCreature } from './pokemon/GlbModels';
 import { isKantoSpecies } from './dex';
 import type { Creature, SpeciesId, StarterId } from './pokemon/shared';
 
@@ -24,6 +25,7 @@ export { buildRattata } from './pokemon/Rattata';
 export { buildOddish } from './pokemon/Oddish';
 export { buildCaterpie } from './pokemon/Caterpie';
 export { buildGenericCreature } from './pokemon/Generic';
+export { loadGlbCreature, prefetchGlbIds, glbUrlForDexId } from './pokemon/GlbModels';
 export { buildPokeBall, type PokeBall } from './pokemon/PokeBall';
 export { STARTERS, SPECIES, type Creature, type StarterId, type SpeciesId } from './pokemon/shared';
 
@@ -37,7 +39,7 @@ const CUSTOM: Record<string, () => Creature> = {
   caterpie: buildCaterpie,
 };
 
-/** Builds any Kanto species by slug. */
+/** Synchronous procedural/generic fallback (offline, tests, capture harness). */
 export function buildCreature(id: SpeciesId): Creature {
   const custom = CUSTOM[id];
   if (custom) return custom();
@@ -48,7 +50,20 @@ export function buildCreature(id: SpeciesId): Creature {
   return buildGenericCreature(id);
 }
 
-/** Builds a starter by id. */
+/**
+ * Preferred builder: remote GLB, then procedural fallback.
+ * Use this from battles / lab so every Kanto mon can show the API model.
+ */
+export async function loadCreature(id: SpeciesId): Promise<Creature> {
+  try {
+    return await loadGlbCreature(id);
+  } catch (err) {
+    console.warn(`[pokemon] GLB load failed for ${id}, using procedural`, err);
+    return buildCreature(id);
+  }
+}
+
+/** Builds a starter by id (sync procedural). Prefer `loadCreature` in play. */
 export function buildStarter(id: StarterId): Creature {
   return buildCreature(id);
 }

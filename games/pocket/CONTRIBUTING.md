@@ -19,9 +19,14 @@ breaks one of them will be asked to change, however good the idea underneath is.
 argue with the document in an issue and change it there first — do not quietly diverge from it in a
 commit.
 
-**No binary art assets.** Every texture is baked procedurally at load time, every model is sculpted
-from signed-distance fields, every sound is synthesised in WebAudio. A PNG, GLB, or WAV in a pull
-request is a design change, not an implementation detail, and needs its own discussion.
+**No binary art assets in the repo.** Every texture is baked procedurally at load time, procedural
+creatures are sculpted from signed-distance fields, and sounds are synthesised in WebAudio. A PNG,
+GLB, or WAV committed into a pull request is a design change, not an implementation detail, and
+needs its own discussion.
+
+Exception (hub build): Pokémon battle/dex visuals may **load remote GLBs at runtime** from
+[Pokemon-3D-api/assets](https://github.com/Pokemon-3D-api/assets) (see `src/gameplay/pokemon/GlbModels.ts`).
+Those files are not vendored into git; the procedural pipeline remains the offline fallback.
 
 **No `Math.random()` in `src/`.** Every random choice goes through the seeded generator in
 `core/Noise.ts`, keyed off `World.SEED`. The same build must always produce the same town —

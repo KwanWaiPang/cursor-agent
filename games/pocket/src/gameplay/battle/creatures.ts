@@ -8,4 +8,4 @@ import type { Creature } from '../pokemon/shared';
  */
 export type BattleCreature = Creature;
 
-export { buildCreature } from '../Pokemon';
+export { buildCreature, loadCreature } from '../Pokemon';

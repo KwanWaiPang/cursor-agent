@@ -1,7 +1,15 @@
 import * as THREE from 'three';
 import type { GameContext } from '../core/Context';
 import { EVENTS } from '../core/Context';
-import { buildPokeBall, buildStarter, STARTERS, type Creature, type StarterId, type PokeBall } from './Pokemon';
+import {
+  buildPokeBall,
+  buildStarter,
+  loadCreature,
+  STARTERS,
+  type Creature,
+  type StarterId,
+  type PokeBall,
+} from './Pokemon';
 import { clamp } from '../core/Noise';
 
 /**
@@ -68,6 +76,7 @@ export function buildStarterSequence(ctx: GameContext): void {
     ball.group.position.copy(anchor).add(new THREE.Vector3(0, 0.037, 0));
     group.add(ball.group);
 
+    // Procedural placeholder until the remote GLB arrives.
     const creature = buildStarter(meta.id);
     creature.group.position.copy(anchor);
     creature.group.visible = false;
@@ -128,6 +137,23 @@ export function buildStarterSequence(ctx: GameContext): void {
     slots.push({
       id: meta.id, name: meta.name, blurb: meta.blurb,
       anchor, ball, creature, release: 0, target: 0, ring, sparkles,
+    });
+
+    // Swap in the remote GLB when ready (Pokemon-3D-api assets).
+    const slotIndex = i;
+    void loadCreature(meta.id).then((glb) => {
+      const slot = slots[slotIndex];
+      if (!slot) return;
+      const prev = slot.creature;
+      const wasVisible = prev.group.visible;
+      group.remove(prev.group);
+      prev.dispose();
+      glb.group.position.copy(slot.anchor);
+      glb.group.rotation.y = 0;
+      glb.group.visible = wasVisible;
+      glb.group.scale.setScalar(Math.max(0.001, slot.release));
+      group.add(glb.group);
+      slot.creature = glb;
     });
   }
 
