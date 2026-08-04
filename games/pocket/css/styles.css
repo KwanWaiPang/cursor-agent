@@ -485,3 +485,118 @@
     display: flex;
   }
 }
+
+/* ====================================================== menu / dex */
+.panel-box {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  background: rgba(12, 16, 10, 0.55);
+}
+
+.panel-card {
+  width: min(360px, 100%);
+  background: var(--pk-panel);
+  color: var(--pk-ink);
+  border: 3px solid var(--pk-line);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  font-family: var(--pk-ui);
+  box-shadow: 0 12px 0 rgba(0, 0, 0, 0.25);
+}
+
+.panel-card h3 {
+  margin: 0 0 0.55rem;
+  font-family: var(--pk-font);
+  letter-spacing: 0.12em;
+  color: var(--pk-accent);
+}
+
+.menu-list {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.55rem;
+}
+
+.menu-item {
+  border: 2px solid var(--pk-line);
+  background: #fffdf7;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--pk-ui);
+}
+
+.menu-item.active,
+.menu-item:hover {
+  background: #dfead8;
+  outline: 2px solid var(--pk-accent);
+}
+
+.menu-detail {
+  margin: 0;
+  min-height: 4.5em;
+  white-space: pre-wrap;
+  font-family: var(--pk-ui);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #4a5340;
+  background: #fffdf7;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #c8c0ae;
+}
+
+.panel-hint {
+  margin: 0.55rem 0 0;
+  font-size: 0.75rem;
+  color: #7a826f;
+  text-align: right;
+}
+
+.dex-card {
+  text-align: center;
+}
+
+.dex-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #6a7260;
+  margin-bottom: 0.4rem;
+}
+
+#dexCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 2px solid #c8c0ae;
+  image-rendering: pixelated;
+}
+
+#dexName {
+  margin-top: 0.5rem;
+  font-family: var(--pk-font);
+  font-size: 1.4rem;
+  letter-spacing: 0.1em;
+}
+
+#dexTypes {
+  color: var(--pk-accent-2);
+  font-size: 0.85rem;
+  margin: 0.2rem 0 0.35rem;
+}
+
+#dexBlurb {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #4a5340;
+  text-align: left;
+  min-height: 3em;
+}

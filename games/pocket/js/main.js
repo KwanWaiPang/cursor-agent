@@ -20,6 +20,16 @@ const ui = {
   playerHud: document.getElementById("playerHud"),
   battleLog: document.getElementById("battleLog"),
   battleMenu: document.getElementById("battleMenu"),
+  menu: document.getElementById("menu"),
+  menuList: document.getElementById("menuList"),
+  menuDetail: document.getElementById("menuDetail"),
+  dex: document.getElementById("dex"),
+  dexCanvas: document.getElementById("dexCanvas"),
+  dexName: document.getElementById("dexName"),
+  dexTypes: document.getElementById("dexTypes"),
+  dexBlurb: document.getElementById("dexBlurb"),
+  dexNum: document.getElementById("dexNum"),
+  dexProg: document.getElementById("dexProg"),
 };
 
 const game = new Game(canvas, ui);

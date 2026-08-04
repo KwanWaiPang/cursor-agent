@@ -6,7 +6,7 @@
     <title>口袋冒险 · 游戏馆</title>
     <meta
       name="description"
-      content="口袋冒险：俯视 2D 粉丝向开局——真新镇、选御三家、1 号道路遇敌与回合战斗。浏览器本地可玩。"
+      content="口袋冒险：俯视 2D 粉丝向——真新镇到尼比道馆、多地图剧情、图鉴与训练家对战。浏览器本地可玩。"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -22,7 +22,7 @@
       <header class="topbar">
         <div class="brand">
           <h1>口袋冒险</h1>
-          <p>真新镇开局 · 俯视 2D · 本地存档</p>
+          <p>真新镇 → 尼比道馆 · 图鉴 · 本地存档</p>
         </div>
         <a class="btn" href="../../">← 返回游戏馆</a>
       </header>
@@ -34,7 +34,7 @@
           <div class="title-card">
             <h2>口袋冒险</h2>
             <p class="sub">
-              在真新镇醒来，拜访大木博士，选择最初的伙伴，前往 1 号道路历练。
+              真新镇出发，取回包裹、收集图鉴，穿过常青森林，挑战尼比道馆馆主小刚。
             </p>
             <div class="title-actions">
               <button type="button" class="primary" id="btnNew">开始冒险</button>
@@ -74,6 +74,28 @@
             <div id="battleMenu"></div>
           </div>
         </div>
+
+        <div id="menu" class="panel-box hidden">
+          <div class="panel-card">
+            <h3>菜单</h3>
+            <div id="menuList" class="menu-list"></div>
+            <pre id="menuDetail" class="menu-detail"></pre>
+            <p class="panel-hint">↑↓ 选择 · Z 确认 · X 关闭</p>
+          </div>
+        </div>
+
+        <div id="dex" class="panel-box hidden">
+          <div class="panel-card dex-card">
+            <div class="dex-head">
+              <span id="dexNum">No.001</span>
+              <span id="dexProg"></span>
+            </div>
+            <canvas id="dexCanvas" width="160" height="120"></canvas>
+            <div id="dexName"></div>
+            <div id="dexTypes"></div>
+            <div id="dexBlurb"></div>
+          </div>
+        </div>
       </div>
 
       <div class="touch" aria-label="触控操作">
@@ -90,8 +112,8 @@
       </div>
 
       <p class="help">
-        方向键 / WASD 移动 · Z / 空格 确认 · X / Esc 取消或状态<br />
-        流程：家中出发 → 大木研究所选御三家 → 南下 1 号道路遇敌
+        方向键 / WASD 移动 · Z / 空格 确认 · X 菜单（队伍 / 图鉴 / 任务）<br />
+        流程：研究所选伙伴 → 劲敌战 → 常青市取包裹 → 交还获图鉴 → 森林 → 尼比道馆
       </p>
     </div>
 
