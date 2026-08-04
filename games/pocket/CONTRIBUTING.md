@@ -24,9 +24,11 @@ creatures are sculpted from signed-distance fields, and sounds are synthesised i
 GLB, or WAV committed into a pull request is a design change, not an implementation detail, and
 needs its own discussion.
 
-Exception (hub build): Pokémon battle/dex visuals may **load remote GLBs at runtime** from
-[Pokemon-3D-api/assets](https://github.com/Pokemon-3D-api/assets) (see `src/gameplay/pokemon/GlbModels.ts`).
-Those files are not vendored into git; the procedural pipeline remains the offline fallback.
+Exception (hub build): Pokémon battle/dex visuals use **vendored GLBs** under
+`public/models/pokemon/regular/` (synced to `models/` for Pages), sourced from
+[Pokemon-3D-api/assets](https://github.com/Pokemon-3D-api/assets). Refresh with
+`node tools/download-pokemon-glbs.mjs`. The procedural pipeline remains the
+offline fallback if a file is missing. Do not commit unrelated binary art.
 
 **No `Math.random()` in `src/`.** Every random choice goes through the seeded generator in
 `core/Noise.ts`, keyed off `World.SEED`. The same build must always produce the same town —

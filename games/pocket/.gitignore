@@ -1,6 +1,9 @@
 node_modules/
 dist/
 
+# Pages sync output — source of truth is public/models/
+/models/
+
 # Screenshot review artefacts. Regenerate with tools/capture.mjs and
 # tools/shoot-creature.mjs; they are outputs, not sources.
 shots/

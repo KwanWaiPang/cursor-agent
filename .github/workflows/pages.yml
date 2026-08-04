@@ -49,6 +49,9 @@ jobs:
           npm run build
           grep -q './assets/' index.html
           ls assets/*.js >/dev/null
+          # Vendored GLBs must be synced to models/ for Pages
+          test -f models/pokemon/regular/25.glb
+          test "$(ls models/pokemon/regular/*.glb | wc -l)" -ge 151
 
       - name: Prepare site
         run: |
@@ -74,6 +77,7 @@ jobs:
                  _site/games/pocket/tests \
                  _site/games/pocket/node_modules \
                  _site/games/pocket/dist \
+                 _site/games/pocket/public \
                  _site/games/pocket/shots \
                  _site/games/pocket/*.md \
                  _site/games/pocket/package.json \
@@ -85,6 +89,8 @@ jobs:
                  _site/games/pocket/PROMPT.md \
                  _site/games/pocket/ART_DIRECTION.md \
                  _site/games/pocket/CONTRIBUTING.md
+          # GLBs are published from synced models/ (built from public/)
+          test -f _site/games/pocket/models/pokemon/regular/1.glb
           # 不部署测试文件与超大源文件
           find _site -name '*.test.js' -delete
           find _site -name '*.blend' -delete

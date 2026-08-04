@@ -31,5 +31,18 @@ rmSync(assets, { recursive: true, force: true });
 cpSync(resolve(dist, "assets"), assets, { recursive: true });
 writeFileSync(resolve(root, "index.html"), html);
 
+// Vendored Pokémon GLBs from public/models → Pages game root.
+const distModels = resolve(dist, "models");
+const rootModels = resolve(root, "models");
+if (existsSync(distModels)) {
+  rmSync(rootModels, { recursive: true, force: true });
+  cpSync(distModels, rootModels, { recursive: true });
+}
+
 const js = readdirSync(assets).filter((f) => f.endsWith(".js"));
-console.info(`[sync-pages-build] wrote index.html + assets (${js.join(", ")}) for Pages`);
+const modelCount = existsSync(resolve(rootModels, "pokemon/regular"))
+  ? readdirSync(resolve(rootModels, "pokemon/regular")).filter((f) => f.endsWith(".glb")).length
+  : 0;
+console.info(
+  `[sync-pages-build] wrote index.html + assets (${js.join(", ")}) + ${modelCount} glbs for Pages`,
+);
