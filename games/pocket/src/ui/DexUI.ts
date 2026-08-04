@@ -10,6 +10,7 @@ import {
   type DexTypeId,
 } from '../gameplay/dex';
 import { NATIONAL_DEX, type NationalEntry } from '../gameplay/dex/national';
+import { findDexIndex } from '../gameplay/dex/search';
 import { DexProgress } from '../gameplay/dex/DexProgress';
 import { glbUrlForDexId } from '../gameplay/pokemon/GlbModels';
 import { hasRegularGlb, spriteFallbackUrls } from '../gameplay/dex/sprites';
@@ -57,6 +58,8 @@ export class DexUI {
   private listEl: HTMLElement;
   private detailEl: HTMLElement;
   private countEl: HTMLElement;
+  private searchEl: HTMLInputElement;
+  private listBuilt = false;
   private open = false;
   private index = 0;
   private onClose: (() => void) | null = null;
@@ -70,7 +73,32 @@ export class DexUI {
     head.appendChild(el('h2', 'pt-dex__title', '全国图鉴'));
     this.countEl = el('span', 'pt-dex__count', '');
     head.appendChild(this.countEl);
-    head.appendChild(el('span', 'pt-dex__hint', 'B / Esc 关闭 · ↑↓ 选择'));
+
+    this.searchEl = document.createElement('input');
+    this.searchEl.className = 'pt-dex__search';
+    this.searchEl.type = 'search';
+    this.searchEl.placeholder = '跳转：850 / 烧火蚣';
+    this.searchEl.setAttribute('aria-label', '图鉴跳转搜索');
+    this.searchEl.autocomplete = 'off';
+    this.searchEl.spellcheck = false;
+    this.searchEl.addEventListener('keydown', (e) => {
+      if (e.code === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        this.jumpToQuery(this.searchEl.value);
+      }
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.searchEl.value) {
+          this.searchEl.value = '';
+        } else {
+          this.close();
+        }
+      }
+    });
+    head.appendChild(this.searchEl);
+    head.appendChild(el('span', 'pt-dex__hint', 'B / Esc 关闭 · ↑↓ 选择 · Enter 跳转'));
     panel.appendChild(head);
 
     const body = el('div', 'pt-dex__body');
@@ -81,13 +109,18 @@ export class DexUI {
     panel.appendChild(body);
     this.el.appendChild(panel);
 
-    this.buildList();
+    this.ensureList();
     this.renderDetail();
     this.refreshCount();
 
     this.el.addEventListener('click', (e) => {
       if (e.target === this.el) this.close();
     });
+  }
+
+  /** True while the jump field owns typing. */
+  get searchFocused(): boolean {
+    return document.activeElement === this.searchEl;
   }
 
   get isOpen(): boolean {
@@ -103,7 +136,8 @@ export class DexUI {
     this.el.classList.add('is-on');
     this.el.setAttribute('aria-hidden', 'false');
     this.refreshCount();
-    this.buildList();
+    this.ensureList();
+    this.refreshListState();
     this.renderDetail();
     this.scrollToIndex();
   }
@@ -113,6 +147,7 @@ export class DexUI {
     this.open = false;
     this.el.classList.remove('is-on');
     this.el.setAttribute('aria-hidden', 'true');
+    this.searchEl.blur();
     this.onClose?.();
   }
 
@@ -124,8 +159,28 @@ export class DexUI {
   /** Keyboard navigation while open. Returns true if consumed. */
   handleKey(code: string): boolean {
     if (!this.open) return false;
+    // Let the jump field own typing; Esc still closes (handled on the input too).
+    if (this.searchFocused && code !== 'Escape' && code !== 'KeyB') {
+      if (
+        code === 'ArrowUp' ||
+        code === 'ArrowDown' ||
+        code === 'PageUp' ||
+        code === 'PageDown' ||
+        code === 'Home' ||
+        code === 'End'
+      ) {
+        // keep navigating the list even from the search box
+      } else {
+        return false;
+      }
+    }
     if (code === 'Escape' || code === 'KeyB') {
       this.close();
+      return true;
+    }
+    if (code === 'Slash' && !this.searchFocused) {
+      this.searchEl.focus();
+      this.searchEl.select();
       return true;
     }
     if (code === 'ArrowUp' || code === 'KeyW') {
@@ -139,12 +194,12 @@ export class DexUI {
       return true;
     }
     if (code === 'PageUp') {
-      this.index = Math.max(0, this.index - 10);
+      this.index = Math.max(0, this.index - 50);
       this.syncSelection();
       return true;
     }
     if (code === 'PageDown') {
-      this.index = Math.min(DEX_LIST.length - 1, this.index + 10);
+      this.index = Math.min(DEX_LIST.length - 1, this.index + 50);
       this.syncSelection();
       return true;
     }
@@ -161,30 +216,53 @@ export class DexUI {
     return true; // absorb other keys while open
   }
 
-  private buildList(): void {
+  /** Jump by national id (`850`, `#850`) or Chinese / slug substring. */
+  jumpToQuery(raw: string): boolean {
+    const hit = findDexIndex(raw);
+    if (hit < 0) return false;
+    this.index = hit;
+    this.syncSelection();
+    return true;
+  }
+
+  private ensureList(): void {
+    if (this.listBuilt) return;
     this.listEl.replaceChildren();
     for (let i = 0; i < DEX_LIST.length; i++) {
       const e = DEX_LIST[i];
-      const seen = isRevealed(e);
-      const row = el(
-        'button',
-        `pt-dex__row${seen ? '' : ' is-unknown'}${i === this.index ? ' is-active' : ''}`,
-      );
+      const row = el('button', 'pt-dex__row');
       row.type = 'button';
       row.dataset.index = String(i);
       row.appendChild(el('span', 'pt-dex__no', formatDexNo(e.id)));
-      row.appendChild(el('span', 'pt-dex__name', seen ? e.name : '？？？'));
+      row.appendChild(el('span', 'pt-dex__name', ''));
+      row.addEventListener('click', () => {
+        this.index = i;
+        this.syncSelection();
+      });
+      this.listEl.appendChild(row);
+    }
+    this.listBuilt = true;
+    this.refreshListState();
+  }
+
+  private refreshListState(): void {
+    const rows = this.listEl.children;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i] as HTMLElement;
+      const e = DEX_LIST[i];
+      const seen = isRevealed(e);
+      row.className = `pt-dex__row${seen ? '' : ' is-unknown'}${i === this.index ? ' is-active' : ''}`;
+      const nameEl = row.querySelector('.pt-dex__name');
+      if (nameEl) nameEl.textContent = seen ? e.name : '？？？';
+
+      row.querySelector('.pt-dex__badge')?.remove();
+      row.querySelector('.pt-dex__owned')?.remove();
       if (!hasRegularGlb(e.id)) {
         row.appendChild(el('span', 'pt-dex__badge', '2D'));
       }
       if (DexProgress.hasOwned(e.slug)) {
         row.appendChild(el('span', 'pt-dex__owned', '拥有'));
       }
-      row.addEventListener('click', () => {
-        this.index = i;
-        this.syncSelection();
-      });
-      this.listEl.appendChild(row);
     }
   }
 

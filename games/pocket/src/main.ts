@@ -66,7 +66,7 @@ async function boot(): Promise<void> {
   engine.start();
 
   // Expose for the automated visual-QA harness.
-  Object.assign(window, { __GAME__: { engine, world, player, hud, THREE } });
+  Object.assign(window, { __GAME__: { engine, world, player, hud, battle, THREE } });
   window.dispatchEvent(new CustomEvent('game:ready'));
   world.ctx.events.emit(EVENTS.WORLD_READY);
 
