@@ -205,10 +205,13 @@ export function buildStarterSequence(ctx: GameContext): void {
     for (let i = 0; i < slots.length; i++) {
       const item = ctx.interaction.items.get(`starter-${slots[i].id}`);
       if (!item) continue;
-      item.label =
-        phase === 'previewing' && active === i
-          ? `选择 ${slots[i].name}`
-          : `看看 ${slots[i].name}`;
+      if (phase === 'chosen') {
+        item.label = chosenId === slots[i].id ? `已选择 ${slots[i].name}` : `${slots[i].name}`;
+      } else if (phase === 'previewing' && active === i) {
+        item.label = `选择 ${slots[i].name}`;
+      } else {
+        item.label = `看看 ${slots[i].name}`;
+      }
     }
   }
 

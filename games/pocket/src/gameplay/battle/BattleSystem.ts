@@ -230,8 +230,8 @@ export class BattleSystem implements System {
     this.idleDrift = false;
 
     this.ui.show();
-    this.ui.setFoe(SPECIES[wildSpecies].name.toUpperCase(), wildLevel, 1);
-    this.ui.setAlly(SPECIES[partner.species].name.toUpperCase(), partner.level, this.battle.player.hp, this.battle.player.stats.hp);
+    this.ui.setFoe(SPECIES[wildSpecies].name, wildLevel, 1);
+    this.ui.setAlly(SPECIES[partner.species].name, partner.level, this.battle.player.hp, this.battle.player.stats.hp);
 
     await this.wait(0.12);
     this.fader.style.opacity = '0';

@@ -1,7 +1,17 @@
 import './battle.css';
 import { el } from './Menu';
-import { MOVES, type MoveDef } from '../gameplay/battle/data';
+import { MOVES, type MoveDef, type TypeId } from '../gameplay/battle/data';
 import type { MoveSlot } from '../gameplay/battle/BattleEngine';
+
+const TYPE_ZH: Record<TypeId, string> = {
+  normal: '一般',
+  flying: '飞行',
+  grass: '草',
+  fire: '火',
+  water: '水',
+  poison: '毒',
+  ground: '地面',
+};
 
 /**
  * BattleUI — the DOM layer of a battle. Two HP plates, a message strip with
@@ -197,6 +207,7 @@ export class BattleUI {
         return {
           label: def.name,
           subChip: def.type,
+          subChipLabel: TYPE_ZH[def.type] || def.type,
           sub: `PP ${slot.pp}/${def.pp}`,
           cls: '',
           disabled: slot.pp <= 0,
@@ -218,7 +229,15 @@ export class BattleUI {
   }
 
   private buildButtons(
-    defs: { label: string; sub?: string; subChip?: string; cls?: string; disabled?: boolean; choice: MenuChoice }[],
+    defs: {
+      label: string;
+      sub?: string;
+      subChip?: string;
+      subChipLabel?: string;
+      cls?: string;
+      disabled?: boolean;
+      choice: MenuChoice;
+    }[],
   ): void {
     this.grid.innerHTML = '';
     this.buttons = [];
@@ -231,7 +250,11 @@ export class BattleUI {
       if (d.disabled) b.disabled = true;
       b.appendChild(el('span', 'pt-bbtn__label', d.label));
       const sub = el('span', 'pt-bbtn__sub');
-      if (d.subChip) sub.appendChild(el('span', `pt-chip pt-chip--${d.subChip}`, d.subChip));
+      if (d.subChip) {
+        sub.appendChild(
+          el('span', `pt-chip pt-chip--${d.subChip}`, d.subChipLabel || TYPE_ZH[d.subChip as TypeId] || d.subChip),
+        );
+      }
       if (d.sub) sub.appendChild(el('span', undefined, d.sub));
       b.appendChild(sub);
       b.addEventListener('mouseenter', () => this.select(i));
