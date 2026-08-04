@@ -1,0 +1,23 @@
+{
+  "name": "pocket-adventure",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "口袋冒险 — 第一人称 3D 卡通粉丝向（参考 PauliusOS/pallet-town-3d，MIT）",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5174",
+    "build": "vite build && node tools/sync-pages-build.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 4174",
+    "check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --import ./tests/ts-resolver.mjs --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.1",
+    "playwright": "^1.62.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.5"
+  }
+}

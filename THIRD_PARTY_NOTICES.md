@@ -40,3 +40,10 @@ The Game Hub aggregates several open-source games under a shared UI shell.
 - 许可证 / License: MIT（`games/street-duty/LICENSE`）
 - 渲染库 / Renderer: [Three.js](https://github.com/mrdoob/three.js) r180（MIT）
 - 说明 / Note: 游戏馆以独立入口**本地完整落地**（Vite + `src/`，非外链/iframe）；中文标题、暂停菜单、大厅返回、队友与突击导演为适配层。原作者版权声明保持不变。 Full local port in the hub (not an embed). Chinese UI, back-to-hub link, ally fireteam and assault director are hub adaptations. Upstream copyright retained.
+
+## 口袋冒险 · Pocket Adventure（`games/pocket/`）
+
+- 来源 / Source: [PauliusOS/pallet-town-3d](https://github.com/PauliusOS/pallet-town-3d)
+- 许可证 / License: MIT（`games/pocket/LICENSE`）
+- 渲染库 / Renderer: [Three.js](https://github.com/mrdoob/three.js) r185（MIT）
+- 说明 / Note: 第一人称 3D 卡通粉丝向；中文 UI、游戏馆入口与 Pages 打包为适配层。宝可梦为权利方商标，本页为非官方粉丝向。 Upstream MIT retained; hub adds Chinese UI and packaging.

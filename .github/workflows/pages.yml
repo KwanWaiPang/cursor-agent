@@ -29,7 +29,9 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: games/street-duty/package-lock.json
+          cache-dependency-path: |
+            games/street-duty/package-lock.json
+            games/pocket/package-lock.json
 
       - name: Build street-duty
         working-directory: games/street-duty
@@ -37,6 +39,14 @@ jobs:
           npm ci
           npm run build
           # Guard: production index must reference hashed assets, not /src/main.js
+          grep -q './assets/' index.html
+          ls assets/*.js >/dev/null
+
+      - name: Build pocket adventure (FP3D)
+        working-directory: games/pocket
+        run: |
+          npm ci
+          npm run build
           grep -q './assets/' index.html
           ls assets/*.js >/dev/null
 
@@ -58,12 +68,30 @@ jobs:
                  _site/games/street-duty/index.source.html \
                  _site/games/street-duty/prompt.md \
                  _site/games/street-duty/ARCHITECTURE.md
+          # 口袋冒险 FP3D：同样只保留构建产物
+          rm -rf _site/games/pocket/src \
+                 _site/games/pocket/tools \
+                 _site/games/pocket/tests \
+                 _site/games/pocket/node_modules \
+                 _site/games/pocket/dist \
+                 _site/games/pocket/shots \
+                 _site/games/pocket/*.md \
+                 _site/games/pocket/package.json \
+                 _site/games/pocket/package-lock.json \
+                 _site/games/pocket/vite.config.ts \
+                 _site/games/pocket/tsconfig.json \
+                 _site/games/pocket/index.source.html \
+                 _site/games/pocket/viewer.html \
+                 _site/games/pocket/PROMPT.md \
+                 _site/games/pocket/ART_DIRECTION.md \
+                 _site/games/pocket/CONTRIBUTING.md
           # 不部署测试文件与超大源文件
           find _site -name '*.test.js' -delete
           find _site -name '*.blend' -delete
           find _site -name '*.map' -delete
           find _site -path '*/3D/fbx/*' -delete 2>/dev/null || true
           grep -q './assets/' _site/games/street-duty/index.html
+          grep -q './assets/' _site/games/pocket/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

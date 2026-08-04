@@ -23,13 +23,13 @@ For a fuller architecture overview, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 | [`games/chess3d/`](./games/chess3d/) | 国际象棋 · 3D | 3D Chess | 3D 棋类 |
 | [`games/fps/`](./games/fps/) | 战术突击 · 3D | Tactical Assault | 3D FPS（红蓝对抗） |
 | [`games/street-duty/`](./games/street-duty/) | 街战突击 | Street Duty | 3D FPS（全程序化街战） |
-| [`games/pocket/`](./games/pocket/) | 口袋冒险 | Pocket Adventure | 俯视 2D 粉丝向开局 |
+| [`games/pocket/`](./games/pocket/) | 口袋冒险 | Pocket Adventure | 第一人称 3D 卡通粉丝向开局 |
 
 两款射击互不替换：
 
 - **战术突击** (`fps`)：红蓝各约 10 人、据点 / 大逃杀、可拾取武器。
 - **街战突击** (`street-duty`)：Claude-of-Duty 本地完整落地；玩家 + 2 队友 + 动态敌方波次。
-- **口袋冒险** (`pocket`)：俯视 2D 真新镇开局、选御三家、1 号道路遇敌；官方译名 + 中性作品名。
+- **口袋冒险** (`pocket`)：第一人称 3D 卡通真新镇开局（参考 pallet-town-3d）；选御三家、高草遇敌；官方译名 + 中性作品名。
 
 The two shooters are separate products:
 
@@ -56,8 +56,8 @@ games/<name>/              # 各游戏独立目录 One folder per game
    The hub only navigates; each game owns `games/<name>/index.html`.
 2. 多数游戏是纯静态页面，无需构建。  
    Most games are plain static pages — no build step.
-3. **街战突击例外**：Vite 构建产物必须提交到 `games/street-duty/index.html` + `assets/`（Pages 从仓库根目录部署）。  
-   **Street Duty exception:** commit the Vite build (`index.html` + `assets/`) — Pages deploys from the repo root.
+3. **街战突击 / 口袋冒险例外**：Vite 构建产物提交为 `index.html` + `assets/`（Pages 从仓库根目录部署）。  
+   **Street Duty / Pocket Adventure:** commit the Vite build (`index.html` + `assets/`) — Pages deploys from the repo root.
 
 ---
 
@@ -70,22 +70,21 @@ python3 -m http.server 8080
 # open http://localhost:8080
 ```
 
-### 街战突击开发 / Street Duty development
+### 街战突击 / 口袋冒险开发
 
 ```bash
-cd games/street-duty
-npm install
-npm run dev          # Vite → index.source.html
+cd games/street-duty && npm ci && npm run dev   # :5173
+cd games/pocket && npm ci && npm run dev        # :5174
 ```
 
 生产构建（同步到 Pages 用的 `index.html` + `assets/`）：
 
 ```bash
-cd games/street-duty
-npm run build        # vite build && sync-pages-build
+cd games/street-duty && npm run build
+cd games/pocket && npm run build
 ```
 
-详情：[`games/street-duty/README.zh.md`](./games/street-duty/README.zh.md)（中文）· [`games/street-duty/README.md`](./games/street-duty/README.md)（English upstream notes）。
+详情：[`games/street-duty/README.zh.md`](./games/street-duty/README.zh.md) · [`games/pocket/README.md`](./games/pocket/README.md)
 
 ---
 
@@ -93,15 +92,13 @@ npm run build        # vite build && sync-pages-build
 
 工作流 [`.github/workflows/pages.yml`](./.github/workflows/pages.yml) 在推送 `main` 时：
 
-1. `npm ci && npm run build`（`games/street-duty`）
-2. 打包静态站（去掉街战 `src/` / `tools/` 等开发文件）
+1. `npm ci && npm run build`（`games/street-duty` 与 `games/pocket`）
+2. 打包静态站（去掉各游戏的 `src/` / `tools/` 等开发文件）
 3. 发布到 GitHub Pages
 
 推荐：Settings → Pages → Source 选 **GitHub Actions**。
 
-若仍用 **legacy / 从 `main` 根目录部署**，务必把街战构建产物提交进仓库，否则线上会缺 `assets/`。
-
-On push to `main`, the workflow builds Street Duty, strips its source tree from the publish payload, and deploys. Prefer **GitHub Actions** as the Pages source. If you still deploy **legacy from the `main` branch root**, commit the Street Duty build artifacts or the live game will break.
+若仍用 **legacy / 从 `main` 根目录部署**，务必把 Vite 构建产物提交进仓库，否则线上会缺 `assets/`。
 
 ---
 
