@@ -24,3 +24,7 @@ See `regular/MISSING.json`. About 54 national-dex IDs are advertised by the
 Pokemon-3D API JSON but have **no GLB file** anywhere in the upstream assets
 repo (Regular Available 971 / Total 1028 per their README). They cannot be
 mirrored until upstream adds Sketchfab sources to `scripts/model_map.json`.
+
+In the in-game Pokédex those IDs (and any failed GLB load) fall back to **2D
+sprites**: PokeAPI official artwork, then Pokémon Showdown dex/ani art
+(`src/gameplay/dex/sprites.ts`).

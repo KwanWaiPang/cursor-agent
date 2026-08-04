@@ -1,9 +1,29 @@
 /**
- * Pokédex façade — Kanto #001–151 lookups, type labels, and progress.
+ * Pokédex façade — Kanto #001–151 lookups, national index, type labels, progress.
  */
 import { KANTO_BY_ID, KANTO_BY_SLUG, KANTO_DEX, type DexEntry, type DexTypeId } from './kanto';
+import {
+  NATIONAL_BY_ID,
+  NATIONAL_BY_SLUG,
+  NATIONAL_DEX,
+  type NationalEntry,
+} from './national';
+import { MISSING_GLB_IDS, hasRegularGlb, spriteFallbackUrls } from './sprites';
 
-export { KANTO_BY_ID, KANTO_BY_SLUG, KANTO_DEX, type DexEntry, type DexTypeId };
+export {
+  KANTO_BY_ID,
+  KANTO_BY_SLUG,
+  KANTO_DEX,
+  NATIONAL_BY_ID,
+  NATIONAL_BY_SLUG,
+  NATIONAL_DEX,
+  MISSING_GLB_IDS,
+  hasRegularGlb,
+  spriteFallbackUrls,
+  type DexEntry,
+  type DexTypeId,
+  type NationalEntry,
+};
 
 /** Every Kanto slug is a valid battle/sculpt species id. */
 export type SpeciesId = string;
