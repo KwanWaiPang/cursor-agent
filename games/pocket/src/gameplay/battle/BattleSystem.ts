@@ -638,9 +638,13 @@ export class BattleSystem implements System {
     const sayP = this.ui.say(`${userName} 使用了 ${ev.moveName}！`, 0.4);
 
     // Posture: rear up (growl) or a quick spin (tail whip / sand).
+    // Match on moveId / fx — moveName is localized (叫声, not "Growl").
+    const move = MOVES[ev.moveId];
+    const isGrowl = ev.moveId === 'growl' || move?.fx === 'growl';
+    const isSand = ev.moveId === 'sand-attack' || move?.fx === 'sand';
     await this.animate(0.4, (t) => {
       const c = Math.sin(t * Math.PI);
-      if (ev.moveName === 'Growl') {
+      if (isGrowl) {
         user.group.scale.set(1 + c * 0.1, 1 + c * 0.14, 1 + c * 0.1);
       } else {
         user.group.rotation.y += Math.sin(t * Math.PI * 2) * 0.06;
@@ -650,7 +654,7 @@ export class BattleSystem implements System {
 
     const uWorld = uPad.clone().add(new THREE.Vector3(0, 0.3, 0));
     const tWorld = tPad.clone().add(new THREE.Vector3(0, 0.3, 0));
-    if (ev.moveName === '泼沙' || ev.moveName === 'Sand Attack') this.fx.sandFan(uWorld, tWorld, 0.45);
+    if (isSand) this.fx.sandFan(uWorld, tWorld, 0.45);
     else this.fx.sonicRings(uWorld, tWorld);
     this.ctx.events.emit('ui:tick');
     await this.wait(0.45);
@@ -767,7 +771,17 @@ export class BattleSystem implements System {
     this.ctx.events.emit('battle:end', { result });
   }
 
+  private clearClock(): void {
+    for (const w of this.waits) w.res();
+    for (const a of this.anims) a.res();
+    for (const p of this.predicates) p.res();
+    this.waits = [];
+    this.anims = [];
+    this.predicates = [];
+  }
+
   private despawn(): void {
+    this.clearClock();
     this.fx.clear();
     if (this.wildMon) {
       this.battleGroup.remove(this.wildMon.group);
@@ -781,6 +795,7 @@ export class BattleSystem implements System {
     }
     if (this.ball) {
       this.battleGroup.remove(this.ball.group);
+      this.ball.dispose?.();
       this.ball = null;
     }
     this.battle = null;

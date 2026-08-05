@@ -16,6 +16,8 @@ export interface PokeBall {
   /** Opens the lid and emits the release flash. 0 = shut, 1 = fully open. */
   setOpen(t: number): void;
   update(dt: number, elapsed: number): void;
+  /** Drop geometries / unique materials after a battle tear-down. */
+  dispose(): void;
 }
 
 /**
@@ -150,6 +152,27 @@ export function buildPokeBall(seed = 1): PokeBall {
       bob.position.y = Math.sin(elapsed * 1.1 + bobPhase) * 0.0022;
       bob.rotation.z = Math.sin(elapsed * 0.63 + bobPhase) * 0.02;
       if (open > 0.01) flash.material.rotation = elapsed * 2;
+    },
+    dispose() {
+      const seen = new Set<THREE.Material>();
+      group.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (mesh.isMesh) {
+          mesh.geometry?.dispose();
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          for (const m of mats) {
+            if (!m || seen.has(m)) continue;
+            seen.add(m);
+            // Shared baked maps stay in CreatureMaterials cache; only drop the material.
+            m.dispose();
+          }
+        }
+        const sprite = o as THREE.Sprite;
+        if (sprite.isSprite && sprite.material && !seen.has(sprite.material)) {
+          seen.add(sprite.material);
+          sprite.material.dispose();
+        }
+      });
     },
   };
 }
