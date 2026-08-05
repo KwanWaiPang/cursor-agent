@@ -173,10 +173,13 @@ export class BattleUI {
   }
 
   hideMessage(): void {
+    const done = this.msgDone;
+    this.msgDone = null;
     this.msg.classList.remove('is-on');
     this.msgText.textContent = '';
     this.line = '';
-    this.msgDone = null;
+    // Resolve any waiter so playTurn cannot hang on a discarded line.
+    done?.();
   }
 
   /* --------------------------------------------------------------- menu */
@@ -190,7 +193,7 @@ export class BattleUI {
         { label: '逃跑', sub: '尝试逃离战斗', cls: 'pt-bbtn--run', choice: { kind: 'run' } as MenuChoice },
       ],
     );
-    this.hint.textContent = 'E 确认';
+    this.hint.textContent = 'WASD / 方向键 选择 · E 确认';
     this.actions.classList.add('is-on');
   }
 
@@ -211,7 +214,7 @@ export class BattleUI {
         };
       }),
     );
-    this.hint.textContent = 'Q 返回 · E 确认';
+    this.hint.textContent = 'WASD / 方向键 选择 · Q 返回 · E 确认';
     this.actions.classList.add('is-on');
   }
 

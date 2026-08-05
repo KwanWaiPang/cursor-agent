@@ -107,7 +107,7 @@ export class World {
     );
     this.buildTimings = timings;
 
-    onProgress?.('Ready', 1);
+    onProgress?.('准备就绪', 1);
     this.ctx.events.emit(EVENTS.WORLD_READY);
   }
 

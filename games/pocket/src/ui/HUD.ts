@@ -13,7 +13,7 @@
  */
 
 import './ui.css';
-import type { GameContext } from '../core/Context';
+import { EVENTS, type GameContext } from '../core/Context';
 import type { Interactable } from '../world/Interaction';
 import {
   clearSave,
@@ -156,6 +156,17 @@ export class HUD {
       if (this.auto || !this.booted || this.start.visible) return;
       this.crosshair.classList.add('is-on');
       this.setFocus(this.ctx.interaction.focused);
+    });
+    ctx.events.on(EVENTS.STARTER_CHOSEN, () => {
+      if (this.auto) return;
+      this.showHint('走出研究所，南边深色草丛可能遇到野生宝可梦', 7000);
+    });
+    let grassHint = false;
+    ctx.events.on(EVENTS.ENTER_ZONE, (zone) => {
+      if (this.auto || grassHint) return;
+      if (zone !== 'tall-grass') return;
+      grassHint = true;
+      this.showHint('走进深色草丛会触发战斗 · B 打开图鉴', 6500);
     });
 
     // A refused lock is not a pause — the browser said no. Without this the

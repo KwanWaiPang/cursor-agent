@@ -13,6 +13,10 @@ shots/
 .vegstats/
 tools/tmp/
 tools/.labtmp/
+
+# Local playtest / recording harnesses (not part of the shipped game).
+tools/_*.mjs
+
 .vercel
 .env*
 

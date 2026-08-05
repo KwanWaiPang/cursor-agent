@@ -55,7 +55,16 @@ export type BattleEvent =
       /** Defender hp after the hit. */
       hpAfter: number;
     }
-  | { kind: 'stat'; side: Side; target: Side; stat: StatId; delta: number; failed: boolean; moveName: string }
+  | {
+      kind: 'stat';
+      side: Side;
+      target: Side;
+      stat: StatId;
+      delta: number;
+      failed: boolean;
+      moveId: string;
+      moveName: string;
+    }
   | { kind: 'faint'; side: Side }
   | { kind: 'run'; success: boolean }
   | { kind: 'end'; result: 'victory' | 'defeat' | 'fled' };
@@ -182,8 +191,14 @@ export class Battle {
     if (move.category === 'status') {
       if (!hit || !move.effect) {
         events.push({
-          kind: 'stat', side: attacker.side, target: defender.side,
-          stat: move.effect?.stat ?? 'atk', delta: 0, failed: true, moveName: move.name,
+          kind: 'stat',
+          side: attacker.side,
+          target: defender.side,
+          stat: move.effect?.stat ?? 'atk',
+          delta: 0,
+          failed: true,
+          moveId: move.id,
+          moveName: move.name,
         });
         return;
       }
@@ -192,8 +207,14 @@ export class Battle {
       const next = Math.max(-6, Math.min(6, prev + move.effect.delta));
       target.stages[move.effect.stat] = next;
       events.push({
-        kind: 'stat', side: attacker.side, target: target.side,
-        stat: move.effect.stat, delta: next - prev, failed: next === prev, moveName: move.name,
+        kind: 'stat',
+        side: attacker.side,
+        target: target.side,
+        stat: move.effect.stat,
+        delta: next - prev,
+        failed: next === prev,
+        moveId: move.id,
+        moveName: move.name,
       });
       return;
     }
