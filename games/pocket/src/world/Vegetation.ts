@@ -1715,9 +1715,10 @@ function weedGeometry(seed: number, size: number): THREE.BufferGeometry {
 function vegBudget(tier: string): { attempts: number; grassCell: number } {
   switch (tier) {
     case 'low':
-      return { attempts: 0.28, grassCell: 0.55 };
+      // Aggressive cut for Pages / integrated GPUs — still reads as a town.
+      return { attempts: 0.16, grassCell: 0.72 };
     case 'medium':
-      return { attempts: 0.55, grassCell: 0.42 };
+      return { attempts: 0.45, grassCell: 0.48 };
     case 'ultra':
       return { attempts: 1.1, grassCell: 0.3 };
     default:

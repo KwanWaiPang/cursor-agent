@@ -147,6 +147,17 @@ export class HUD {
       }
     });
 
+    ctx.events.on('battle:start', () => {
+      this.start.hide();
+      this.setPrompt(false);
+      this.crosshair.classList.remove('is-on');
+    });
+    ctx.events.on('battle:end', () => {
+      if (this.auto || !this.booted || this.start.visible) return;
+      this.crosshair.classList.add('is-on');
+      this.setFocus(this.ctx.interaction.focused);
+    });
+
     // A refused lock is not a pause — the browser said no. Without this the
     // card would already be gone and `suspended` already false, dropping the
     // player into the world with a free cursor and a camera that cannot turn.
@@ -240,6 +251,8 @@ export class HUD {
   private pauseIfUnlocked(): void {
     if (this.auto || !this.booted) return;
     if (document.pointerLockElement === this.ctx.engine.renderer.domElement) return;
+    // Battles own the UI — don't drop the pause card over the fight menu.
+    if (this.ctx.scene.userData.battleActive || this.dex.isOpen) return;
     saveNow(this.ctx);
     this.start.show('paused', this.relockWait());
     this.ctx.engine.input.suspended = true;
@@ -266,6 +279,7 @@ export class HUD {
    */
   private onLockDenied(): void {
     if (this.auto || !this.booted) return;
+    if (this.ctx.scene.userData.battleActive || this.dex.isOpen) return;
     const input = this.ctx.engine.input;
 
     if (input.lockFailures >= 2 || !input.lockSupported) {
@@ -274,7 +288,7 @@ export class HUD {
       this.start.hide();
       this.crosshair.classList.add('is-on');
       this.setFocus(this.ctx.interaction.focused);
-      this.showHint('Hold the left mouse button to look around');
+      this.showHint('按住鼠标左键拖动可环顾四周');
       return;
     }
 
