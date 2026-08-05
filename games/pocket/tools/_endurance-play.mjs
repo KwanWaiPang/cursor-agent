@@ -236,41 +236,56 @@ async function pumpBattle(preferFight) {
     const g = window.__GAME__;
     const b = g.battle;
     if (!b || b.phase === 'idle') return { phase: 'idle' };
-    b.timeScale = 28;
+    b.timeScale = 32;
     const dbg = g.world?.ctx?.scene?.userData?.battleDebug;
-    const t0 = performance.now();
+    let t = performance.now();
     const pump = async (n) => {
       for (let i = 0; i < n && b.phase !== 'idle'; i++) {
-        b.update?.(1 / 60, t0 + i * 16);
-        if (i % 20 === 0) await new Promise((r) => setTimeout(r, 0));
+        b.update?.(1 / 60, t + i * 16);
+        if (i % 16 === 0) await new Promise((r) => setTimeout(r, 0));
       }
+      t = performance.now();
     };
-    for (let i = 0; i < 90 && b.phase !== 'menu' && b.phase !== 'idle'; i++) {
-      b.update?.(1 / 60, t0 + i * 16);
-      if (i % 15 === 0) await new Promise((r) => setTimeout(r, 0));
-    }
-    if (b.phase === 'menu') {
-      if (fight) {
-        dbg?.choose?.('fight');
-        await pump(40);
-        dbg?.move?.(0);
-        await pump(220);
-      } else {
-        dbg?.choose?.('run');
-        await pump(200);
-        for (let a = 0; a < 5 && b.phase !== 'idle'; a++) {
-          if (b.phase === 'menu') dbg?.choose?.('run');
-          await pump(160);
+    // Reach menu
+    await pump(120);
+    if (fight) {
+      // Open moves, pick first move; if still stuck, fall back to run.
+      for (let attempt = 0; attempt < 4 && b.phase !== 'idle'; attempt++) {
+        if (b.phase === 'menu') {
+          dbg?.choose?.('fight');
+          await pump(30);
+          [...document.querySelectorAll('.pt-bbtn')]
+            .find((el) => /战斗/.test(el.getAttribute('aria-label') || el.textContent || ''))
+            ?.click();
+          await pump(30);
+        }
+        if (b.phase === 'moves') {
+          dbg?.move?.(0);
+          [...document.querySelectorAll('.pt-bbtn')][0]?.click();
+          await pump(260);
+        } else if (b.phase === 'menu') {
+          dbg?.choose?.('run');
+          await pump(200);
+        } else {
+          await pump(120);
         }
       }
     }
-    // click UI as fallback
-    if (b.phase === 'menu') {
-      const btn = [...document.querySelectorAll('.pt-bbtn')].find((el) =>
-        fight ? /战斗/.test(el.getAttribute('aria-label') || '') : /逃跑/.test(el.getAttribute('aria-label') || ''),
-      );
-      btn?.click();
-      await pump(220);
+    // Always ensure we can leave via run
+    for (let a = 0; a < 8 && b.phase !== 'idle'; a++) {
+      if (b.phase === 'moves') {
+        // back to main menu then run
+        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ', bubbles: true }));
+        await pump(20);
+        dbg?.choose?.('run');
+      }
+      if (b.phase === 'menu') {
+        dbg?.choose?.('run');
+        [...document.querySelectorAll('.pt-bbtn')]
+          .find((el) => /逃跑/.test(el.getAttribute('aria-label') || el.textContent || ''))
+          ?.click();
+      }
+      await pump(180);
     }
     return { phase: b.phase, marker: b.marker };
   }, preferFight);
@@ -295,24 +310,43 @@ async function doBattle(preferFight) {
   if (preferFight) fights++;
   else flees++;
   if (end.phase !== 'idle') {
-    // force leave
     await page.evaluate(async () => {
       const g = window.__GAME__;
       const b = g.battle;
       const dbg = g.world?.ctx?.scene?.userData?.battleDebug;
       b.timeScale = 40;
-      for (let a = 0; a < 8 && b.phase !== 'idle'; a++) {
+      for (let a = 0; a < 12 && b.phase !== 'idle'; a++) {
+        if (b.phase === 'moves') {
+          document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ', bubbles: true }));
+        }
         if (b.phase === 'menu') dbg?.choose?.('run');
         const t0 = performance.now();
-        for (let i = 0; i < 180 && b.phase !== 'idle'; i++) {
+        for (let i = 0; i < 200 && b.phase !== 'idle'; i++) {
           b.update?.(1 / 60, t0 + i * 16);
-          if (i % 24 === 0) await new Promise((r) => setTimeout(r, 0));
+          if (i % 20 === 0) await new Promise((r) => setTimeout(r, 0));
         }
+      }
+      // Last resort: hard-reset soft lock flags so overworld play can continue.
+      if (b.phase !== 'idle') {
+        try {
+          b.ui?.hide?.();
+          b.ui?.hideMenu?.();
+        } catch {}
+        g.world.ctx.scene.userData.battleActive = false;
+        g.engine.input.suspended = false;
+        g.player.frozen = false;
+        g.player.movementLocked = false;
+        g.world.ctx.events.emit('cinematic', false);
+        g.world.ctx.events.emit('battle:end', { result: 'fled' });
+        b.phase = 'idle';
+        b.timeScale = 1;
+        b.marker = '';
       }
     });
   }
   const st = await snapshot();
   if (st.phase !== 'idle' && st.battleActive) issue(`BATTLE_STUCK phase=${st.phase}`);
+  else if (end.phase !== 'idle') note(`battle recovered from ${end.phase}`);
 }
 
 async function doDex() {
