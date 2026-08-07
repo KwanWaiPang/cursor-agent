@@ -107,16 +107,15 @@ float skFogInscatterPhase( float cosTheta ) {
 }
 
 /**
- * Near-field scattering ramp. Twelve metres of real air scatters nothing you
- * could measure: with sigmaS at 4.4e-3 the honest contribution of the first
- * 20 m was ~10% of a sunlit surface's radiance, laid flat over the near
- * geometry — a wash on the weapon, the hands and every wall inside arm's reach.
- * It exists because an exponential-height fog tuned for 200 m of street has to
- * start somewhere; ramping it in over the first few metres removes it without
- * touching the distance falloff that the tuning was for.
+ * Near-field scattering ramp. Real air scatters almost nothing in the first
+ * tens of metres at these densities; without a ramp the exponential-height fog
+ * lays a milk wash over the weapon, hands, asphalt and every wall inside the
+ * near FOV — which reads as "fog stuck to the bottom of the screen" in FPS view.
+ * Hub tuning uses ~24 m so the street underfoot stays readable while distance
+ * falloff past a block is unchanged.
  */
 float skFogNearRamp( float t ) {
-  return smoothstep( 0.0, 12.0, t );
+  return smoothstep( 0.0, 24.0, t );
 }
 
 /** Normalised density: 1 at the fog base, exponential above, wind-torn. */
@@ -248,8 +247,12 @@ void main() {
     float dens = skFogDensity( wp );
     if ( dens <= 1.0e-4 ) continue;
 
-    float sigmaS = uFog.x * dens * skFogNearRamp( t );
-    float sigmaE = max( 1.0e-7, uFog2.x * dens );
+    float near = skFogNearRamp( t );
+    float sigmaS = uFog.x * dens * near;
+    // Extinction also respects the near ramp — otherwise transmittance still
+    // crushes the street/weapon while inscatter is held back, which reads as a
+    // dark fog band across the bottom of the frame.
+    float sigmaE = max( 1.0e-7, uFog2.x * dens * near );
 
     float vis = skSunVisibility( wp, t / rayLen, dith );
     vis *= mix( cloudNear, cloudFar, f );
@@ -364,19 +367,24 @@ void main() {
   // extinction to pay for it. That is the cream void the sunset sky reads as,
   // and it is why the daylight zenith gradient stops dead a third of the way
   // up the frame.
+  //
+  // Near-field OD is softened the same way as inscatter. Applying the ramp to
+  // scatter only (and full extinction to the plate) was the "fog shelf" bug:
+  // the lower third of the FPS frame got darkened by street-level OD and then
+  // either milked by inscatter or left as a dark band when ambient was quiet.
   float od = skHeightIntegral( uCamPos.y, dir.y, dist );
-  vec3 trans = exp( -uFogExt * od );
+  float odNear = skHeightIntegral( uCamPos.y, dir.y, min( dist, 24.0 ) );
+  float odVis = max( 0.0, od - odNear * 0.5 );
+  vec3 trans = exp( -uFogExt * odVis );
 
   #ifdef VOL_ANALYTIC
     // No raymarch available: single scattering with a uniform visibility term.
     // Same phase split and the same near-field ramp as the marched path, so the
     // two quality levels agree instead of grading the scene differently. The
-    // ramp is folded in analytically: smoothstep(0,12,t) averages 0.5 over
-    // [0,12] and 1 past it, so subtracting half the optical depth of the first
-    // twelve metres reproduces the marched integral to within a few percent.
-    float odNear = skHeightIntegral( uCamPos.y, dir.y, min( dist, 12.0 ) );
-    float odS = max( 0.0, od - odNear * 0.5 );
-    float mono = 1.0 - exp( -uFog2.x * odS );
+    // ramp is folded in analytically: smoothstep(0,24,t) averages 0.5 over
+    // [0,24] and 1 past it, so subtracting half the optical depth of the first
+    // twenty-four metres reproduces the marched integral to within a few percent.
+    float mono = 1.0 - exp( -uFog2.x * odVis );
     float cosKey = dot( dir, uKeyDir );
     vec3 inscatter = ( uKeyIrr * ( skFogInscatterPhase( cosKey ) * 0.55 )
                      + skFogAmbient( cosKey ) * uFog2.z )
