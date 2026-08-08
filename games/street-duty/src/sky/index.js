@@ -167,50 +167,28 @@ export class SkySystem {
      * Ground fog. `scatter` and `extinction` are intentionally independent —
      * see the header of volumetrics.js for why no single density can give both
      * readable interior shafts and a clean 200 m street.
+     *
+     * Hub default (2026-08): ground fog off. The volumetric / analytic height
+     * fog was reading as a milk band across the lower FPS frame; the hub look
+     * is a clear street. Re-enable via `setWeather({ fogDensity })` or by
+     * writing these fields and calling `_applyFog()`.
      */
     this._fog = {
-      /**
-       * Aerial perspective, 40% lighter than it was.
-       *
-       * The test is not "can I see haze", it is "does a facade at 60 m still
-       * have its own local contrast and its own hue". At 2.4e-3 it did not: the
-       * transmittance to 60 m along a street was 0.86 and the in-scatter filled
-       * the remaining 14% with a single neutral value, so plaster, shadow and
-       * sky all converged inside a few code values and the terminating arch went
-       * ghost. At 1.45e-3 the same 60 m keeps ~92% of the surface's own light,
-       * and what the haze adds is now hue-split (see skFogAmbient in
-       * volumetrics.js) rather than grey — distance reads as colour temperature,
-       * which is how it reads in a photograph.
-       */
-      scatter: 3.6e-3, // 1/m at the fog base
-      extinction: 1.45e-3, // 1/m at the fog base
-      /**
-       * 18 m of e-folding, not 30. Dust and exhaust settle: the bottom of a
-       * street is measurably hazier than roof height, and that vertical
-       * gradient is most of what makes a long street read as deep rather than
-       * as uniformly foggy. It also keeps the sky slot between buildings clear.
-       */
-      heightScale: 18.0,
-      baseY: -2.0,
+      /** 0 = no aerial perspective / ground haze at hub default. */
+      scatter: 0,
+      /** 0 = no extinction veil; composite transmittance stays ~1. */
+      extinction: 0,
+      /** Kept for when fogDensity is re-enabled via setWeather. */
+      heightScale: 30.0,
+      baseY: -0.5,
       maxDistance: 900.0,
       /**
-       * Inscatter gain on the key light. Above 1 this is not physical, and it
-       * is the one knob here that is not: a shaft only reads on screen when its
-       * radiance is within a stop or two of the surfaces around it, and at a
-       * density low enough to keep a 200 m street clear the honest single
-       * scattering term lands two decades below that. Every shipping engine
-       * exposes this same multiplier. The alternative is either invisible
-       * shafts or milk.
-       *
-       * It applies to the *anisotropic excess* of the phase function only — see
-       * skFogInscatterPhase in volumetrics.js. Scaling the whole phase function
-       * scales its 1/4pi floor too, and that floor is not a shaft, it is a veil
-       * over every pixel of the frame.
+       * Inscatter gain on the key light (anisotropic excess only — see
+       * skFogInscatterPhase). Unused while scatter/extinction are 0.
        */
-      shaftGain: 2.6,
-      /** Kept well under the key gain: the shafts are all contrast, and a
-       *  strong ambient term is exactly what washes that contrast out. */
-      ambientGain: 0.22,
+      shaftGain: 0,
+      /** Ambient fog fill. Unused while scatter/extinction are 0. */
+      ambientGain: 0,
       noise: 0.55,
       noiseScale: 0.045,
       phaseForward: 0.76,
@@ -427,9 +405,16 @@ export class SkySystem {
   setWeather(patch = {}) {
     Object.assign(this.weather, patch);
     if (patch.fogDensity !== undefined) {
+      // Scale relative to a clear-street baseline (k=1 ≈ former hub haze).
       const k = patch.fogDensity;
-      this._fog.scatter = 3.6e-3 * k;
-      this._fog.extinction = 1.45e-3 * k;
+      this._fog.scatter = 1.2e-3 * k;
+      this._fog.extinction = 0.7e-3 * k;
+      if (k > 0 && this._fog.shaftGain <= 0) this._fog.shaftGain = 2.0;
+      if (k > 0 && this._fog.ambientGain <= 0) this._fog.ambientGain = 0.10;
+      if (k <= 0) {
+        this._fog.shaftGain = 0;
+        this._fog.ambientGain = 0;
+      }
     }
     if (patch.fogHeight !== undefined) this._fog.heightScale = patch.fogHeight;
     if (patch.shaftGain !== undefined) this._fog.shaftGain = patch.shaftGain;
