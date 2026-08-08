@@ -168,47 +168,27 @@ export class SkySystem {
      * see the header of volumetrics.js for why no single density can give both
      * readable interior shafts and a clean 200 m street.
      *
-     * Hub tuning (2026-08): previous scatter 3.6e-3 + 18 m height made the
-     * lower third of the frame read as a milk band whenever the camera looked
-     * even slightly up — rays through the bottom of the FOV skim the dense
-     * street-level layer for tens of metres. Halved density, taller e-folding,
-     * and a quieter ambient keep distance cue without drowning the asphalt,
-     * weapon, and building plinths.
+     * Hub default (2026-08): ground fog off. The volumetric / analytic height
+     * fog was reading as a milk band across the lower FPS frame; the hub look
+     * is a clear street. Re-enable via `setWeather({ fogDensity })` or by
+     * writing these fields and calling `_applyFog()`.
      */
     this._fog = {
-      /**
-       * Aerial perspective. At 1.8e-3 scatter / 0.95e-3 extinction a 60 m
-       * facade keeps most of its local contrast; the haze still splits by hue
-       * (see skFogAmbient) so distance reads as colour temperature.
-       */
-      scatter: 1.2e-3, // 1/m at the fog base
-      extinction: 0.7e-3, // 1/m at the fog base
-      /**
-       * 30 m of e-folding. Dust still settles toward the street, but the
-       * gradient is soft enough that looking slightly up no longer paints a
-       * hard fog shelf across the bottom of the screen.
-       */
+      /** 0 = no aerial perspective / ground haze at hub default. */
+      scatter: 0,
+      /** 0 = no extinction veil; composite transmittance stays ~1. */
+      extinction: 0,
+      /** Kept for when fogDensity is re-enabled via setWeather. */
       heightScale: 30.0,
       baseY: -0.5,
       maxDistance: 900.0,
       /**
-       * Inscatter gain on the key light. Above 1 this is not physical, and it
-       * is the one knob here that is not: a shaft only reads on screen when its
-       * radiance is within a stop or two of the surfaces around it, and at a
-       * density low enough to keep a 200 m street clear the honest single
-       * scattering term lands two decades below that. Every shipping engine
-       * exposes this same multiplier. The alternative is either invisible
-       * shafts or milk.
-       *
-       * It applies to the *anisotropic excess* of the phase function only — see
-       * skFogInscatterPhase in volumetrics.js. Scaling the whole phase function
-       * scales its 1/4pi floor too, and that floor is not a shaft, it is a veil
-       * over every pixel of the frame.
+       * Inscatter gain on the key light (anisotropic excess only — see
+       * skFogInscatterPhase). Unused while scatter/extinction are 0.
        */
-      shaftGain: 2.0,
-      /** Kept well under the key gain: the shafts are all contrast, and a
-       *  strong ambient term is exactly what washes that contrast out. */
-      ambientGain: 0.10,
+      shaftGain: 0,
+      /** Ambient fog fill. Unused while scatter/extinction are 0. */
+      ambientGain: 0,
       noise: 0.55,
       noiseScale: 0.045,
       phaseForward: 0.76,
@@ -425,9 +405,16 @@ export class SkySystem {
   setWeather(patch = {}) {
     Object.assign(this.weather, patch);
     if (patch.fogDensity !== undefined) {
+      // Scale relative to a clear-street baseline (k=1 ≈ former hub haze).
       const k = patch.fogDensity;
       this._fog.scatter = 1.2e-3 * k;
       this._fog.extinction = 0.7e-3 * k;
+      if (k > 0 && this._fog.shaftGain <= 0) this._fog.shaftGain = 2.0;
+      if (k > 0 && this._fog.ambientGain <= 0) this._fog.ambientGain = 0.10;
+      if (k <= 0) {
+        this._fog.shaftGain = 0;
+        this._fog.ambientGain = 0;
+      }
     }
     if (patch.fogHeight !== undefined) this._fog.heightScale = patch.fogHeight;
     if (patch.shaftGain !== undefined) this._fog.shaftGain = patch.shaftGain;
