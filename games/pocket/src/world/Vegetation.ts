@@ -20,6 +20,7 @@ import {
 } from '../fx/FoliageMaterials';
 import { TERRAIN } from './Terrain';
 import { wildGrassClearance } from './WildGrass';
+import { VIRIDIAN, VIRIDIAN_FOOTPRINTS, inForestGrass, onViridianPath } from './viridianLayout';
 
 /**
  * Vegetation — every plant in Pallet Town.
@@ -57,7 +58,7 @@ const VEG = {
   scatterMinX: -25,
   scatterMaxX: 25,
   scatterMinZ: -25,
-  scatterMaxZ: 31,
+  scatterMaxZ: 66,
   /** Grass chunk edge, metres. Trades draw calls against cull granularity. */
   chunk: 13,
   /** Everything beyond this from the camera is hidden. */
@@ -95,6 +96,7 @@ const FOOTPRINTS: { cx: number; cz: number; hx: number; hz: number }[] = [
   { cx: 0.0, cz: -13.0, hx: 7.4, hz: 5.3 }, // Oak's lab
   { cx: -8.4, cz: 2.2, hx: 4.5, hz: 3.6 }, // player house
   { cx: 8.4, cz: 2.2, hx: 4.5, hz: 3.6 }, // rival house
+  ...VIRIDIAN_FOOTPRINTS,
 ];
 
 /** Hand-placed hero trees inside the town proper. */
@@ -1899,13 +1901,21 @@ export function buildVegetation(ctx: GameContext): void {
    * promontories instead of a constant thickness.
    */
   const treeDensity = (x: number, z: number): number => {
-    // Sides and the southern bank.
+    // Sides and the southern bank (pushed past Viridian City).
     const side = smoothstep(15.0, 21.0, Math.abs(x));
-    // Hold the southern wall past Route 1 so the road stays a clearing.
-    const south = smoothstep(31.0, 37.0, z);
+    const south = smoothstep(66.0, 72.0, z);
     // Northern headlands only — the middle of the north edge is the bay.
     const head = smoothstep(17.0, 22.0, Math.abs(x)) * smoothstep(-20.0, -26.0, z);
     let d = Math.max(Math.max(side, south), head);
+    // Viridian Forest: trunks off the dirt path, thinned inside tall-grass lobes.
+    if (z >= VIRIDIAN.forestZ0 - 0.5 && z <= VIRIDIAN.forestZ1 + 0.4 && Math.abs(x) < 16.5) {
+      if (onViridianPath(x, z, 2.35)) d = Math.max(d * 0.04, 0);
+      else {
+        const clumpN = fbm2(clump, x * 0.08, z * 0.08, 3) * 0.5 + 0.5;
+        const grassGap = inForestGrass(x, z) ? 0.18 : 1;
+        d = Math.max(d, (0.42 + clumpN * 0.58) * grassGap);
+      }
+    }
     if (d <= 0) return 0;
     // Grass only, and never on a pad or the path.
     const m = mask.at(x, z);
@@ -1935,7 +1945,7 @@ export function buildVegetation(ctx: GameContext): void {
   const treeSpots: Spot[] = [];
   {
     const copses = poisson(rng, {
-      minX: -30.5, maxX: 30.5, minZ: -31, maxZ: 34,
+      minX: -30.5, maxX: 30.5, minZ: -31, maxZ: 72,
       minDist: 3.7, attempts: vegAttempts(24000, budget.attempts), density: treeDensity,
     });
     // Bucketed by copse for the separation test: over a few hundred trees a
@@ -2187,7 +2197,7 @@ export function buildVegetation(ctx: GameContext): void {
   };
 
   const bushSpots = poisson(rng, {
-    minX: -24, maxX: 24, minZ: -24, maxZ: 30,
+    minX: -24, maxX: 24, minZ: -24, maxZ: 68,
     minDist: 2.5, attempts: vegAttempts(9000, budget.attempts), density: bushDensity,
   });
 
@@ -2294,7 +2304,7 @@ export function buildVegetation(ctx: GameContext): void {
     // Plus a drift through the wood itself so the ground between the trunks is
     // not clean turf either.
     for (const s of poisson(lRng, {
-      minX: -28, maxX: 28, minZ: -28, maxZ: 32,
+      minX: -28, maxX: 28, minZ: -28, maxZ: 68,
       // Widened with the patch size, so the drift covers the same ground for
       // roughly half the instances it used to take.
       minDist: 1.25, attempts: vegAttempts(14000, budget.attempts),
@@ -2353,7 +2363,7 @@ export function buildVegetation(ctx: GameContext): void {
     ];
     const fRng2 = makeRng(ctx.seed ^ 0xfa1100);
     const fallSpots = poisson(fRng2, {
-      minX: -27, maxX: 27, minZ: -27, maxZ: 31,
+      minX: -27, maxX: 27, minZ: -27, maxZ: 68,
       // 3.5 m rather than 2.6 m. At 2.6 the wood had a fallen branch every
       // couple of paces, which is not a forest floor, it is a woodpile — and
       // deadfall is the most expensive floor detail per unit of read, since each

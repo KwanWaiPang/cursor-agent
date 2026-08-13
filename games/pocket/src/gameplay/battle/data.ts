@@ -153,6 +153,8 @@ const MOVE_OVERRIDES: Partial<Record<string, string[]>> = {
   pikachu: ['thunder-shock', 'growl', 'quick-attack'],
   metapod: ['tackle', 'string-shot'],
   kakuna: ['poison-sting', 'string-shot'],
+  paras: ['scratch', 'absorb', 'poison-sting'],
+  sandshrew: ['scratch', 'sand-attack', 'poison-sting'],
 };
 
 function defaultMoves(types: TypeId[]): string[] {

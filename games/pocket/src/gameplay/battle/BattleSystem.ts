@@ -40,6 +40,7 @@ interface StartOpts {
   playerMon?: SpeciesId;
   seed?: number;
   wildLevel?: number;
+  trainer?: string;
 }
 
 /** Player spawn used by the white-out return. Mirrors main.ts. */
@@ -100,6 +101,7 @@ export class BattleSystem implements System {
   private menuChoice: MenuChoice | null = null;
   private pendingSkip = false;
   private disposed = false;
+  private trainerName: string | null = null;
 
   constructor(ctx: GameContext) {
     this.ctx = ctx;
@@ -140,12 +142,15 @@ export class BattleSystem implements System {
     DexProgress.init(ctx);
 
     ctx.events.on('battle:encounter', (payload) => {
-      const p = payload as { species?: SpeciesId; level?: number; seed?: number } | undefined;
+      const p = payload as
+        | { species?: SpeciesId; level?: number; seed?: number; trainer?: string }
+        | undefined;
       if (this.phase !== 'idle') return;
       void this.startBattle({
         wild: p?.species ?? 'pidgey',
         wildLevel: p?.level ?? 3,
         seed: p?.seed ?? 1,
+        trainer: p?.trainer,
       });
     });
 
@@ -154,6 +159,10 @@ export class BattleSystem implements System {
 
   get active(): boolean {
     return this.phase !== 'idle';
+  }
+
+  private foeLabel(name: string): string {
+    return this.trainerName ? name : `野生的${name}`;
   }
 
   /* ================================================================== */
@@ -189,6 +198,7 @@ export class BattleSystem implements System {
     const partner = PlayerData.ensurePartner('charmander');
     const wildSpecies = opts.wild ?? 'pidgey';
     const wildLevel = opts.wildLevel ?? 3;
+    this.trainerName = opts.trainer ?? null;
 
     this.battle = new Battle({
       player: { species: partner.species, level: partner.level, hp: partner.hp },
@@ -322,7 +332,10 @@ export class BattleSystem implements System {
     });
     this.ctx.events.emit('battle:appear');
 
-    const sayP = this.ui.say(`野生的 ${wildName} 出现了！`, 0.7);
+    const sayP = this.ui.say(
+      this.trainerName ? `${this.trainerName} 派出了 ${wildName}！` : `野生的 ${wildName} 出现了！`,
+      0.7,
+    );
 
     // Slow arc from the low reveal up into the wide two-shot.
     const wildHead = PAD_WILD.clone().add(new THREE.Vector3(0, 0.32, 0));
@@ -385,7 +398,7 @@ export class BattleSystem implements System {
     this.marker = 'menu';
     this.idleDrift = true;
     this.menuChoice = null;
-    this.ui.showMainMenu();
+    this.ui.showMainMenu({ canRun: !this.trainerName });
     void this.ui.say(`${this.battle.player.name} 要做什么？`, 9999);
   }
 
@@ -420,6 +433,11 @@ export class BattleSystem implements System {
         this.ui.showMoves(this.battle!.player.moves);
         this.ctx.events.emit('ui:confirm');
       } else if (c.kind === 'run') {
+        if (this.trainerName) {
+          void this.ui.say('训练家对战不能逃跑！', 0.85);
+          this.beginMenu();
+          return;
+        }
         this.ctx.events.emit('ui:confirm');
         void this.playTurn({ type: 'run' });
       }
@@ -497,7 +515,7 @@ export class BattleSystem implements System {
     const dPad = this.padOf(defenderSide);
     const move = MOVES[ev.moveId];
     const b = this.battle!;
-    const attackerName = ev.side === 'player' ? b.player.name : `野生的${b.wild.name}`;
+    const attackerName = ev.side === 'player' ? b.player.name : this.foeLabel(b.wild.name);
 
     // Camera: punch in over the attacker's shoulder.
     this.marker = 'windup';
@@ -604,7 +622,7 @@ export class BattleSystem implements System {
         await this.ui.say('效果拔群！', 0.65);
       } else if (eff === 0) {
         await this.ui.say(
-          `对 ${defenderSide === 'wild' ? '野生的' + b.wild.name : b.player.name} 没有效果……`,
+          `对 ${defenderSide === 'wild' ? this.foeLabel(b.wild.name) : b.player.name} 没有效果……`,
           0.65,
         );
       } else if (eff < 1) {
@@ -626,8 +644,8 @@ export class BattleSystem implements System {
 
   private async playStat(ev: Extract<BattleEvent, { kind: 'stat' }>): Promise<void> {
     const b = this.battle!;
-    const userName = ev.side === 'player' ? b.player.name : `野生的${b.wild.name}`;
-    const targetName = ev.target === 'player' ? b.player.name : `野生的${b.wild.name}`;
+    const userName = ev.side === 'player' ? b.player.name : this.foeLabel(b.wild.name);
+    const targetName = ev.target === 'player' ? b.player.name : this.foeLabel(b.wild.name);
     const user = this.creatureOf(ev.side);
     const target = this.creatureOf(ev.target);
     const uPad = this.padOf(ev.side);
@@ -680,7 +698,7 @@ export class BattleSystem implements System {
     const mon = this.creatureOf(side);
     const pad = this.padOf(side);
     const b = this.battle!;
-    const name = side === 'player' ? b.player.name : `野生的${b.wild.name}`;
+    const name = side === 'player' ? b.player.name : this.foeLabel(b.wild.name);
 
     this.marker = 'faint';
     this.ctx.events.emit('battle:faint');
@@ -727,7 +745,12 @@ export class BattleSystem implements System {
       );
       mon.celebrate();
       this.ctx.events.emit('battle:victory');
-      await this.ui.say(`打败了野生的 ${this.battle!.wild.name}！`, 1.1);
+      await this.ui.say(
+        this.trainerName
+          ? `打败了${this.trainerName}！`
+          : `打败了野生的 ${this.battle!.wild.name}！`,
+        1.1,
+      );
       await this.wait(0.7);
     } else if (result === 'defeat') {
       this.marker = 'defeat';
@@ -768,7 +791,8 @@ export class BattleSystem implements System {
     this.timeScale = 1;
     this.phase = 'idle';
     this.marker = '';
-    this.ctx.events.emit('battle:end', { result });
+    this.ctx.events.emit('battle:end', { result, trainer: this.trainerName });
+    this.trainerName = null;
   }
 
   private clearClock(): void {

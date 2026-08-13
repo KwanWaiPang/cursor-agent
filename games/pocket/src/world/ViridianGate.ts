@@ -97,9 +97,9 @@ export function buildViridianGate(ctx: GameContext): void {
       ctx.events.emit(EVENTS.SAY, {
         speaker: '常青市',
         lines: [
-          '常青市入口。',
-          '石门后面是更广阔的关都地区——',
-          '这次旅行，先熟悉真新镇与１号道路就够了。',
+          '常青市入口。穿过石门，就是常青森林。',
+          '沿路南下可到常青市：精灵中心能回复，道馆可以挑战馆主。',
+          '森林高草里的宝可梦比１号道路更强，记得先选好伙伴。',
         ],
       });
     },

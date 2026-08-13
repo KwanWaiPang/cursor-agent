@@ -13,6 +13,7 @@ import { WorldMarkers } from './markers.js';
 import { Prompt, Banner } from './prompts.js';
 import { PauseMenu } from './menu.js';
 import { CombatDemo } from './demo.js';
+import { isTouchPlay, mountTouchControls } from './touch.js';
 
 const MAX_BLIPS = 48;
 
@@ -157,6 +158,14 @@ export class UiSystem {
     this._blipView = [];
 
     this.demo = null;
+    this.touch = null;
+
+    const capture = new URLSearchParams(location.search).get('capture') === '1';
+    if (!capture && isTouchPlay()) {
+      this.touch = mountTouchControls(this.root, ctx.input, {
+        onPause: () => this.menu.toggle(),
+      });
+    }
 
     this._unsubs = [];
     const on = (type, fn) => this._unsubs.push(ctx.events.on(type, fn));
@@ -431,13 +440,17 @@ export class UiSystem {
     if (ctx.input.enabled && !ctx.input.frozen) {
       if (ctx.input.actionPressed('pause')) this.menu.toggle();
       // Losing pointer lock mid-match is the same intent as pressing Escape.
-      if (ctx.input.pointerLocked) this._hadPointerLock = true;
-      else if (this._hadPointerLock && !this.menu.open) {
-        this._hadPointerLock = false;
-        this.menu.show();
+      // Touch play never takes pointer lock, so do not treat that as a pause.
+      if (!ctx.input.skipPointerLock) {
+        if (ctx.input.pointerLocked) this._hadPointerLock = true;
+        else if (this._hadPointerLock && !this.menu.open) {
+          this._hadPointerLock = false;
+          this.menu.show();
+        }
       }
     }
     this.menu.update(rawDt);
+    this.touch?.setVisible(!this.menu.open && this.hudTarget > 0.5);
 
     // ---- external state --------------------------------------------------
     // `simulate` means a scripted debug timeline owns the HUD numbers; letting
@@ -649,6 +662,7 @@ export class UiSystem {
     this.prompt.dispose();
     this.banner.dispose();
     this.menu.dispose();
+    this.touch?.dispose();
     this.root.remove();
     removeStyles();
   }

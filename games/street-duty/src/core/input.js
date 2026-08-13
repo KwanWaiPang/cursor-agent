@@ -51,6 +51,9 @@ export class Input {
 
     this.gamepadIndex = null;
     this.stick = { moveX: 0, moveY: 0, lookX: 0, lookY: 0 };
+    /** True on phones: skip pointer lock and keep touch-written stick axes. */
+    this.skipPointerLock = false;
+    this.touchDriving = false;
 
     this._bound = {
       keydown: this._onKeyDown.bind(this),
@@ -90,6 +93,7 @@ export class Input {
   }
 
   requestPointerLock() {
+    if (this.skipPointerLock) return;
     // Chrome returns a promise that rejects if the document is not eligible
     // (headless capture, an iframe, a lock request too soon after an exit).
     // An unhandled rejection there shows up as a page error in the harness, so
@@ -125,7 +129,8 @@ export class Input {
 
   _onMouseDown(e) {
     if (!this.enabled) return;
-    if (!this.pointerLocked && e.button === 0) this.requestPointerLock();
+    if (!this.pointerLocked && e.button === 0 && !this.skipPointerLock) this.requestPointerLock();
+    if (this.skipPointerLock && e.pointerType === 'touch') return;
     this._pendingDown.add(`Mouse${e.button}`);
   }
 
@@ -192,7 +197,9 @@ export class Input {
     const pads = navigator.getGamepads?.() ?? [];
     const pad = pads[this.gamepadIndex ?? 0] ?? pads.find(Boolean);
     if (!pad) {
-      this.stick.moveX = this.stick.moveY = this.stick.lookX = this.stick.lookY = 0;
+      if (!this.touchDriving) {
+        this.stick.moveX = this.stick.moveY = this.stick.lookX = this.stick.lookY = 0;
+      }
       return;
     }
     const dz = (v) => (Math.abs(v) < 0.16 ? 0 : (v - Math.sign(v) * 0.16) / 0.84);

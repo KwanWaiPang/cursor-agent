@@ -18,6 +18,7 @@ import { AudioSystem } from './audio/index.js';
 import { installShotApi } from './dev/shots.js';
 import { prewarm } from './core/prewarm.js';
 import { createBootUi } from './bootui.js';
+import { isTouchPlay } from './ui/touch.js';
 import {
   spawnAssaultWave,
   spawnAllyFireteam,
@@ -137,7 +138,7 @@ let stopAdaptive = null;
 const enter = () => {
   boot.hide();
   document.getElementById('boot-hint')?.remove();
-  engine.input.requestPointerLock();
+  if (!isTouchPlay()) engine.input.requestPointerLock();
   document.body.classList.add('is-playing');
   // Official demo-driver stages enemies in front of the camera. Mirror that for
   // normal hub play so the street is not an empty walk to the distant garrison.

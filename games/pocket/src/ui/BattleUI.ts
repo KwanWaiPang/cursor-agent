@@ -184,15 +184,16 @@ export class BattleUI {
 
   /* --------------------------------------------------------------- menu */
 
-  showMainMenu(): void {
+  showMainMenu(opts?: { canRun?: boolean }): void {
     this.menuMode = 'main';
     this.grid.classList.remove('is-moves');
-    this.buildButtons(
-      [
-        { label: '战斗', sub: '选择招式', cls: 'pt-bbtn--fight', choice: { kind: 'fight' } as MenuChoice },
-        { label: '逃跑', sub: '尝试逃离战斗', cls: 'pt-bbtn--run', choice: { kind: 'run' } as MenuChoice },
-      ],
-    );
+    const buttons = [
+      { label: '战斗', sub: '选择招式', cls: 'pt-bbtn--fight', choice: { kind: 'fight' } as MenuChoice },
+    ];
+    if (opts?.canRun !== false) {
+      buttons.push({ label: '逃跑', sub: '尝试逃离战斗', cls: 'pt-bbtn--run', choice: { kind: 'run' } as MenuChoice });
+    }
+    this.buildButtons(buttons);
     this.hint.textContent = 'WASD / 方向键 选择 · E 确认';
     this.actions.classList.add('is-on');
   }
