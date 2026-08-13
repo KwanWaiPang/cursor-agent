@@ -5,7 +5,10 @@ var play = play||{};
 play.init = function (depth, map){
 	var map = map || com.initMap;
 	var depth = depth || 3
-	play.my				=	1;				//玩家方
+	play.mode = play.mode || "ai";
+	play.humanColor = play.humanColor === -1 ? -1 : 1;
+	play.my				=	play.mode === "human" ? 1 : play.humanColor;
+	play.toMove			=	1;				// 红先
 	play.nowMap			=	map;
 	play.map 			=	com.arr2Clone ( map );		//初始化棋盘
 	play.nowManKey		=	false;			//现在要操作的棋子
@@ -112,7 +115,7 @@ play.regret = function (){
 	}
 	var pace= play.pace;
 	pace.pop();
-	pace.pop();
+	if (play.mode !== "human") pace.pop();
 	
 	for (var i=0; i<pace.length; i++){
 		var p= pace[i].split("")
@@ -139,12 +142,57 @@ play.regret = function (){
 		//	}
 	}
 	play.map = map;
-	play.my=1;
+	play.toMove = play.mode === "human"
+		? (pace.length % 2 === 0 ? 1 : -1)
+		: play.humanColor;
+	play.my = play.toMove;
 	play.isPlay=true;
 	com.show();
+	play.syncTurnHud();
 }
 
 
+
+play.canControl = function (man) {
+	if (!man) return false;
+	if (play.mode === "human") return man.my === play.toMove;
+	return man.my === play.humanColor && play.toMove === play.humanColor;
+};
+
+play.syncTurnHud = function () {
+	var hud = window.xiangqiHud;
+	if (!hud) return;
+	var side = play.toMove === 1 ? "红方" : "黑方";
+	if (play.mode === "human") {
+		hud.setHud("人人对弈 · " + side + "行棋", "对局中");
+		hud.setPlayingSummary("人人对弈 · " + side + "行棋");
+		return;
+	}
+	var you = play.toMove === play.humanColor;
+	var label = you
+		? ("人机对弈 · " + side + "行棋 · 你")
+		: ("人机对弈 · AI（" + side + "）思考中…");
+	hud.setHud(label, "对局中");
+};
+
+play.afterHumanMove = function () {
+	play.toMove = -play.toMove;
+	play.nowManKey = false;
+	if (play.mode === "human") {
+		play.my = play.toMove;
+		play.syncTurnHud();
+		return;
+	}
+	play.syncTurnHud();
+	setTimeout(play.AIPlay, 420);
+};
+
+play.note = function (text, warn) {
+	var message = com.get("message");
+	if (!message) return;
+	message.textContent = text || "";
+	message.className = warn ? "message warn" : "message info";
+};
 
 play._lastTouchAt = 0;
 
@@ -201,13 +249,15 @@ play.clickMan = function (key,x,y){
 			com.dot.dots = [];
 			com.show()
 			com.get("clickAudio").play();
-			setTimeout(play.AIPlay,500);
+			play.afterHumanMove();
 			if (key == "j0") play.showWin (-1);
 			if (key == "J0") play.showWin (1);
+		} else {
+			play.note("不能吃这枚棋", true);
 		}
 	// 选中棋子
 	}else{
-		if (man.my===1){
+		if (play.canControl(man)){
 			if (com.mans[play.nowManKey]) com.mans[play.nowManKey].alpha = 1 ;
 			man.alpha = 0.8;
 			com.pane.isShow = false;
@@ -215,8 +265,12 @@ play.clickMan = function (key,x,y){
 			com.mans[key].ps = com.mans[key].bl(); //获得所有能着点
 			com.dot.dots = com.mans[key].ps
 			com.show();
-			//com.get("selectAudio").start(0);
 			com.get("selectAudio").play();
+			play.note("已选中，请点绿色落点", false);
+		} else if (play.mode === "ai" && man.my !== play.humanColor) {
+			play.note("这是对方的棋", true);
+		} else {
+			play.note("还没轮到这方走", true);
 		}
 	}
 }
@@ -240,9 +294,9 @@ play.clickPoint = function (x,y){
 			com.dot.dots = [];
 			com.show();
 			com.get("clickAudio").play();
-			setTimeout(play.AIPlay,500);
+			play.afterHumanMove();
 		}else{
-			//alert("不能这么走哦！")
+			play.note("不能这么走", true);
 		}
 	}
 	
@@ -250,11 +304,13 @@ play.clickPoint = function (x,y){
 
 //Ai自动走棋
 play.AIPlay = function (){
-	//return
-	play.my = -1 ;
+	if (play.mode === "human") return;
+	play.my = -play.humanColor;
+	play.toMove = play.my;
+	play.syncTurnHud();
 	var pace=AI.init(play.pace.join(""))
 	if (!pace) {
-		play.showWin (1);
+		play.showWin (play.humanColor);
 		return ;
 	}
 	play.pace.push(pace.join(""));
@@ -268,8 +324,9 @@ play.AIPlay = function (){
 		play.AIclickPoint(pace[2],pace[3]);
 	}
 	com.get("clickAudio").play();
-	
-	
+	play.toMove = play.humanColor;
+	play.my = play.humanColor;
+	play.syncTurnHud();
 }
 
 //检查是否长将
@@ -354,8 +411,15 @@ play.getClickMan = function (e){
 
 play.showWin = function (my){
 	play.isPlay = false;
-	var won = my === 1;
-	var text = won ? "恭喜你，你赢了！" : "很遗憾，你输了！";
+	var won = play.mode === "human"
+		? true
+		: my === play.humanColor;
+	var text;
+	if (play.mode === "human") {
+		text = my === 1 ? "红方获胜！" : "黑方获胜！";
+	} else {
+		text = won ? "恭喜你，你赢了！" : "很遗憾，你输了！";
+	}
 	var statusLabel = com.get("statusLabel");
 	var phaseBadge = com.get("phaseBadge");
 	var message = com.get("message");

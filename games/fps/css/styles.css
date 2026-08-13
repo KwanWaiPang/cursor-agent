@@ -394,6 +394,8 @@ kbd {
   text-align: center;
   font-family: var(--font-mono);
   line-height: 1.15;
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .weapon-slot.active {
@@ -406,6 +408,38 @@ kbd {
 .weapon-slot.empty {
   opacity: 0.38;
   border-style: dashed;
+  cursor: default;
+}
+
+.control-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 6.4rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  justify-content: center;
+  max-width: min(36rem, 92vw);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms ease;
+  z-index: 8;
+}
+
+.control-hint.show {
+  opacity: 1;
+}
+
+.control-hint span {
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(8, 12, 8, 0.72);
+  border: 1px solid rgba(183, 213, 154, 0.28);
+  color: rgba(230, 240, 210, 0.88);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
 }
 
 .weapon-slot .slot-key {

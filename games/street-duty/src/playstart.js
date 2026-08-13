@@ -96,8 +96,16 @@ export function installStreetObjectives(engine) {
   const ui = engine.ctx.peek('ui');
   const ai = engine.ctx.peek('ai');
   if (!ui || !ai) return;
-  ui.banner?.show?.('沿街推进', '清除前方敌军', 4.5);
+  ui.banner?.show?.(
+    '沿街推进',
+    'WASD移动 · 鼠标射击 · R换弹 · Z下蹲 · Q/E探头 · G手雷 · C卧倒 · V近战 · T手电 · Tab切枪 · 击退8人即胜',
+    8.5
+  );
   const refresh = () => {
+    if (engine.__streetCleared) {
+      ui.setObjectives([]);
+      return;
+    }
     const list = typeof ai.getHudActors === 'function' ? ai.getHudActors() : [];
     const player = engine.ctx.peek('player');
     const origin = player?.position ?? engine.camera?.position;
@@ -154,15 +162,27 @@ export function installAssaultDirector(engine, { minAlive = 2, waveSize = 3, coo
     waveSize = 1;
     cooldown = 16;
   } else if (q === 'medium') {
-    minAlive = 1;
-    waveSize = 1;
-    cooldown = 13;
+    minAlive = Math.max(2, minAlive);
+    waveSize = Math.max(2, waveSize);
+    cooldown = Math.min(cooldown, 12);
   }
   // Cap *alive* hostiles — fewer on weak GPUs so each can afford smarter tactics.
-  const hardCap = q === 'low' ? 3 : q === 'medium' ? 4 : 12;
+  const hardCap = q === 'low' ? 3 : q === 'medium' ? 6 : 12;
+  const KILL_GOAL = 8;
   let cool = 2.0;
   let pending = 0;
+  let cleared = false;
   const onUpdate = (dt) => {
+    const ui = engine.ctx.peek('ui');
+    if (!cleared && (ui?.state?.scoreUs || 0) >= KILL_GOAL) {
+      cleared = true;
+      pending = 0;
+      engine.__streetCleared = true;
+      ui.banner?.show?.('区域已肃清', `击退 ${KILL_GOAL} 名敌军`, 8);
+      ui.setObjectives?.([]);
+      return;
+    }
+    if (cleared) return;
     // Spread respawns across ticks — spawning a full wave on the frame after a
     // wipe stacks with the kill hitch (new skeletons + hitboxes).
     if (pending > 0) {

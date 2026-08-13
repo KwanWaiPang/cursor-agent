@@ -765,8 +765,27 @@ body.monopoly-cartoon {
 .player-list .money { font-variant-numeric: tabular-nums; }
 .player-list .props { grid-column: 2 / 4; color: #6a5648; font-size: 0.8rem; }
 
-.log-list { max-height: 10rem; overflow: auto; font-size: 0.86rem; color: #4a3a30; }
+.log-list { min-height: 14rem; max-height: 22rem; overflow: auto; font-size: 0.86rem; color: #4a3a30; }
 .log-list li { padding: 0.25rem 0; border-bottom: 1px dashed rgba(61, 47, 38, 0.12); }
+
+.setup-card details { margin: 0; }
+.setup-card summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  list-style: none;
+}
+.setup-card summary::-webkit-details-marker { display: none; }
+.setup-card summary::after {
+  content: "▾";
+  float: right;
+  opacity: 0.55;
+  font-size: 0.9rem;
+}
+.setup-card details:not([open]) summary::after { content: "▸"; }
+.setup-card #setupBody { margin-top: 0.65rem; }
 
 .help li {
   position: relative; padding-left: 0.85rem; color: #4a3a30;
@@ -936,6 +955,18 @@ body.monopoly-cartoon {
   font-size: 0.88rem; letter-spacing: 0.04em;
 }
 
+@media (min-width: 901px) {
+  .board-wrap {
+    position: sticky;
+    top: 0.75rem;
+    align-self: start;
+    max-height: calc(100vh - 6.5rem);
+  }
+  .panel {
+    max-height: calc(100vh - 6.5rem);
+    overflow-y: auto;
+  }
+}
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
   .board { max-height: none; }

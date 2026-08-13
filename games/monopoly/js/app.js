@@ -61,6 +61,7 @@ const els = {
   humanCount: document.getElementById("humanCount"),
   aiCount: document.getElementById("aiCount"),
   btnNew: document.getElementById("btnNew"),
+  setupDetails: document.getElementById("setupDetails"),
   btnSpeed: document.getElementById("btnSpeed"),
   btnAuto: document.getElementById("btnAuto"),
   btnSell: document.getElementById("btnSell"),
@@ -687,7 +688,7 @@ function onDialog(yes) {
   runAutoLoop();
 }
 
-function startNew() {
+function startNew(opts = {}) {
   const startMoney = Number(els.startMoney.value) || 15000;
   const humanCount = Math.max(1, Number(els.humanCount.value) || 1);
   const aiCount = Math.max(0, Number(els.aiCount.value) || 0);
@@ -698,6 +699,7 @@ function startNew() {
   busy = false;
   buildBoard();
   play(clickAudio);
+  if (opts.collapseSetup && els.setupDetails) els.setupDetails.open = false;
   render();
   runAutoLoop();
 }
@@ -787,7 +789,7 @@ function submitTrade() {
   render();
 }
 
-els.btnNew.addEventListener("click", startNew);
+els.btnNew.addEventListener("click", () => startNew({ collapseSetup: true }));
 els.dialogOk.addEventListener("click", () => onDialog(true));
 els.dialogCancel.addEventListener("click", () => onDialog(false));
 els.btnSell?.addEventListener("click", openAssetPanel);

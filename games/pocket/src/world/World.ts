@@ -86,16 +86,23 @@ export class World {
     // step is expensive rather than guessing.
     const timings: [string, number][] = [];
     const t0 = performance.now();
+    let slowest: [string, number] = ['', 0];
 
     for (let i = 0; i < steps.length; i++) {
       const [label, fn] = steps[i];
-      onProgress?.(label, i / steps.length);
+      const slowHint =
+        slowest[1] > 350
+          ? ` · 最慢「${slowest[0]}」${(slowest[1] / 1000).toFixed(1)}s`
+          : '';
+      onProgress?.(`正在${label}${slowHint}`, i / steps.length);
       // Yield to the event loop so the loading screen can actually paint
       // between heavy synchronous bakes.
       await new Promise((r) => requestAnimationFrame(r));
       const start = performance.now();
       await fn(this.ctx);
-      timings.push([label, performance.now() - start]);
+      const ms = performance.now() - start;
+      timings.push([label, ms]);
+      if (ms > slowest[1]) slowest = [label, ms];
     }
 
     const total = performance.now() - t0;
@@ -109,7 +116,11 @@ export class World {
     );
     this.buildTimings = timings;
 
-    onProgress?.('准备就绪', 1);
+    const readyHint =
+      slowest[1] > 0
+        ? `准备就绪 · 最慢「${slowest[0]}」${(slowest[1] / 1000).toFixed(1)}s`
+        : '准备就绪';
+    onProgress?.(readyHint, 1);
     this.ctx.events.emit(EVENTS.WORLD_READY);
   }
 

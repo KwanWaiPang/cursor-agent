@@ -126,6 +126,26 @@
   width: 100%;
 }
 
+/* 桌面：棋盘钉在视口内，长侧栏自己滚动，避免把棋盘顶出画面 */
+@media (min-width: 901px) {
+  .game-page .layout {
+    align-items: start;
+  }
+
+  .game-page .board-wrap {
+    position: sticky;
+    top: 0.75rem;
+    align-self: start;
+    max-height: calc(100vh - 6.5rem);
+  }
+
+  .game-page .panel {
+    max-height: calc(100vh - 6.5rem);
+    overflow-y: auto;
+    padding-right: 0.15rem;
+  }
+}
+
 @media (max-width: 900px) {
   .game-page .shell,
   .game-page .app {

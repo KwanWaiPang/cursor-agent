@@ -79,16 +79,31 @@ window.onload = function(){
 		var message = com.get("message");
 		if (statusLabel) statusLabel.textContent = label;
 		if (phaseBadge) phaseBadge.textContent = badge;
+		if (message && message.textContent === statusLabel?.textContent) {
+			/* keep message in sync only when it was echoing the status */
+		}
 		if (message) message.textContent = label;
+	}
+
+	function setPlayingSummary(text) {
+		var el = com.get("playingSummary");
+		if (el) el.textContent = text || "对局进行中";
+	}
+
+	function showPlayingCard() {
+		var playing = com.get("playingBox");
+		if (playing) playing.hidden = false;
+		com.get("indexBox").style.display = "none";
+		com.get("menuQj").style.display = "none";
+		com.get("menuDy").style.display = "none";
 	}
 
 	function enterPlaying(modeLabel) {
 		document.body.classList.add("is-playing");
 		com.get("chessBox").style.display = "block";
 		com.get("menuBox").style.display = "block";
-		com.get("indexBox").style.display = "none";
-		com.get("menuQj").style.display = "none";
-		com.get("menuDy").style.display = "none";
+		showPlayingCard();
+		setPlayingSummary(modeLabel || "对局进行中");
 		setHud(modeLabel || "对局进行中", "对局中");
 	}
 
@@ -96,26 +111,62 @@ window.onload = function(){
 		document.body.classList.remove("is-playing");
 		com.get("chessBox").style.display = "block";
 		com.get("menuBox").style.display = "block";
+		var playing = com.get("playingBox");
+		if (playing) playing.hidden = true;
 		com.get("indexBox").style.display = "grid";
 		com.get("menuQj").style.display = "none";
 		com.get("menuDy").style.display = "none";
 		setHud("请选择对局模式", "菜单");
 	}
 
+	function sideName(side) {
+		return side === -1 ? "黑方" : "红方";
+	}
+
+	window.xiangqiHud = {
+		setHud: setHud,
+		enterPlaying: enterPlaying,
+		enterMenu: enterMenu,
+		setPlayingSummary: setPlayingSummary,
+		sideName: sideName,
+		showPlayingCard: showPlayingCard
+	};
+
 	//开始对弈
 	com.get("playBtn").addEventListener("click", function(e) {
 		play.isPlay=true ;
 		var depth = parseInt(getRadioValue("depth"), 10) || 3;
-
+		var color = parseInt(getRadioValue("humanColor"), 10) || 1;
+		play.mode = "ai";
+		play.humanColor = color === -1 ? -1 : 1;
 		play.init( depth );
-		enterPlaying("人机对弈 · 红方行棋");
+		var label = play.humanColor === 1 ? "人机对弈 · 你执红" : "人机对弈 · 你执黑";
+		enterPlaying(label);
+		if (play.humanColor === -1) {
+			setHud("AI（红）思考中…", "对局中");
+			setTimeout(play.AIPlay, 400);
+		}
 	})
+
+	com.get("indexHh").addEventListener("click", function(e) {
+		play.isPlay = true;
+		play.mode = "human";
+		play.humanColor = 1;
+		play.init(3);
+		enterPlaying("人人对弈 · 红方先行");
+	});
+
+	com.get("changeModeBtn").addEventListener("click", function(e) {
+		enterMenu();
+	});
 	
 	//开始挑战
 	com.get("clasliBtn").addEventListener("click", function(e) {
 		play.isPlay=true ;
 		var clasli = parseInt(getRadioValue("clasli"), 10) || 0;
 		play.init( 4, com.clasli[clasli].map );
+		play.mode = "ai";
+		play.humanColor = 1;
 		enterPlaying("残局挑战 · 红方行棋");
 	})
 	
@@ -167,12 +218,14 @@ window.onload = function(){
 		com.get("menuDy").style.display = "none";
 	})
 
-	// 初始：进页即开普通人机对局（仍可从菜单换残局 / 难度）
+	// 初始：进页即开普通人机对局（仍可从菜单换残局 / 难度 / 人人）
 	enterMenu();
 	com.show();
 	play.isPlay = true;
+	play.mode = "ai";
+	play.humanColor = 1;
 	play.init(3);
-	enterPlaying("人机对弈 · 红方行棋");
+	enterPlaying("人机对弈 · 你执红");
 
 	//换肤
 	com.get("stypeBtn").addEventListener("click", function(e) {
