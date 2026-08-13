@@ -22,6 +22,9 @@ export class Player {
       help: false,
       medkit: false,
     };
+    /** Analog stick from the phone overlay, x = strafe, z = forward. */
+    this.moveAxis = { x: 0, z: 0 };
+    this.touchSprint = false;
     /** -1..1 smoothed lean (Q left / E right, hold) */
     this.leanAmount = 0;
     this._leanApplied = 0;
@@ -248,7 +251,7 @@ export class Player {
     if (Math.abs(this.leanAmount) < 0.02) this.leanAmount = 0;
 
     // 蹲下可走，略慢；蹲下时不能冲刺
-    const sprinting = this.keys.sprint && !this.keys.crouch;
+    const sprinting = (this.keys.sprint || this.touchSprint) && !this.keys.crouch;
     let base = sprinting ? 11 : 6.5;
     if (this.keys.crouch) base *= 0.55;
     const speed = base * dt;
@@ -258,6 +261,8 @@ export class Player {
     if (this.keys.back) this.direction.z += 1;
     if (this.keys.left) this.direction.x -= 1;
     if (this.keys.right) this.direction.x += 1;
+    this.direction.x += this.moveAxis.x;
+    this.direction.z -= this.moveAxis.z;
     if (this.direction.lengthSq() > 0) this.direction.normalize();
 
     const forward = new THREE.Vector3();

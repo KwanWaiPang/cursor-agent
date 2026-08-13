@@ -9,6 +9,7 @@ import {
   packNormalPair,
   packScalarQuad,
 } from '../fx/TerrainMaterials';
+import { VIRIDIAN, VIRIDIAN_PADS } from './viridianLayout';
 
 /**
  * Terrain — the heightfield everything else in Pallet Town stands on.
@@ -43,7 +44,7 @@ export const TERRAIN = {
   minX: -32,
   minZ: -36,
   width: 64,
-  depth: 72,
+  depth: 110,
   // 36cm cells. The ground is one mesh that is never frustum-culled and, being
   // a shadow receiver under VSM, it is drawn in the shadow pass, the main pass,
   // the transmission pass and the G-buffer — so every triangle here is paid for
@@ -55,20 +56,26 @@ export const TERRAIN = {
   // unchanged. The normal epsilon below is derived from these, so shading
   // follows automatically.
   segX: 176,
-  segZ: 198,
+  segZ: 240,
   /** Height the town core is graded to. Water sits at y = 0. */
   townY: 0.3,
   /** Player-walkable bounds (inside the perimeter blockers). */
   playMinX: -21.0,
   playMaxX: 21.0,
   playMinZ: -26.2,
-  /** South edge past Route 1 tall grass toward Viridian. */
-  playMaxZ: 33.8,
+  /** South edge past Viridian City (forest + plaza + gym). */
+  playMaxZ: VIRIDIAN.playMaxZ,
 } as const;
 
 /** Hand-authored spine of the north–south dirt path, south entrance -> lab. */
 const MAIN_PATH: [number, number][] = [
-  [2.0, 36.2],
+  [1.42, 69.4],
+  [1.38, 67.0],
+  [1.35, 62.6],
+  [1.40, 56.2],
+  [1.48, 47.8],
+  [1.52, 40.4],
+  [1.55, 32.15],
   [1.7, 31.0],
   [1.6, 27.5],
   [1.1, 21.5],
@@ -102,6 +109,7 @@ const PADS = [
   { cx: -8.4, cz: 2.2, hx: 5.4, hz: 4.3, feather: 2.6, dy: 0.03 }, // player house
   { cx: 8.4, cz: 2.2, hx: 5.4, hz: 4.3, feather: 2.6, dy: 0.03 }, // rival house
   { cx: 0.0, cz: -7.6, hx: 6.6, hz: 3.1, feather: 2.0, dy: 0.06 }, // cobble forecourt
+  ...VIRIDIAN_PADS,
 ];
 
 /** Cobble forecourt footprint (mask, slightly inset from the pad). */
@@ -229,12 +237,13 @@ function makeField(seed: number) {
     // South: gentle Route 1 shelf inside the playable corridor, then the
     // closing bank pushed past the walkable edge so the path stays climbable.
     h += smoothstep(19, 29, z) * 0.32;
-    h += smoothstep(33.5, 40, z) * 1.85;
-    // Soften the south bank along the dirt corridor so Route 1 does not
-    // become a cliff the moment the player leaves town.
+    // Closing bank sits past Viridian City so the forest and plaza stay walkable.
+    h += smoothstep(64.8, 72.5, z) * 1.85;
+    // Soften the far south bank along the dirt corridor (and keep Route 1 climbable).
+    const pathX = z > 32 ? 1.55 + (z - 32) * 0.008 : 1.5 + (z - 20) * 0.05;
     const southCorridor =
-      smoothstep(2.8, 1.1, Math.abs(x - (1.5 + (z - 20) * 0.05))) * smoothstep(24, 28, z);
-    h -= southCorridor * smoothstep(28, 34, z) * 0.55;
+      smoothstep(2.8, 1.1, Math.abs(x - pathX)) * smoothstep(24, 28, z);
+    h -= southCorridor * smoothstep(62, 70, z) * 0.55;
     // The mesh stops somewhere, and ground that stops level draws a straight
     // line against the sky. So the last few metres before the boundary lift
     // into a ridge whose crest is noise-driven: what reaches the edge of the
@@ -248,9 +257,9 @@ function makeField(seed: number) {
     // boundary behind the crest from any eye height inside the play area, so
     // what reaches the skyline is a noise-driven hilltop and the edge is never
     // visible at all.
-    const rimFall = 1 - 0.3 * smoothstep(29.5, 32, ax) - 0.3 * smoothstep(38, 42, z);
+    const rimFall = 1 - 0.3 * smoothstep(29.5, 32, ax) - 0.3 * smoothstep(70, 74, z);
     const rim =
-      Math.max(smoothstep(24, 29.5, ax), smoothstep(35, 40, z) * (1 - southCorridor)) *
+      Math.max(smoothstep(24, 29.5, ax), smoothstep(66, 73, z) * (1 - southCorridor)) *
       (1 - smoothstep(-18, -26, z)) *
       rimFall;
     if (rim > 0) {
@@ -295,7 +304,9 @@ function makeField(seed: number) {
   function coreMask(x: number, z: number): number {
     // Never grade the shore: the beach has to keep its natural drift.
     const shoreGuard = smoothstep(-24, -18, z);
-    return rrMask(x, z, 0, -1, 13.0, 16.0, 7) * shoreGuard;
+    const town = rrMask(x, z, 0, -1, 13.0, 16.0, 7) * shoreGuard;
+    const city = rrMask(x, z, 1.4, 56.2, 11.0, 11.2, 5.5);
+    return Math.max(town, city);
   }
 
   /**

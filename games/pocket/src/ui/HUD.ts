@@ -69,7 +69,7 @@ export class HUD {
   private hint: HTMLElement;
   private hintTimer = 0;
   private quest: HTMLElement;
-  private questStage: 'lab' | 'route' | 'viridian' = 'lab';
+  private questStage: 'lab' | 'route' | 'viridian' | 'forest' | 'city' | 'done' = 'lab';
 
   private booted = false;
   private auto = false;
@@ -174,10 +174,28 @@ export class HUD {
     let grassHint = false;
     ctx.events.on(EVENTS.ENTER_ZONE, (zone) => {
       if (this.auto) return;
-      if (zone === 'viridian-gate') {
+      if (zone === 'gym-won') {
+        this.questStage = 'done';
+        this.refreshQuest();
+        this.showHint('拿到道馆认可 · 常青之旅完成', 7000);
+        return;
+      }
+      if (zone === 'viridian-city' && this.questStage !== 'done') {
+        this.questStage = 'city';
+        this.refreshQuest();
+        this.showHint('精灵中心可回复 · 南边道馆可挑战馆主', 6000);
+        return;
+      }
+      if (zone === 'viridian-forest' && this.questStage !== 'done' && this.questStage !== 'city') {
+        this.questStage = 'forest';
+        this.refreshQuest();
+        this.showHint('常青森林 · 高草里的宝可梦更强', 5500);
+        return;
+      }
+      if (zone === 'viridian-gate' && this.questStage !== 'done' && this.questStage !== 'city') {
         this.questStage = 'viridian';
         this.refreshQuest();
-        this.showHint('常青市入口就在前方', 5000);
+        this.showHint('穿过石门，沿路南下常青市', 5000);
         return;
       }
       if (grassHint) return;
@@ -376,7 +394,10 @@ export class HUD {
     const copy = {
       lab: '前往大木研究所，选择御三家',
       route: '走出研究所，沿１号道路南下',
-      viridian: '常青市就在前方 · 石门处看看告示',
+      viridian: '穿过常青石门，进入森林',
+      forest: '穿过常青森林，前往常青市',
+      city: '精灵中心回复，挑战常青道馆',
+      done: '常青之旅完成 · 可继续在森林练级',
     };
     t.textContent = copy[this.questStage];
   }

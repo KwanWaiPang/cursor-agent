@@ -18,6 +18,7 @@ import {
 } from "./weapons.js";
 import { createAssaultMode, createRoyaleMode } from "./modes.js";
 import { createAK47ViewModel, createPistolViewModel, createM4ViewModel, createShotgunViewModel, createSniperViewModel } from "./viewmodel.js";
+import { isTouchPlay, mountTouchControls } from "./touch.js";
 
 export class Game {
   constructor({ mode, onEnd, onQuit }) {
@@ -148,12 +149,11 @@ export class Game {
       if (e.button === 2) this.aiming = false;
     };
     this._onContextMenu = (e) => {
-      // 锁定指针时屏蔽浏览器右键菜单
-      if (this.player?.controls?.isLocked) e.preventDefault();
+      if (this.player?.controls?.isLocked || this.touchPlay) e.preventDefault();
     };
     this._onWheel = (e) => {
       if (!this.running || this.paused || this._ended) return;
-      if (!this.player.controls.isLocked) return;
+      if (!this.player.controls.isLocked && !this.touchPlay) return;
       e.preventDefault();
       const dir = e.deltaY > 0 ? 1 : -1;
       if (cycleWeapon(this.arsenal, dir)) {
@@ -179,9 +179,15 @@ export class Game {
     this.animate = this.animate.bind(this);
     requestAnimationFrame(this.animate);
 
-    // 必须在点击手势同步调用，否则浏览器会拒绝 Pointer Lock
-    this.player.lock();
-  }
+    this.touchPlay = isTouchPlay();
+    this.touch = null;
+    if (this.touchPlay) {
+      this.touch = mountTouchControls(this);
+      this.paused = false;
+      this.onLock();
+    } else {
+      this.player.lock();
+    }
 
   get loadout() {
     return this.arsenal.active;
@@ -217,6 +223,7 @@ export class Game {
   onUnlock() {
     this.aiming = false;
     this.shooting = false;
+    if (this.touchPlay) return;
     if (!this.running || this._ended) return;
     this.paused = true;
     document.getElementById("pause")?.classList.remove("hidden");
@@ -229,7 +236,25 @@ export class Game {
   }
 
   resume() {
+    if (this.touchPlay) {
+      this.paused = false;
+      document.getElementById("pause")?.classList.add("hidden");
+      this.touch?.setVisible(true);
+      return;
+    }
     this.player.lock();
+  }
+
+  _isMoving() {
+    const k = this.player.keys;
+    const a = this.player.moveAxis;
+    return !!(
+      k.forward ||
+      k.back ||
+      k.left ||
+      k.right ||
+      Math.hypot(a?.x || 0, a?.z || 0) > 0.08
+    );
   }
 
   syncViewModel() {
@@ -298,6 +323,20 @@ export class Game {
     const leanRoll = (this.player?.leanAmount || 0) * 0.16;
     e.z = leanRoll;
     e.x += delta;
+    const lim = Math.PI / 2 - 0.05;
+    e.x = THREE.MathUtils.clamp(e.x, -lim, lim);
+    cam.quaternion.setFromEuler(e);
+    cam.rotation.set(e.x, e.y, e.z, "YXZ");
+  }
+
+  /** 触控拖视：与 PointerLock 相同的 YXZ，强制清掉 roll。 */
+  applyLookDelta(dx, dy) {
+    const cam = this.camera;
+    const e = this._lookEuler;
+    e.setFromQuaternion(cam.quaternion, "YXZ");
+    e.y -= dx;
+    e.x -= dy;
+    e.z = (this.player?.leanAmount || 0) * 0.16;
     const lim = Math.PI / 2 - 0.05;
     e.x = THREE.MathUtils.clamp(e.x, -lim, lim);
     cam.quaternion.setFromEuler(e);
@@ -379,7 +418,7 @@ export class Game {
 
   shoot(now) {
     if (!this.player.alive) return;
-    if (!this.player.controls.isLocked) return;
+    if (!this.player.controls.isLocked && !this.touchPlay) return;
     if (now < this.switchUntil) return;
     updateReload(this.loadout, now);
     if (!canShoot(this.loadout, now)) {
@@ -409,12 +448,8 @@ export class Game {
     if (ads) spread *= def.adsSpreadMul ?? 0.28;
     else spread *= def.hipSpreadMul ?? 1;
 
-    const moving =
-      this.player.keys.forward ||
-      this.player.keys.back ||
-      this.player.keys.left ||
-      this.player.keys.right;
-    if (this.player.keys.sprint && moving) spread *= 1.55;
+    const moving = this._isMoving();
+    if ((this.player.keys.sprint || this.player.touchSprint) && moving) spread *= 1.55;
     else if (moving) spread *= 1.22;
     if (this.player.crouching) spread *= 0.72;
 
@@ -530,12 +565,8 @@ export class Game {
       {
         const def = this.loadout.def;
         let sp = def.spread * (this.aiming && !this.loadout.reloading ? def.adsSpreadMul ?? 0.28 : def.hipSpreadMul ?? 1);
-        const moving =
-          this.player.keys.forward ||
-          this.player.keys.back ||
-          this.player.keys.left ||
-          this.player.keys.right;
-        if (this.player.keys.sprint && moving) sp *= 1.55;
+        const moving = this._isMoving();
+        if ((this.player.keys.sprint || this.player.touchSprint) && moving) sp *= 1.55;
         else if (moving) sp *= 1.22;
         if (this.player.crouching) sp *= 0.72;
         this.hud.setSpread?.(sp, this.aiming && !this.loadout.reloading);
@@ -554,11 +585,7 @@ export class Game {
 
       if (this.shooting) this.shoot(now);
 
-      const moving =
-        this.player.keys.forward ||
-        this.player.keys.back ||
-        this.player.keys.left ||
-        this.player.keys.right;
+      const moving = this._isMoving();
       this.syncViewModel();
       this.activeView?.update(dt, moving, this.loadout.reloading, {
         aiming: this.aiming && !this.loadout.reloading,
@@ -626,12 +653,15 @@ export class Game {
       this.hud.tick(dt);
     }
 
+    this.touch?.setVisible(this.running && !this.paused && !this._ended);
     this.renderer.render(this.scene, this.camera);
   }
 
   dispose() {
     this._disposed = true;
     this.running = false;
+    this.touch?.dispose();
+    this.touch = null;
     this.player.unlock();
     this.mode?.dispose?.();
     for (const e of this.enemies) {

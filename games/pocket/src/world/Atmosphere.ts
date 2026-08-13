@@ -27,10 +27,10 @@ const SUN_AZIMUTH = THREE.MathUtils.degToRad(42);
 /** The area the key light must resolve shadows for. */
 const PLAY_AREA = {
   cx: 0,
-  cz: -1,
-  // The art bible's 44 x 52 m playable footprint, plus canopy headroom.
+  cz: 20,
+  // Pallet Town through Viridian City (playable z ≈ -26 .. 68).
   hx: 22,
-  hz: 26,
+  hz: 48,
   minY: -1.0,
   maxY: 11.5,
 };
