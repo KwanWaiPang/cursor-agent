@@ -48,7 +48,7 @@
                 <span class="side-dot south" aria-hidden="true"></span>
                 <span id="turnLabel">南方（你）行动</span>
               </div>
-              <span id="phaseBadge" class="badge">对局中</span>
+              <span id="phaseBadge" class="badge">布阵中</span>
             </div>
             <div class="meta">
               <div>红方：你（南）· 蓝方：AI（北）· 暗棋立起</div>
@@ -62,14 +62,22 @@
             <h2>操作</h2>
             <div class="controls">
               <button id="btnRedeploy" class="secondary" type="button">打乱重排</button>
-              <button id="btnStart" type="button">提示操作</button>
+              <button id="btnStart" type="button">确认开局</button>
               <button id="btnResign" class="danger" type="button">认输</button>
             </div>
           </section>
 
           <section class="card">
             <h2>新对局</h2>
-            <p class="hint">开局即战。先点红方棋子，再点高亮目标格。</p>
+            <p class="hint">先微调己方布阵（点两枚棋交换），再确认开局。地雷须在最后两排，军旗须在大本营。</p>
+            <div class="field">
+              <label for="difficultySelect">AI 难度</label>
+              <select id="difficultySelect">
+                <option value="easy">入门</option>
+                <option value="normal" selected>普通</option>
+                <option value="hard">进阶</option>
+              </select>
+            </div>
             <div class="controls" style="grid-template-columns: 1fr">
               <button id="btnNew" type="button">开始新对局</button>
             </div>

@@ -18,7 +18,12 @@ import { AudioSystem } from './audio/index.js';
 import { installShotApi } from './dev/shots.js';
 import { prewarm } from './core/prewarm.js';
 import { createBootUi } from './bootui.js';
-import { spawnAssaultWave, spawnAllyFireteam, installAssaultDirector } from './playstart.js';
+import {
+  spawnAssaultWave,
+  spawnAllyFireteam,
+  installAssaultDirector,
+  installStreetObjectives,
+} from './playstart.js';
 
 const params = new URLSearchParams(location.search);
 const capture = params.get('capture') === '1';
@@ -80,7 +85,8 @@ const shotApi = installShotApi(engine, { capture, lockstep });
 // this, 86 programs compile lazily during play, up to 30 on one frame, producing
 // 3.1-3.9 SECOND stalls. See src/core/prewarm.js.
 //
-// Hub: skip on low (fast first paint); keep for medium+ unless ?prewarm=0.
+// Hub: skip shader prewarm except ultra (or ?prewarm=1). Faster first entry;
+// first shot may hitch. ?prewarm=0 still forces off.
 const doPrewarm = shouldPrewarm(config.quality, location.search);
 let warmup;
 if (!doPrewarm) {
@@ -146,6 +152,7 @@ const enter = () => {
           : { n: 5, minD: 40, maxD: 58, minAlive: 3, waveSize: 3, cooldown: 11 };
     spawnAllyFireteam(engine, 2);
     spawnAssaultWave(engine, wave.n, wave.minD, wave.maxD);
+    installStreetObjectives(engine);
     stopDirector = installAssaultDirector(engine, {
       minAlive: wave.minAlive,
       waveSize: wave.waveSize,
@@ -159,7 +166,7 @@ if (capture) {
   enter();
 } else {
   boot.setPhase('ready', 'ready', 1, `画质 ${config.quality} · 点击开始`);
-  boot.showStart(enter);
+  boot.showStart(enter, { skippedPrewarm: !doPrewarm });
 }
 
 if (import.meta.hot) {

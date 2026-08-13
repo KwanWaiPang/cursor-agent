@@ -115,3 +115,23 @@ export class MatchBar {
     this.root.remove();
   }
 }
+
+/** Persistent assault prompt under the scoreline. */
+export class ObjectiveLine {
+  constructor(parent) {
+    this.root = el('div', 'ow-objline', parent);
+    this.kicker = el('div', 'ow-objline-k', this.root, '目标');
+    this.text = el('div', 'ow-objline-t', this.root, '沿街推进，清除前方敌军');
+    this.dist = el('div', 'ow-objline-d', this.root, '');
+  }
+
+  update(text, distM) {
+    if (text) setText(this.text, text);
+    setText(this.dist, Number.isFinite(distM) ? `${Math.round(distM)}M` : '');
+  }
+
+  dispose() {
+    this.root.remove();
+  }
+}
+

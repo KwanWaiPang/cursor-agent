@@ -22,6 +22,7 @@ import {
   peekSave,
   saveNow,
 } from '../gameplay/SaveGame';
+import { PlayerData } from '../gameplay/battle/PlayerData';
 import { LoadingScreen, StartCard, el } from './Menu';
 import { DialogueBox } from './Dialogue';
 import { DexUI } from './DexUI';
@@ -67,6 +68,8 @@ export class HUD {
 
   private hint: HTMLElement;
   private hintTimer = 0;
+  private quest: HTMLElement;
+  private questStage: 'lab' | 'route' | 'viridian' = 'lab';
 
   private booted = false;
   private auto = false;
@@ -99,6 +102,11 @@ export class HUD {
     // --- transient hint (pointer-lock fallback notice) -------------------
     this.hint = el('div', 'pt-hint');
     this.root.appendChild(this.hint);
+
+    this.quest = el('div', 'pt-quest');
+    this.quest.innerHTML =
+      '<span class="pt-quest__k">任务</span><span class="pt-quest__t">前往大木研究所，选择御三家</span>';
+    this.root.appendChild(this.quest);
 
     // --- dialogue --------------------------------------------------------
     this.dialogue = new DialogueBox(ctx);
@@ -159,11 +167,20 @@ export class HUD {
     });
     ctx.events.on(EVENTS.STARTER_CHOSEN, () => {
       if (this.auto) return;
+      this.questStage = 'route';
+      this.refreshQuest();
       this.showHint('走出研究所，南边深色草丛可能遇到野生宝可梦', 7000);
     });
     let grassHint = false;
     ctx.events.on(EVENTS.ENTER_ZONE, (zone) => {
-      if (this.auto || grassHint) return;
+      if (this.auto) return;
+      if (zone === 'viridian-gate') {
+        this.questStage = 'viridian';
+        this.refreshQuest();
+        this.showHint('常青市入口就在前方', 5000);
+        return;
+      }
+      if (grassHint) return;
       if (zone !== 'tall-grass') return;
       grassHint = true;
       this.showHint('走进深色草丛会触发战斗 · B 打开图鉴', 6500);
@@ -346,12 +363,22 @@ export class HUD {
     this.booted = true;
     this.ctx.engine.input.suspended = false;
     this.crosshair.classList.add('is-on');
-    // The click bubbles on to the app container, which takes pointer lock and
-    // unlocks audio. Some embedded browsers do not grant pointer lock; that is
-    // not a pause, so only a later locked -> unlocked transition may reopen
-    // the pause card.
     this.lockReturn = 0;
     this.setFocus(this.ctx.interaction.focused);
+    if (PlayerData.hasStarter && this.questStage === 'lab') this.questStage = 'route';
+    this.refreshQuest();
+    this.quest.classList.add('is-on');
+  }
+
+  private refreshQuest(): void {
+    const t = this.quest.querySelector('.pt-quest__t');
+    if (!t) return;
+    const copy = {
+      lab: '前往大木研究所，选择御三家',
+      route: '走出研究所，沿１号道路南下',
+      viridian: '常青市就在前方 · 石门处看看告示',
+    };
+    t.textContent = copy[this.questStage];
   }
 
   private onLockChange = (): void => {

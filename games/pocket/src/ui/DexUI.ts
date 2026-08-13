@@ -12,7 +12,7 @@ import {
 import { NATIONAL_DEX, type NationalEntry } from '../gameplay/dex/national';
 import { findDexIndex } from '../gameplay/dex/search';
 import { DexProgress } from '../gameplay/dex/DexProgress';
-import { glbUrlForDexId } from '../gameplay/pokemon/GlbModels';
+import { glbUrlForDexId, resolveGlbUrl } from '../gameplay/pokemon/GlbModels';
 import { hasRegularGlb, spriteFallbackUrls } from '../gameplay/dex/sprites';
 
 /**
@@ -25,19 +25,43 @@ const KANTO_TOTAL = 151;
 const ROW_H = 42;
 const OVERSCAN = 8;
 
+function assetRoot(): string {
+  const raw = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL ?? './';
+  return raw.endsWith('/') ? raw : `${raw}/`;
+}
+
+function viewerScriptUrls(): string[] {
+  const root = assetRoot();
+  return [`${root}vendor/model-viewer.min.js`, `${root}public/vendor/model-viewer.min.js`];
+}
+
+function loadViewerScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.type = 'module';
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error(`model-viewer failed: ${src}`));
+    document.head.appendChild(s);
+  });
+}
+
 let modelViewerReady: Promise<void> | null = null;
 function ensureModelViewer(): Promise<void> {
   if (customElements.get('model-viewer')) return Promise.resolve();
   if (!modelViewerReady) {
-    modelViewerReady = new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.type = 'module';
-      const base = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL ?? './';
-      s.src = `${base.endsWith('/') ? base : `${base}/`}vendor/model-viewer.min.js`;
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('model-viewer failed to load'));
-      document.head.appendChild(s);
-    });
+    modelViewerReady = (async () => {
+      let last: unknown;
+      for (const src of viewerScriptUrls()) {
+        try {
+          await loadViewerScript(src);
+          return;
+        } catch (err) {
+          last = err;
+        }
+      }
+      throw last instanceof Error ? last : new Error('model-viewer failed to load');
+    })();
   }
   return modelViewerReady;
 }
@@ -404,7 +428,13 @@ export class DexUI {
       this.mountSprite(stage, e, seen, '3D 加载失败，已回退 2D 立绘');
     };
     viewer.addEventListener('error', toSprite);
-    void ensureModelViewer().catch(() => toSprite());
+    void ensureModelViewer()
+      .then(() => resolveGlbUrl(e.id))
+      .then((url) => {
+        if (!viewer.isConnected) return;
+        viewer.setAttribute('src', url);
+      })
+      .catch(() => toSprite());
   }
 
   private mountSprite(

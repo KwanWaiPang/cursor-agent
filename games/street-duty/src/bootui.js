@@ -33,13 +33,14 @@ export function createBootUi() {
       <div class="boot-bar"><i id="boot-bar"></i></div>
       <div class="boot-meta" id="boot-meta">画质自适应中</div>
       <button type="button" class="boot-start" id="boot-start" hidden>点击进入街区</button>
-      <div class="boot-hint">WASD 移动 · Q/E 探头 · Z 下蹲 · 2 名队友协同 · 鼠标射击</div>
+      <div class="boot-hint" id="boot-hint-line">WASD 移动 · Q/E 探头 · Z 下蹲 · 2 名队友协同 · 鼠标射击</div>
     </div>
   `;
   const status = root.querySelector('#boot-status');
   const bar = root.querySelector('#boot-bar');
   const meta = root.querySelector('#boot-meta');
   const start = root.querySelector('#boot-start');
+  const hint = root.querySelector('#boot-hint-line');
 
   const set = (ratio, label, metaText) => {
     const r = Math.max(0, Math.min(1, ratio || 0));
@@ -55,9 +56,13 @@ export function createBootUi() {
       const label = LABELS[id] || LABELS[phase] || '加载中…';
       set(ratio, label, metaText);
     },
-    showStart(onClick) {
+    showStart(onClick, opts = {}) {
       status.textContent = '加载完成';
       bar.style.width = '100%';
+      if (opts.skippedPrewarm && hint) {
+        hint.textContent =
+          '已跳过着色器预热以加快进入 · 首次开火可能顿一下 · WASD 移动 · 鼠标射击';
+      }
       start.hidden = false;
       start.focus();
       const go = () => {

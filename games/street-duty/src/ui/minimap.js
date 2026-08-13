@@ -31,6 +31,9 @@ export class Minimap {
     const tag = el('div', 'ow-mm-tag', this.root);
     el('span', null, tag, 'ZONE 07');
     this.scaleTag = el('span', null, tag, '60M');
+    const legend = el('div', 'ow-mm-legend', this.root);
+    el('i', 'ow-mm-en', legend, '敌');
+    el('i', 'ow-mm-fr', legend, '友');
 
     this.rng = rng;
     this.k = 1;
@@ -546,19 +549,27 @@ export class Minimap {
         const dy = (b.z - cz) * ppm + half;
         if (dx < -8 || dy < -8 || dx > S + 8 || dy > S + 8) continue;
         const enemy = b.kind !== 'friend';
-        const r = 3.4 * u;
+        const r = 5.4 * u;
         g.save();
         g.translate(dx, dy);
         g.rotate(((b.heading ?? 0) * Math.PI) / 180);
-        g.fillStyle = enemy ? 'rgba(255,74,58,.96)' : 'rgba(126,196,255,.95)';
-        g.shadowColor = enemy ? 'rgba(255,60,40,.85)' : 'rgba(120,190,255,.7)';
-        g.shadowBlur = 6 * u;
+        g.fillStyle = enemy ? 'rgba(255,64,48,.98)' : 'rgba(90,196,255,.98)';
+        g.shadowColor = enemy ? 'rgba(255,48,32,.95)' : 'rgba(90,190,255,.9)';
+        g.shadowBlur = 10 * u;
         g.beginPath();
-        g.moveTo(0, -r * 1.5);
-        g.lineTo(r * 1.15, r * 1.1);
-        g.lineTo(-r * 1.15, r * 1.1);
+        if (enemy) {
+          g.moveTo(0, -r * 1.65);
+          g.lineTo(r * 1.25, r * 1.15);
+          g.lineTo(-r * 1.25, r * 1.15);
+        } else {
+          g.arc(0, 0, r * 1.15, 0, Math.PI * 2);
+        }
         g.closePath();
         g.fill();
+        g.shadowBlur = 0;
+        g.lineWidth = 1.5 * u;
+        g.strokeStyle = enemy ? 'rgba(80,8,4,.9)' : 'rgba(245,252,255,.95)';
+        g.stroke();
         g.restore();
       }
     }

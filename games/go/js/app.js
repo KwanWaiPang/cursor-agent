@@ -30,7 +30,7 @@ let engine = new GoEngine(
   Number(document.getElementById("sizeSelect").value) || 19,
   Number(document.getElementById("komiSelect").value) || 7.5
 );
-let ai = new GoAI(document.getElementById("difficultySelect").value || "expert");
+let ai = new GoAI(document.getElementById("difficultySelect").value || "medium");
 let hover = null;
 let dpr = Math.max(1, window.devicePixelRatio || 1);
 let aiThinking = false;
@@ -132,7 +132,7 @@ function updatePanel() {
 
 function boardMetrics() {
   const cssSize = canvas.clientWidth;
-  const pad = cssSize * 0.045;
+  const pad = cssSize * 0.078;
   const grid = (cssSize - pad * 2) / (engine.size - 1);
   return { cssSize, pad, grid };
 }
@@ -192,6 +192,23 @@ function draw() {
     ctx.arc(pad + x * grid, pad + y * grid, Math.max(2.2, grid * 0.1), 0, Math.PI * 2);
     ctx.fill();
   }
+
+  const GO_FILES = "ABCDEFGHJKLMNOPQRST";
+  ctx.save();
+  ctx.fillStyle = "rgba(50, 32, 16, 0.78)";
+  ctx.font = `600 ${Math.max(10, grid * 0.28)}px "Noto Serif SC", serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (let i = 0; i < engine.size; i++) {
+    const p = pad + i * grid;
+    const letter = GO_FILES[i] || String(i + 1);
+    const rank = String(engine.size - i);
+    ctx.fillText(letter, p, pad * 0.42);
+    ctx.fillText(letter, p, cssSize - pad * 0.42);
+    ctx.fillText(rank, pad * 0.4, p);
+    ctx.fillText(rank, cssSize - pad * 0.4, p);
+  }
+  ctx.restore();
 
   const r = stoneRadius(grid);
   for (let y = 0; y < engine.size; y++) {

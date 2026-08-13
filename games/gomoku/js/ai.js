@@ -5,6 +5,7 @@ import {
   cloneBoard,
   opponent,
   hasNeighbor,
+  isForbidden,
 } from "./engine.js";
 
 /**
@@ -81,16 +82,16 @@ function countWins(board, color) {
 const ATTACK = [0, 220, 420, 2100, 20000];
 const DEFEND = [0, 200, 400, 2000, 10000];
 
-function scoreCell(board, x, y, meTallies, oppTallies, me, opp) {
+function scoreCell(board, x, y, meTallies, oppTallies, me, opp, opts = {}) {
   if (board[y][x] !== EMPTY) return -1;
 
   board[y][x] = me;
-  if (isWin(board, x, y, me)) {
+  if (isWin(board, x, y, me, opts)) {
     board[y][x] = EMPTY;
     return 1e9;
   }
   board[y][x] = opp;
-  if (isWin(board, x, y, opp)) {
+  if (isWin(board, x, y, opp, opts)) {
     board[y][x] = EMPTY;
     return 5e8;
   }
@@ -110,7 +111,7 @@ function scoreCell(board, x, y, meTallies, oppTallies, me, opp) {
   return attack + defend + center;
 }
 
-export function pickMove(board, color, difficulty = "normal") {
+export function pickMove(board, color, difficulty = "normal", opts = {}) {
   buildWins();
   const me = color;
   const opp = opponent(color);
@@ -133,8 +134,9 @@ export function pickMove(board, color, difficulty = "normal") {
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
       if (board[y][x] !== EMPTY) continue;
+      if (opts.renju && isForbidden(board, x, y, me, opts)) continue;
       if (!hasNeighbor(board, x, y, 2)) continue;
-      const score = scoreCell(board, x, y, meTallies, oppTallies, me, opp);
+      const score = scoreCell(board, x, y, meTallies, oppTallies, me, opp, opts);
       candidates.push({ x, y, score });
     }
   }
@@ -142,7 +144,9 @@ export function pickMove(board, color, difficulty = "normal") {
   if (!candidates.length) {
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
-        if (board[y][x] === EMPTY) return { x, y };
+        if (board[y][x] !== EMPTY) continue;
+        if (opts.renju && isForbidden(board, x, y, me, opts)) continue;
+        return { x, y };
       }
     }
     return null;
@@ -162,7 +166,7 @@ export function pickMove(board, color, difficulty = "normal") {
   return candidates[0];
 }
 
-export function think(board, color, difficulty = "normal") {
+export function think(board, color, difficulty = "normal", opts = {}) {
   const b = cloneBoard(board);
-  return pickMove(b, color, difficulty);
+  return pickMove(b, color, difficulty, opts);
 }

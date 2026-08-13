@@ -12,6 +12,7 @@ import { buildVegetation } from './Vegetation';
 import { buildProps } from './Props';
 import { buildLabInterior } from './LabInterior';
 import { buildWildGrass } from './WildGrass';
+import { buildViridianGate } from './ViridianGate';
 import { buildBattleArena } from '../gameplay/battle/BattleScene';
 
 /**
@@ -76,6 +77,7 @@ export class World {
       ['摆放道具', buildProps],
       ['布置大木研究所', buildLabInterior],
       ['铺开草丛', buildWildGrass],
+      ['常青市入口', buildViridianGate],
       ['搭建对战场地', buildBattleArena],
     ];
 

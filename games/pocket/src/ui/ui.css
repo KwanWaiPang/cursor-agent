@@ -164,6 +164,43 @@
     visibility 0s linear 0s;
 }
 
+.pt-quest {
+  position: absolute;
+  left: clamp(12px, 2vw, 24px);
+  top: clamp(12px, 2vw, 22px);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  max-width: min(420px, 72vw);
+  padding: 8px 14px 8px 12px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(250, 243, 228, 0.94), rgba(240, 227, 200, 0.92));
+  box-shadow: var(--pt-shadow-soft);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 260ms var(--pt-ease), visibility 0s linear 280ms;
+}
+
+.pt-quest.is-on {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 240ms var(--pt-ease), visibility 0s linear 0s;
+}
+
+.pt-quest__k {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--pt-blue-deep);
+}
+
+.pt-quest__t {
+  font-size: clamp(12px, 0.95vw, 14px);
+  font-weight: 700;
+  color: var(--pt-ink);
+}
+
 /* ------------------------------------------------------------- key caps */
 
 .pt-key {
