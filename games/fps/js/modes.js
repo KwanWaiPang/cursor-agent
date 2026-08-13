@@ -125,7 +125,7 @@ function applyLoot(ctx, kind, hud, sfx) {
   if (kind === "health") {
     const result = ctx.player.takeMedkit?.(40);
     if (result === "stored") {
-      hud.toast(`收纳急救包 ×${ctx.player.medkits}（生命已满）`);
+      hud.toast(`收纳急救包 ×${ctx.player.medkits}（满血 · 按 F 使用）`);
     } else {
       hud.toast("使用急救包");
     }

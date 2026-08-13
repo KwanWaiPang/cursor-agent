@@ -201,6 +201,30 @@ function draw() {
     ctx.stroke();
   }
 
+  if (state.renju && !state.over && state.turn === BLACK) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(176, 36, 36, 0.55)";
+    ctx.lineWidth = Math.max(1.6, cell * 0.08);
+    ctx.lineCap = "round";
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (state.board[y][x] !== EMPTY) continue;
+        const reason = forbiddenReason(state.board, x, y, BLACK, ruleOpts());
+        if (!reason || reason === "occupied") continue;
+        const cx = pad + x * cell;
+        const cy = pad + y * cell;
+        const r = cell * 0.16;
+        ctx.beginPath();
+        ctx.moveTo(cx - r, cy - r);
+        ctx.lineTo(cx + r, cy + r);
+        ctx.moveTo(cx + r, cy - r);
+        ctx.lineTo(cx - r, cy + r);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
   canvas._geom = { pad, cell, css };
 }
 

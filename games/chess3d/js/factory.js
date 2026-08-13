@@ -77,39 +77,57 @@ function initPieceFactory () {
 		return mesh;
 	}
 
-	function makeLabelDisc(size, color, text) {
+	function makeLabelTexture(color, text) {
 		var canvas = document.createElement("canvas");
-		canvas.width = 128;
-		canvas.height = 128;
+		canvas.width = 256;
+		canvas.height = 256;
 		var ctx = canvas.getContext("2d");
-		ctx.clearRect(0, 0, 128, 128);
+		ctx.clearRect(0, 0, 256, 256);
 		ctx.beginPath();
-		ctx.arc(64, 64, 58, 0, Math.PI * 2);
+		ctx.arc(128, 128, 118, 0, Math.PI * 2);
 		ctx.fillStyle = color === WHITE ? "#f7f1e4" : "#1c1713";
 		ctx.fill();
-		ctx.lineWidth = 6;
+		ctx.lineWidth = 10;
 		ctx.strokeStyle = color === WHITE ? "#8a6a2b" : "#c9a45c";
 		ctx.stroke();
 		ctx.fillStyle = color === WHITE ? "#1a1512" : "#f5efe3";
-		ctx.font = "bold 56px 'Noto Serif SC','ZCOOL XiaoWei',serif";
+		ctx.font = "bold 132px 'Noto Serif SC','ZCOOL XiaoWei',serif";
 		ctx.textAlign = "center";
 		ctx.textBaseline = "middle";
-		ctx.fillText(text, 64, 68);
-
+		ctx.fillText(text, 128, 138);
 		var tex = new THREE.Texture(canvas);
 		tex.needsUpdate = true;
-		var mat = new THREE.MeshBasicMaterial({
+		return tex;
+	}
+
+	function makeLabelMaterial(tex) {
+		return new THREE.MeshBasicMaterial({
 			map: tex,
 			transparent: true,
-			depthWrite: false
+			depthWrite: false,
+			side: THREE.DoubleSide
 		});
+	}
+
+	function makeLabelDisc(size, color, text) {
 		var disc = new THREE.Mesh(
-			new THREE.PlaneGeometry(size * 0.42, size * 0.42),
-			mat
+			new THREE.PlaneGeometry(size * 0.62, size * 0.62),
+			makeLabelMaterial(makeLabelTexture(color, text))
 		);
 		disc.rotation.x = -Math.PI / 2;
 		disc.name = "label";
+		disc.renderOrder = 2;
 		return disc;
+	}
+
+	function makeFrontPlate(size, color, text) {
+		var plate = new THREE.Mesh(
+			new THREE.PlaneGeometry(size * 0.58, size * 0.58),
+			makeLabelMaterial(makeLabelTexture(color, text))
+		);
+		plate.name = "labelFront";
+		plate.renderOrder = 3;
+		return plate;
 	}
 
 	function buildBase(body, mat, accent, size) {
@@ -212,13 +230,18 @@ function initPieceFactory () {
 		var accent = makeAccentMaterial(color);
 		var body = new THREE.Object3D();
 		var builder = builders[name] || buildPawn;
-		builder(body, mat, accent, size, color);
+		var topY = builder(body, mat, accent, size, color);
+		var glyph = labels[name] || "?";
 
-		var label = makeLabelDisc(size, color, labels[name] || "?");
-		label.position.y = size * 0.155;
+		var label = makeLabelDisc(size, color, glyph);
+		label.position.y = topY + size * 0.04;
+
+		var front = makeFrontPlate(size, color, glyph);
+		front.position.y = Math.max(size * 0.52, topY * 0.48);
 
 		piece.add(body);
 		piece.add(label);
+		piece.add(front);
 		piece.name = name;
 		piece.color = color;
 		piece.bodyMaterial = mat;
@@ -571,4 +594,30 @@ function createSelectedMaterial() {
 		});
 	}
 
+}
+
+var lastMoveMaterial = null;
+function createLastMoveMaterial() {
+	lastMoveMaterial = [];
+	var tiling = 2;
+	var diff;
+	var norm = textures['texture/wood_N.jpg'].clone();
+	norm.tile(tiling);
+	var spec = textures['texture/wood_S.jpg'].clone();
+	spec.tile(tiling);
+
+	for (var c = 0; c < 2; c++) {
+		diff = textures['texture/wood-1.jpg'].clone();
+		diff.tile(tiling);
+		lastMoveMaterial[c] = new THREE.MeshPhongMaterial({
+			color: 0xffc14a,
+			emissive: 0x5a3a00,
+			specular: 0xffe08a,
+			shininess: 50.0,
+			wireframe: WIREFRAME,
+			map: diff,
+			specularMap: spec,
+			normalMap: norm
+		});
+	}
 }

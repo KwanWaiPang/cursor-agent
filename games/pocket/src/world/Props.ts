@@ -691,6 +691,95 @@ const ROUTE_SIGN_LINES = [
   '选好伙伴后再前进——冒险才刚刚开始！',
 ];
 
+/** Compact fingerpost used for encounter / lab wayfinding. */
+function buildWaySign(
+  ctx: GameContext,
+  kit: PropKit,
+  spec: {
+    id: string;
+    x: number;
+    z: number;
+    yaw: number;
+    title: string;
+    subtitle: string;
+    speaker: string;
+    lines: string[];
+    ink: number;
+  },
+): void {
+  const sx = spec.x;
+  const sz = spec.z;
+  const yaw = spec.yaw;
+  const g0 = ctx.collision.groundHeight(sx, sz);
+  const BW = 1.18;
+  const BH = 0.5;
+  const BT = 0.08;
+  const boardY = 1.08;
+
+  const root = new THREE.Object3D();
+  root.position.set(sx, g0, sz);
+  root.rotation.y = yaw;
+  root.updateMatrixWorld(true);
+
+  const local: { g: THREE.BufferGeometry; b: Bucket; c: number }[] = [];
+  const add = (g: THREE.BufferGeometry, b: Bucket, c: number, t: Xform) => {
+    local.push({ g: place(g, t), b, c });
+  };
+
+  add(rbox(0.12, 1.55, 0.12, 0.04, 2, 1.2), 'timber', C.wood, { y: 0.55 });
+  add(rbox(0.16, 0.07, 0.16, 0.03, 2, 1.4), 'timber', C.woodPale, { y: 1.34 });
+  add(rbox(BW, BH, BT, 0.03, 2, 1.1), 'timber', C.woodPale, { y: boardY, z: 0.04 });
+  const rock = noiseDisplace(new THREE.IcosahedronGeometry(0.16, 1), 0.05, 3.4, 91, 3);
+  rock.scale(1, 0.5, 1);
+  rock.deleteAttribute('uv');
+  rock.setAttribute('uv', boxProjectedUV(rock, 1.6));
+  add(rock, 'granite', C.stone, { y: 0.03, z: 0.08 });
+  kit.decal(sx, sz, 0.7, yaw, 0.72, 0xdcc9a8);
+
+  for (const { g, b, c } of local) {
+    g.applyMatrix4(root.matrixWorld);
+    kit.add(g, b, c);
+  }
+
+  const PW = BW - 0.1;
+  const PH = BH - 0.08;
+  const maps = carvedSignMaps(spec.id, {
+    title: spec.title,
+    subtitle: spec.subtitle,
+    aspect: PW / PH,
+    ink: spec.ink,
+    timber: 0xc59a68,
+  });
+  const panel = new THREE.PlaneGeometry(PW, PH, 120, 48);
+  place(panel, { y: boardY, z: BT / 2 + 0.05 });
+  panel.applyMatrix4(root.matrixWorld);
+  const panelMat = new THREE.MeshStandardMaterial({
+    map: maps.map,
+    normalMap: maps.normalMap,
+    roughnessMap: maps.roughnessMap,
+    displacementMap: maps.displacementMap,
+    displacementScale: 0.012,
+    roughness: 1,
+    metalness: 0,
+  });
+  const panelMesh = new THREE.Mesh(panel, panelMat);
+  panelMesh.name = `props.${spec.id}`;
+  panelMesh.castShadow = true;
+  panelMesh.receiveShadow = true;
+  kit.group.add(panelMesh);
+
+  ctx.collision.addBox(sx, sz, 0.62, 0.14, g0 - 0.4, g0 + 1.6, yaw, spec.id);
+  ctx.interaction.register({
+    id: spec.id,
+    position: new THREE.Vector3(sx, g0 + boardY, sz),
+    radius: 2.8,
+    label: '阅读路牌',
+    onInteract: () => {
+      ctx.events.emit(EVENTS.SAY, { speaker: spec.speaker, lines: spec.lines });
+    },
+  });
+}
+
 /** Route 1 fingerpost on the south approach out of town. */
 function buildRouteSign(ctx: GameContext, kit: PropKit): void {
   const sx = -3.35;
@@ -1532,6 +1621,36 @@ export function buildProps(ctx: GameContext): void {
   const { posts } = buildFences(ctx, kit);
   buildTownSign(ctx, kit);
   buildRouteSign(ctx, kit);
+  buildWaySign(ctx, kit, {
+    id: 'sign.tallgrass',
+    x: -5.4,
+    z: 18.9,
+    yaw: 1.15,
+    title: 'TALL GRASS',
+    subtitle: 'Wild encounters',
+    speaker: '高草路标',
+    lines: [
+      '高草 · 遇敌区域',
+      '走进路两侧的深草会遭遇野生宝可梦。',
+      '沿中间土路可以安全通过。选好伙伴再前进！',
+    ],
+    ink: 0x2f5a3a,
+  });
+  buildWaySign(ctx, kit, {
+    id: 'sign.lab',
+    x: -5.15,
+    z: 3.85,
+    yaw: -0.62,
+    title: 'OAK LAB',
+    subtitle: 'This way →',
+    speaker: '研究所路标',
+    lines: [
+      '大木研究所',
+      '沿路向前，那栋红顶建筑就是研究所。',
+      '去找大木博士，选择你的御三家伙伴。',
+    ],
+    ink: 0x35506b,
+  });
   buildMailboxes(ctx, kit);
   buildDressing(ctx, kit);
   buildRocks(ctx, kit, posts);

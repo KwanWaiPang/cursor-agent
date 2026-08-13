@@ -61,6 +61,7 @@ export function createInitialState(opts) {
       bankrupt: false,
       isHuman,
       auto: false,
+      doubles: 0,
     });
   }
 
@@ -87,6 +88,8 @@ export function createInitialState(opts) {
     pendingDialog: null,
     /** 欠款待变卖凑钱：{ amount, creditorId, label, sideEffects? } */
     pendingDebt: null,
+    /** 掷出对子后保留回合 */
+    pendingExtraTurn: false,
   };
 }
 
@@ -126,6 +129,8 @@ export function advanceTurn(state, _guard = 0) {
     state.message = "等待下一位旅行者";
     return state;
   }
+  const leaving = currentPlayer(state);
+  if (leaving) leaving.doubles = 0;
   const next = nextAliveTurn(state, state.turn);
   if (next <= state.turn) state.day += 1;
   state.turn = next;
@@ -185,6 +190,24 @@ export function rollDicePair() {
 export function applyDiceMove(state, pair) {
   state.lastDiceA = pair.a;
   state.lastDiceB = pair.b;
+  const player = currentPlayer(state);
+  player.doubles = player.doubles || 0;
+  const isDouble = pair.a === pair.b;
+  if (isDouble) player.doubles += 1;
+  else player.doubles = 0;
+
+  if (isDouble && player.doubles >= 3) {
+    player.doubles = 0;
+    state.pendingExtraTurn = false;
+    player.position = 10;
+    player.stop = Math.max(player.stop || 0, 2);
+    state.phase = "event";
+    state.message = `${player.name} 连续三次掷出对子，强制暂停`;
+    pushLog(state, state.message);
+    return finishEvent(state);
+  }
+
+  state.pendingExtraTurn = isDouble;
   return applyMove(state, pair.sum);
 }
 
@@ -228,6 +251,8 @@ function resolveLanding(state) {
     case "gotojail": {
       player.position = 10;
       player.stop = rand(1, 3);
+      state.pendingExtraTurn = false;
+      player.doubles = 0;
       state.message = `${player.name} 强制暂停 ${player.stop} 天`;
       pushLog(state, state.message);
       return finishEvent(state);
@@ -501,6 +526,43 @@ export function autoRaiseFunds(state) {
 
 export { listBankSellActions };
 
+function playerAuctionCap(p, cell) {
+  const reserve = p.isHuman ? 800 : 1800;
+  const ratio = p.isHuman ? 0.72 : 0.92;
+  return Math.min(p.money - reserve, Math.floor((cell.value || 0) * ratio));
+}
+
+/** 拒买后进入简易拍卖：电脑（及其他可出价玩家）加价竞拍。 */
+function runAuction(state, cell, skipId) {
+  if (!cell || cell.owner != null) return finishEvent(state);
+  let bid = Math.max(50, Math.floor((cell.value || 0) * 0.15));
+  let winner = null;
+  for (let round = 0; round < 8; round++) {
+    let raised = false;
+    for (let i = 0; i < state.players.length; i++) {
+      const p = state.players[i];
+      if (!p || p.bankrupt || p.id === skipId) continue;
+      const cap = playerAuctionCap(p, cell);
+      if (cap < bid + 50) continue;
+      bid = Math.min(cap, bid + 50 + rand(0, 150));
+      winner = p;
+      raised = true;
+    }
+    if (!raised) break;
+  }
+  if (!winner) {
+    state.message = `「${cell.name}」流拍，暂无买家`;
+    pushLog(state, state.message);
+    return finishEvent(state);
+  }
+  winner.money -= bid;
+  cell.owner = winner.id;
+  cell.level = 0;
+  state.message = `${winner.name} 以 $${bid} 拍得「${cell.name}」`;
+  pushLog(state, state.message);
+  return finishEvent(state);
+}
+
 export function confirmDialog(state, yes) {
   const dlg = state.pendingDialog;
   state.pendingDialog = null;
@@ -510,6 +572,11 @@ export function confirmDialog(state, yes) {
   const cell = state.cells[dlg.cellIndex];
 
   if (!yes) {
+    if (dlg.kind === "buy") {
+      state.message = `${player.name} 放弃购买，「${cell.name}」进入拍卖`;
+      pushLog(state, state.message);
+      return runAuction(state, cell, player.id);
+    }
     state.message = `${player.name} 放弃了操作`;
     pushLog(state, state.message);
     return finishEvent(state);
@@ -557,6 +624,17 @@ function afterMoneyChange(state) {
 function finishEvent(state) {
   checkBankrupt(state);
   if (state.phase === "ended") return state;
+  const p = currentPlayer(state);
+  if (state.pendingExtraTurn && p && !p.bankrupt && (p.stop || 0) <= 0) {
+    state.pendingExtraTurn = false;
+    state.phase = "ready";
+    state.pendingDialog = null;
+    state.pendingDebt = null;
+    state.message = `${p.name} 掷出对子，再掷一次`;
+    pushLog(state, state.message);
+    return state;
+  }
+  state.pendingExtraTurn = false;
   return advanceTurn(state);
 }
 

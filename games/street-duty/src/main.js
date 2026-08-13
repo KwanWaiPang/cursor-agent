@@ -148,7 +148,7 @@ const enter = () => {
     // Hostiles open at the far end of the street (player at the near end).
     const wave =
       q === 'low' ? { n: 1, minD: 40, maxD: 52, minAlive: 1, waveSize: 1, cooldown: 16 }
-        : q === 'medium' ? { n: 2, minD: 42, maxD: 55, minAlive: 1, waveSize: 1, cooldown: 13 }
+        : q === 'medium' ? { n: 3, minD: 42, maxD: 55, minAlive: 2, waveSize: 2, cooldown: 12 }
           : { n: 5, minD: 40, maxD: 58, minAlive: 3, waveSize: 3, cooldown: 11 };
     spawnAllyFireteam(engine, 2);
     spawnAssaultWave(engine, wave.n, wave.minD, wave.maxD);

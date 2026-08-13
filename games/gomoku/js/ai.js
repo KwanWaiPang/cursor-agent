@@ -163,7 +163,56 @@ export function pickMove(board, color, difficulty = "normal", opts = {}) {
     const pool = candidates.filter((c) => c.score >= top * 0.85).slice(0, 4);
     return pool[Math.floor(Math.random() * pool.length)];
   }
-  return candidates[0];
+  return pickHardMove(board, me, opp, candidates, opts);
+}
+
+function findImmediateWin(board, color, opts) {
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (board[y][x] !== EMPTY) continue;
+      if (opts.renju && isForbidden(board, x, y, color, opts)) continue;
+      board[y][x] = color;
+      const win = isWin(board, x, y, color, opts);
+      board[y][x] = EMPTY;
+      if (win) return { x, y };
+    }
+  }
+  return null;
+}
+
+function pickHardMove(board, me, opp, candidates, opts) {
+  const topN = candidates.slice(0, Math.min(10, candidates.length));
+  let best = topN[0];
+  let bestV = -Infinity;
+  for (const c of topN) {
+    let v = c.score;
+    if (v >= 1e9) return c;
+    board[c.y][c.x] = me;
+    const oppWin = findImmediateWin(board, opp, opts);
+    if (oppWin) {
+      v -= 4.5e8;
+    } else {
+      const oppTall = countWins(board, opp);
+      const meTall = countWins(board, me);
+      let oppBest = 0;
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          if (board[y][x] !== EMPTY) continue;
+          if (!hasNeighbor(board, x, y, 2)) continue;
+          if (opts.renju && isForbidden(board, x, y, opp, opts)) continue;
+          const s = scoreCell(board, x, y, oppTall, meTall, opp, me, opts);
+          if (s > oppBest) oppBest = s;
+        }
+      }
+      v -= oppBest * 0.42;
+    }
+    board[c.y][c.x] = EMPTY;
+    if (v > bestV) {
+      bestV = v;
+      best = c;
+    }
+  }
+  return best;
 }
 
 export function think(board, color, difficulty = "normal", opts = {}) {

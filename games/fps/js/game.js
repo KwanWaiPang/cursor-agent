@@ -205,6 +205,13 @@ export class Game {
   onLock() {
     this.paused = false;
     document.getElementById("pause")?.classList.add("hidden");
+    if (!this._hintShown) {
+      this._hintShown = true;
+      const hint = document.getElementById("controlHint");
+      hint?.classList.add("show");
+      this.hud.toast?.("R 换弹 · 右键开镜 · H 支援 · F 急救 · 1–5 切枪");
+      window.setTimeout(() => hint?.classList.remove("show"), 7000);
+    }
   }
 
   onUnlock() {
@@ -490,6 +497,12 @@ export class Game {
       }
       if (this.player.consumeHelpRequest?.()) {
         this.callForHelp();
+      }
+      if (this.player.consumeMedkitRequest?.()) {
+        const used = this.player.tryUseMedkit?.(40);
+        if (used === "used") this.hud.toast?.("使用急救包");
+        else if (used === "full") this.hud.toast?.("生命已满");
+        else this.hud.toast?.("没有急救包");
       }
       // 空仓自动换弹
       if (!this.loadout.reloading && this.loadout.mag <= 0 && this.loadout.reserve > 0) {

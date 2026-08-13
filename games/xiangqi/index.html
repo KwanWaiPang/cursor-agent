@@ -49,7 +49,7 @@
               <span id="phaseBadge" class="badge">菜单</span>
             </div>
             <div class="meta">
-              <div>红方先手 · 本地 AI 对弈</div>
+              <div id="modeMeta">红方先手 · 本地 AI 对弈</div>
             </div>
             <div id="message" class="message info">红先 · 普通难度人机对局已开始</div>
           </section>
@@ -65,8 +65,13 @@
 
           <section class="card" id="menuBox">
             <h2>新对局</h2>
+            <div id="playingBox" class="playing-box" hidden>
+              <p id="playingSummary" class="hint">对局进行中</p>
+              <button type="button" class="menu-link secondary" id="changeModeBtn">更换模式 / 难度</button>
+            </div>
             <div class="menu_init" id="indexBox">
               <button type="button" class="menu-link" id="indexDy">人机对弈</button>
+              <button type="button" class="menu-link" id="indexHh">人人对弈</button>
               <button type="button" class="menu-link" id="indexQj">挑战棋局</button>
               <button type="button" class="menu-link secondary" id="stypeBtn">更换皮肤</button>
             </div>
@@ -77,6 +82,9 @@
                 <label><input name="depth" type="radio" value="2" /> 入门水平</label>
                 <label><input name="depth" type="radio" value="3" checked /> 普通水平</label>
                 <label><input name="depth" type="radio" value="4" /> 进阶水平</label>
+                <div class="field-title" style="margin-top:0.65rem">你的执色</div>
+                <label><input name="humanColor" type="radio" value="1" checked /> 红（先手）</label>
+                <label><input name="humanColor" type="radio" value="-1" /> 黑（后手）</label>
               </div>
               <div class="controls" style="grid-template-columns: 1fr">
                 <button type="button" class="menu-link" id="playBtn">开始对弈</button>
@@ -100,8 +108,8 @@
             <h2>规则说明</h2>
             <ul class="help">
               <li>红先黑后，按中国象棋规则行棋。</li>
-              <li>人机对弈可选难度；亦可挑战经典残局。</li>
-              <li>对局中可悔棋、重开或返回菜单换模式。</li>
+              <li>人机对弈可选执红/执黑与难度；亦可人人轮流，或挑战残局。</li>
+              <li>对局中可悔棋、重开或更换模式。</li>
               <li>「更换皮肤」可切换棋盘与棋子样式。</li>
             </ul>
           </section>

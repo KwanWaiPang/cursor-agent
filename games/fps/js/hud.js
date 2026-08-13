@@ -183,6 +183,11 @@ export function createHud() {
             (owned ? "" : " empty") +
             (id === arsenal.activeId ? " active" : "");
           btn.dataset.id = id;
+          btn.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            window.__FPS_GAME__?.trySelectWeapon?.(id);
+          });
           if (owned) {
             btn.innerHTML = `<span class="slot-key">${i + 1}</span><span class="slot-name">${SLOT_NAMES[id]}</span><span class="slot-ammo">${lo.mag}/${lo.reserve}</span>`;
           } else {

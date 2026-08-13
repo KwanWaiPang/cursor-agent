@@ -70,8 +70,10 @@
             </div>
           </section>
 
-          <section class="card">
-            <h2>新对局</h2>
+          <section class="card setup-card">
+            <details id="setupDetails" open>
+              <summary>新对局</summary>
+            <div id="setupBody">
             <div class="field">
               <label for="playerName">你的名字</label>
               <input id="playerName" type="text" maxlength="12" value="旅行者" autocomplete="nickname" />
@@ -105,6 +107,8 @@
             <div class="controls" style="grid-template-columns: 1fr">
               <button id="btnNew" type="button">开始新对局</button>
             </div>
+            </div>
+            </details>
           </section>
 
           <section class="card">
@@ -116,8 +120,8 @@
             <h2>规则说明</h2>
             <ul class="help">
               <li>实体棋「世界之旅」式环线：国旗地产、色带分组、火车站与公用事业。</li>
-              <li>路过起点领取 $2000；空地/车站/水电可购买，国家地产可盖房；集齐同色时该组空地租金×2。</li>
-              <li>每次掷 <b>两枚骰子</b>，点数相加前进；带翻滚动画。</li>
+              <li>路过起点领取 $2000；空地/车站/水电可购买，拒买则进入拍卖；国家地产可盖房；集齐同色时该组空地租金×2。</li>
+              <li>每次掷 <b>两枚骰子</b>，点数相加前进；带翻滚动画。掷出对子可再掷一次，连续三次对子则强制暂停。</li>
               <li>玩家以不同外形的彩色棋子显示；当前回合在侧栏高亮。</li>
               <li>己方回合可与他人交易产业或现金；电脑按产业价值粗略评估是否接受。</li>
               <li>点击地产 / 车站 / 水电可查看地契卡。</li>

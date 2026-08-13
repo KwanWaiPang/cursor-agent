@@ -11,8 +11,9 @@ import {
   isHQ,
   hasMovable,
   CAMPS,
-  canSwapDeploy,
-  swapDeploy,
+  canMoveDeploy,
+  moveDeploy,
+  cloneBoard,
 } from "./engine.js";
 import { think } from "./ai.js";
 
@@ -27,7 +28,7 @@ const combatLog = document.getElementById("combatLog");
 const btnNew = document.getElementById("btnNew");
 const btnRedeploy = document.getElementById("btnRedeploy");
 const btnStart = document.getElementById("btnStart");
-const btnResign = document.getElementById("btnResign");
+const btnUndo = document.getElementById("btnUndo");
 const difficultySelect = document.getElementById("difficultySelect");
 const clickAudio = document.getElementById("clickAudio");
 const selectAudio = document.getElementById("selectAudio");
@@ -43,6 +44,8 @@ const state = {
   busy: false,
   difficulty: "normal",
   swapFrom: null,
+  lastMove: null,
+  history: [],
 };
 
 function play(a) {
@@ -84,6 +87,8 @@ function newGame() {
   state.busy = false;
   state.log = [];
   state.swapFrom = null;
+  state.lastMove = null;
+  state.history = [];
   state.difficulty = difficultySelect?.value || "normal";
   combatLog.innerHTML = "尚无交锋";
   resultEl.textContent = "";
@@ -373,12 +378,25 @@ function draw() {
     const [r, c] = m.to;
     const { x, y } = nodeXY(r, c, geom);
     ctx.beginPath();
-    ctx.fillStyle = m.attack ? "rgba(220,38,38,0.4)" : "rgba(14,165,233,0.4)";
-    ctx.strokeStyle = m.attack ? "#b91c1c" : "#0284c7";
-    ctx.lineWidth = 2.5;
-    ctx.arc(x, y, Math.min(geom.cw, geom.ch) * 0.22, 0, Math.PI * 2);
+    ctx.fillStyle = m.attack ? "rgba(220,38,38,0.55)" : "rgba(14,165,233,0.55)";
+    ctx.strokeStyle = m.attack ? "#b91c1c" : "#0369a1";
+    ctx.lineWidth = 3.2;
+    ctx.arc(x, y, Math.min(geom.cw, geom.ch) * 0.34, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+  }
+
+  if (state.lastMove) {
+    const { from, to } = state.lastMove;
+    for (const pos of [from, to]) {
+      if (!pos) continue;
+      const { x, y } = nodeXY(pos[0], pos[1], geom);
+      ctx.beginPath();
+      ctx.strokeStyle = "#ca8a04";
+      ctx.lineWidth = 3;
+      ctx.arc(x, y, Math.min(geom.cw, geom.ch) * 0.42, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
 
   for (let r = 0; r < ROWS; r++) {
@@ -459,7 +477,44 @@ function selectPiece(r, c) {
   draw();
 }
 
+function pushHistory() {
+  state.history.push({
+    board: cloneBoard(state.board),
+    turn: state.turn,
+    log: state.log.slice(),
+    lastMove: state.lastMove ? { from: [...state.lastMove.from], to: [...state.lastMove.to] } : null,
+  });
+  if (state.history.length > 80) state.history.shift();
+}
+
+function undoMove() {
+  if (state.phase !== "play" || state.busy) {
+    setMsg("现在不能悔棋", true);
+    return;
+  }
+  if (!state.history.length) {
+    setMsg("没有可悔的棋", true);
+    return;
+  }
+  const snap = state.history.pop();
+  state.board = snap.board;
+  state.turn = snap.turn;
+  state.log = snap.log;
+  state.lastMove = snap.lastMove;
+  state.selected = null;
+  state.legal = [];
+  state.winner = null;
+  combatLog.innerHTML = state.log.map((l) => `<div>${l}</div>`).join("") || "尚无交锋";
+  updatePhaseUi(
+    state.turn === SIDE.SOUTH ? "南方（你）行动" : "北方（AI）行动",
+    "对局中"
+  );
+  setMsg("已悔棋");
+  draw();
+}
+
 function doMove(move, byAi = false) {
+  if (!byAi) pushHistory();
   const [fr, fc] = move.from;
   const atk = state.board[fr][fc];
   const def = state.board[move.to[0]][move.to[1]];
@@ -467,6 +522,7 @@ function doMove(move, byAi = false) {
   state.board = board;
   state.selected = null;
   state.legal = [];
+  state.lastMove = { from: [...move.from], to: [...move.to] };
 
   if (combat) {
     // 暗棋战报：只报结果，不公布敌子兵种
@@ -568,13 +624,13 @@ let lastTouchAt = 0;
 
 function onDeployPointer(r, c) {
   const p = state.board[r][c];
-  if (!p || p.side !== SIDE.SOUTH) {
-    setMsg("请点己方（南）棋子进行交换", true);
-    return;
-  }
   if (!state.swapFrom) {
+    if (!p || p.side !== SIDE.SOUTH) {
+      setMsg("请先点己方（南）棋子", true);
+      return;
+    }
     state.swapFrom = [r, c];
-    setMsg(`已选 ${p.name}，再点另一枚己方棋交换`);
+    setMsg(`已选 ${p.name}，再点另一枚交换，或点空位放置`);
     draw();
     return;
   }
@@ -585,13 +641,14 @@ function onDeployPointer(r, c) {
     draw();
     return;
   }
-  if (!canSwapDeploy(state.board, [fr, fc], [r, c], SIDE.SOUTH)) {
-    setMsg("这两枚不能换：军旗须留大本营，地雷须在最后两排，炸弹不能上最前排", true);
+  if (!canMoveDeploy(state.board, [fr, fc], [r, c], SIDE.SOUTH)) {
+    setMsg("不能放到这里：军旗须留大本营，地雷须在最后两排，炸弹不能上最前排，行营不能布子", true);
     return;
   }
-  swapDeploy(state.board, [fr, fc], [r, c], SIDE.SOUTH);
+  const fromName = state.board[fr][fc]?.name || "棋";
+  moveDeploy(state.board, [fr, fc], [r, c], SIDE.SOUTH);
   state.swapFrom = null;
-  setMsg(`已交换 ${p.name}。可继续微调，或点「确认开局」。`);
+  setMsg(`已调整 ${fromName}。可继续微调，或点「确认开局」。`);
   draw();
   play(clickAudio);
 }
@@ -657,6 +714,7 @@ btnResign.addEventListener("click", () => {
   if (state.phase !== "play") return;
   endGame(SIDE.NORTH, "你已认输");
 });
+btnUndo?.addEventListener("click", undoMove);
 window.addEventListener("resize", draw);
 
 newGame();

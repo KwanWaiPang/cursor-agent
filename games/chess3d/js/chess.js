@@ -5,7 +5,7 @@
 /* global LOADING_BAR_SCALE,ROWS,COLS,PIECE_SIZE, BOARD_SIZE, FLOOR_SIZE, WIREFRAME, DEBUG, Cell, WHITE, BLACK, FEEDBACK, SHADOW */
 /* global textures, geometries, removeLoader */
 /* global initGUI, initInfo, addToPGN, displayCheck, newGame */
-/* global initPieceFactory,initCellFactory,createCell,createPiece,createChessBoard, createFloor, createValidCellMaterial,createSelectedMaterial, validCellMaterial, selectedMaterial, selectedPieceMaterial */
+/* global initPieceFactory,initCellFactory,createCell,createPiece,createChessBoard, createFloor, createValidCellMaterial,createSelectedMaterial,createLastMoveMaterial, validCellMaterial, selectedMaterial, selectedPieceMaterial, lastMoveMaterial */
 	/*global Search,FormatSquare,GenerateMove,MakeMove,GetMoveSAN,MakeSquare,UnmakeMove, FormatMove, ResetGame, GetFen, GetMoveFromString, alert, InitializeFromFen, GenerateValidMoves */
 	/*global g_inCheck,g_board,g_pieceList, g_toMove, g_timeout:true,g_maxply:true */
 	/*global moveflagCastleKing, moveflagCastleQueen, moveflagEPC, moveflagPromotion, colorWhite*/
@@ -178,10 +178,12 @@ var levels = [
 
 		createValidCellMaterial();
 		createSelectedMaterial();
+		createLastMoveMaterial();
 
 		// picking event
 		document.addEventListener( 'mousedown', onDocumentMouseDown, false );
 		document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+		document.addEventListener( 'touchstart', onDocumentTouchStart, false );
 
 		// avoid stretching
 		window.addEventListener('resize',onResize,false);
@@ -206,7 +208,22 @@ var levels = [
 	function render() {
 		var delta = clock.getDelta();
 		cameraControls.update(delta);
+		updateLabelBillboards();
 		renderer.render(scene, camera);
+	}
+
+	function updateLabelBillboards() {
+		if (!board3D) return;
+		board3D.forEach(function (piece) {
+			if (!piece) return;
+			var i, child;
+			for (i = 0; i < piece.children.length; i++) {
+				child = piece.children[i];
+				if (child && child.name === "labelFront") {
+					child.lookAt(camera.position);
+				}
+			}
+		});
 	}
 
 
@@ -434,9 +451,13 @@ var levels = [
 
 	function redrawBoard() {
 		validMoves = GenerateValidMoves();
+		selectedPiece = null;
+		resetAllSquarePaints();
 		clearBoard();
 		updateBoard3D();
 		fillBoard();
+		syncLastMoveFromHistory();
+		paintLastMoveSquares();
 		displayCheck();
 	}
 
@@ -463,7 +484,7 @@ var levels = [
 		var highlight = selectedPieceMaterial && selectedPieceMaterial[piece.color];
 		piece.traverse(function (obj) {
 			if (!(obj instanceof THREE.Mesh)) return;
-			if (obj.name === "label") return;
+			if (obj.name === "label" || obj.name === "labelFront") return;
 			if (on) {
 				if (!obj.userData) obj.userData = {};
 				if (!obj.userData.baseMaterial) {
@@ -552,6 +573,93 @@ var levels = [
 		return projector.pickingRay(mouseVector.clone(), camera);
 	}
 
+	var lastMoveFrom = null;
+	var lastMoveTo = null;
+	var highlightedSquares = [];
+
+	function getBoardSquare(name) {
+		if (!chessBoard || !name) return null;
+		var i, child;
+		for (i = 0; i < chessBoard.children.length; i++) {
+			child = chessBoard.children[i];
+			if (child && child.name === name) return child;
+		}
+		return null;
+	}
+
+	function rememberWood(mesh) {
+		if (mesh && !mesh.baseWoodMaterial) {
+			mesh.baseWoodMaterial = mesh.material;
+		}
+	}
+
+	function restoreSquare(mesh) {
+		if (!mesh) return;
+		if ((lastMoveFrom === mesh.name || lastMoveTo === mesh.name) && lastMoveMaterial) {
+			mesh.material = lastMoveMaterial[mesh.color];
+		} else if (mesh.baseWoodMaterial) {
+			mesh.material = mesh.baseWoodMaterial;
+		}
+	}
+
+	function resetAllSquarePaints() {
+		if (!chessBoard) return;
+		var i, mesh;
+		for (i = 0; i < chessBoard.children.length; i++) {
+			mesh = chessBoard.children[i];
+			if (!mesh || typeof mesh.name !== "string" || !/^[a-h][1-8]$/.test(mesh.name)) continue;
+			if (mesh.baseWoodMaterial) mesh.material = mesh.baseWoodMaterial;
+		}
+		highlightedSquares = [];
+		selectedCell = null;
+	}
+
+	function clearMoveHighlights() {
+		highlightedSquares.forEach(restoreSquare);
+		highlightedSquares = [];
+		selectedCell = null;
+	}
+
+	function syncLastMoveFromHistory() {
+		if (!g_allMoves || !g_allMoves.length) {
+			lastMoveFrom = null;
+			lastMoveTo = null;
+			return;
+		}
+		var move = g_allMoves[g_allMoves.length - 1];
+		lastMoveFrom = FormatSquare(move & 0xFF);
+		lastMoveTo = FormatSquare((move >> 8) & 0xFF);
+	}
+
+	function paintLastMoveSquares() {
+		var names = [lastMoveFrom, lastMoveTo];
+		var i, mesh;
+		for (i = 0; i < names.length; i++) {
+			mesh = getBoardSquare(names[i]);
+			if (!mesh || !lastMoveMaterial) continue;
+			rememberWood(mesh);
+			mesh.material = lastMoveMaterial[mesh.color];
+		}
+	}
+
+	function highlightValidForPiece(piece) {
+		clearMoveHighlights();
+		paintLastMoveSquares();
+		if (!piece || !validMoves) return;
+		var start = new Cell(piece.cell);
+		var startSq = MakeSquare(start.y, start.x);
+		var i, endName, mesh;
+		for (i = 0; i < validMoves.length; i++) {
+			if ((validMoves[i] & 0xFF) !== startSq) continue;
+			endName = FormatSquare((validMoves[i] >> 8) & 0xFF);
+			mesh = getBoardSquare(endName);
+			if (!mesh || !validCellMaterial) continue;
+			rememberWood(mesh);
+			mesh.material = validCellMaterial[mesh.color];
+			highlightedSquares.push(mesh);
+		}
+	}
+
 	function onDocumentMouseMove( event ) {
 		if (isUiEventTarget(event.target)) return;
 
@@ -559,53 +667,39 @@ var levels = [
 		var raycaster   = getRay(event);
 		var pickedPiece = pickPiece(raycaster);
 		var pickedCell  = pickCell(raycaster);
-
+		var end = cellFromPicked(pickedCell);
 
 		canvas.style.cursor = "default";
-		// we are over one of our piece -> hand
 		if (pickedPiece !== null) {
 			canvas.style.cursor = "pointer";
+			return;
 		}
-
-		// if a cell is selected, we unselect it by default
-		if (selectedCell !== null) {
-			selectedCell.material = selectedCell.baseMaterial;
-			selectedCell = null;
-		}
-
-		// if a piece is selected and a cell is picked
-		if(selectedPiece !== null && pickedCell !== null) {
+		if (selectedPiece !== null && end !== null && validMoves) {
 			var start = new Cell(selectedPiece.cell);
-			var end   = cellFromPicked(pickedCell);
-			if (!end || !validMoves) return;
-
-			var move = null;
-			// we check if it would be a valid move
-			for (var i = 0; i < validMoves.length; i++) {
-				if ( (validMoves[i] & 0xFF)       == MakeSquare(start.y, start.x) &&
-					((validMoves[i] >> 8) & 0xFF) == MakeSquare(end.y, end.x)
-					) {
-					move = validMoves[i];
-					break;
+			var i;
+			for (i = 0; i < validMoves.length; i++) {
+				if ((validMoves[i] & 0xFF) === MakeSquare(start.y, start.x) &&
+					((validMoves[i] >> 8) & 0xFF) === MakeSquare(end.y, end.x)) {
+					canvas.style.cursor = "pointer";
+					return;
 				}
 			}
-
-			// then if a piece was clicked and we are on a valide cell
-			// we highlight it and display a hand cursor
-			if (move !== null) {
-				selectedCell = pickedCell;
-				selectedCell.baseMaterial = selectedCell.material;
-				selectedCell.material = validCellMaterial[selectedCell.color];
-				canvas.style.cursor = "pointer";
-			}
 		}
+	}
 
+	function onDocumentTouchStart(event) {
+		if (isUiEventTarget(event.target)) return;
+		if (!event.touches || !event.touches.length) return;
+		onDocumentMouseDown({
+			clientX: event.touches[0].clientX,
+			clientY: event.touches[0].clientY,
+			target: event.target
+		});
 	}
 
 	function onDocumentMouseDown( event ) {
 		if (isUiEventTarget(event.target)) return;
 
-		var canvas = renderer.domElement;
 		var raycaster = getRay(event);
 
 		var pickedPiece = pickPiece(raycaster);
@@ -614,24 +708,23 @@ var levels = [
 
 		if (selectedPiece !== null && endCell !== null) {
 			if(playMove(selectedPiece,pickedCell)) {
-				// a move is played, we reset everything
-				// any selectedPiece will disappear
-				// since we redraw everything
 				selectedPiece = null;
 				pickedPiece   = null;
 				pickedCell    = null;
+				return;
 			}
 		}
 
-		// when a click happen, any selected piece gets unselected
 		if (selectedPiece !== null) {
 			setPieceSelected(selectedPiece, false);
 		}
 
-		// then if a piece was clicked, we select it
 		selectedPiece = pickedPiece;
+		clearMoveHighlights();
+		paintLastMoveSquares();
 		if (selectedPiece !== null) {
 			setPieceSelected(selectedPiece, true);
+			highlightValidForPiece(selectedPiece);
 			playSfx("selectAudio");
 		}
 	}

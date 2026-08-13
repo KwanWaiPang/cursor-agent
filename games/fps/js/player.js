@@ -20,6 +20,7 @@ export class Player {
       leanR: false,
       reload: false,
       help: false,
+      medkit: false,
     };
     /** -1..1 smoothed lean (Q left / E right, hold) */
     this.leanAmount = 0;
@@ -86,6 +87,9 @@ export class Player {
         // 边沿：呼叫队友支援
         if (down && !this.keys.help) this.keys.help = true;
         break;
+      case "KeyF":
+        if (down && !this.keys.medkit) this.keys.medkit = true;
+        break;
       case "KeyR":
         // 边沿触发换弹
         if (down && !this.keys.reload) this.keys.reload = true;
@@ -117,6 +121,20 @@ export class Player {
     if (!this.keys.help) return false;
     this.keys.help = false;
     return true;
+  }
+
+  consumeMedkitRequest() {
+    if (!this.keys.medkit) return false;
+    this.keys.medkit = false;
+    return true;
+  }
+
+  tryUseMedkit(healAmount = 40) {
+    if (!this.alive || this.medkits <= 0) return "none";
+    if (this.hp >= this.maxHp - 0.5) return "full";
+    this.medkits -= 1;
+    this.heal(healAmount);
+    return "used";
   }
 
   consumeWeaponKey() {

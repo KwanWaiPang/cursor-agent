@@ -152,6 +152,15 @@ body.game-page {
   display: grid;
 }
 
+.playing-box {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.playing-box .hint {
+  margin: 0;
+}
+
 .menu-link {
   width: 100%;
   text-align: center;
@@ -239,6 +248,19 @@ body:not(.is-playing) #opsCard button {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (min-width: 901px) {
+  .board-wrap {
+    position: sticky;
+    top: 0.75rem;
+    align-self: start;
+    max-height: calc(100vh - 6.5rem);
+  }
+  .panel {
+    max-height: calc(100vh - 6.5rem);
+    overflow-y: auto;
   }
 }
 

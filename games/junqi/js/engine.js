@@ -507,6 +507,10 @@ export function findFlag(board, side) {
   return null;
 }
 
+export function cloneBoard(board) {
+  return board.map((row) => row.map((p) => (p ? { ...p } : null)));
+}
+
 export function pieceLegalAt(p, r, c, side) {
   if (!p || p.side !== side) return false;
   if (isCamp(r, c)) return false;
@@ -541,11 +545,19 @@ export function refreshDeployLocks(board, side) {
   }
 }
 
-export function swapDeploy(board, a, b, side) {
-  if (!canSwapDeploy(board, a, b, side)) return false;
-  const tmp = board[a[0]][a[1]];
-  board[a[0]][a[1]] = board[b[0]][b[1]];
-  board[b[0]][b[1]] = tmp;
+export function canMoveDeploy(board, from, to, side) {
+  const pa = board[from[0]][from[1]];
+  if (!pa || pa.side !== side) return false;
+  const pb = board[to[0]][to[1]];
+  if (pb) return canSwapDeploy(board, from, to, side);
+  return pieceLegalAt(pa, to[0], to[1], side);
+}
+
+export function moveDeploy(board, from, to, side) {
+  if (!canMoveDeploy(board, from, to, side)) return false;
+  if (board[to[0]][to[1]]) return swapDeploy(board, from, to, side);
+  board[to[0]][to[1]] = board[from[0]][from[1]];
+  board[from[0]][from[1]] = null;
   refreshDeployLocks(board, side);
   return true;
 }
