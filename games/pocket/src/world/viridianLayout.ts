@@ -46,3 +46,11 @@ export function inForestGrass(x: number, z: number): boolean {
   if (z < VIRIDIAN.forestZ0 || z > VIRIDIAN.forestZ1 || Math.abs(x) > 13.2) return false;
   return !onViridianPath(x, z, 2.05);
 }
+
+/**
+ * Trunks the player can walk into need colliders. The original Pallet box
+ * stopped at z < 27; the Viridian slice reaches playMaxZ.
+ */
+export function treeNeedsCollider(x: number, z: number): boolean {
+  return Math.abs(x) < 23 && z < VIRIDIAN.playMaxZ && z > -27;
+}

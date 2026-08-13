@@ -7,6 +7,7 @@
  * after the player clicks into the game.
  */
 import * as THREE from 'three';
+import { isTouchPlay } from './ui/touch.js';
 
 const VARIANTS = ['vanguard', 'breacher', 'irregular'];
 
@@ -98,7 +99,9 @@ export function installStreetObjectives(engine) {
   if (!ui || !ai) return;
   ui.banner?.show?.(
     '沿街推进',
-    'WASD移动 · 鼠标射击 · R换弹 · Z下蹲 · Q/E探头 · G手雷 · C卧倒 · V近战 · T手电 · Tab切枪 · 击退8人即胜',
+    isTouchPlay()
+      ? '左摇杆移动 · 右半屏瞄准 · 射/镜/跳/蹲 · 击退8人即胜'
+      : 'WASD移动 · 鼠标射击 · R换弹 · Z下蹲 · Q/E探头 · G手雷 · C卧倒 · V近战 · T手电 · Tab切枪 · 击退8人即胜',
     8.5
   );
   const refresh = () => {
