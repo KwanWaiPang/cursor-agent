@@ -89,6 +89,10 @@
                 </select>
               </div>
             </div>
+            <label class="check">
+              <input id="renjuCheck" type="checkbox" />
+              连珠禁手（黑棋禁三三 / 四四 / 长连）
+            </label>
             <div class="controls" style="grid-template-columns: 1fr">
               <button id="btnNew" type="button">开始新对局</button>
             </div>
@@ -98,9 +102,9 @@
             <h2>规则说明</h2>
             <ul class="help">
               <li>黑先白后，轮流在交叉点落子。</li>
-              <li>自由规则：先连成五子（或以上）者胜。</li>
-              <li>人机模式悔棋回退双方各一步；可撤销悔棋。</li>
-              <li>AI 采用赢法数组攻防评分（参考经典网页五子棋）。</li>
+              <li>默认自由规则：先连成五子（或以上）者胜；可勾选连珠禁手。</li>
+              <li>连珠禁手仅约束黑棋：三三、四四、长连（六子及以上）不得落子。</li>
+              <li>胜负时高亮五连。人机模式悔棋回退双方各一步；可撤销悔棋。</li>
             </ul>
           </section>
         </aside>

@@ -179,10 +179,46 @@ function makeTeamCharacter(team = "blue", weaponId = "rifle") {
   visor.userData.hitZone = "head";
   g.add(visor);
 
-  const pauldron = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.18), vest);
+  const pauldron = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.14, 0.22), vest);
   pauldron.position.set(0, 1.38, 0);
   pauldron.userData.hitZone = "body";
   g.add(pauldron);
+
+  const teamBright = mat(isRed ? 0xff3d3d : 0x40c4ff, { roughness: 0.45, metalness: 0.12 });
+  const flagL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.24), teamBright);
+  flagL.position.set(-0.3, 1.4, 0.02);
+  const flagR = flagL.clone();
+  flagR.position.x = 0.3;
+  flagL.userData.hitZone = flagR.userData.hitZone = "body";
+  g.add(flagL, flagR);
+
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.38, 0.18), vest);
+  pack.position.set(0, 1.14, -0.24);
+  pack.userData.hitZone = "body";
+  g.add(pack);
+  const packRoll = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.28, 8), accent);
+  packRoll.rotation.z = Math.PI / 2;
+  packRoll.position.set(0, 1.32, -0.28);
+  g.add(packRoll);
+
+  if (isRed) {
+    const crest = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.22), teamBright);
+    crest.position.set(0, 1.78, 0);
+    crest.userData.hitZone = "head";
+    g.add(crest);
+  } else {
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.04, 0.34), headCover);
+    brim.position.set(0, 1.48, 0.06);
+    brim.userData.hitZone = "head";
+    g.add(brim);
+    const goggles = new THREE.Mesh(
+      new THREE.BoxGeometry(0.28, 0.08, 0.1),
+      mat(0x80deea, { metalness: 0.55, roughness: 0.25 })
+    );
+    goggles.position.set(0, 1.56, 0.2);
+    goggles.userData.hitZone = "head";
+    g.add(goggles);
+  }
 
   const headHit = new THREE.Mesh(
     new THREE.SphereGeometry(0.3, 8, 8),
@@ -203,21 +239,33 @@ function makeTeamCharacter(team = "blue", weaponId = "rifle") {
   g.userData.team = team;
   g.userData.gun = gun;
 
-  // 红方描边：远处也好认，减少挡枪口误伤感
-  if (isRed) {
-    const outlineMat = new THREE.MeshBasicMaterial({
-      color: 0xff6b6b,
+  const outlineMat = new THREE.MeshBasicMaterial({
+    color: isRed ? 0xff5252 : 0x29b6f6,
+    side: THREE.BackSide,
+    transparent: true,
+    opacity: 0.62,
+    depthWrite: false,
+  });
+  const outline = new THREE.Mesh(new THREE.CapsuleGeometry(0.46, 1.08, 4, 10), outlineMat);
+  outline.position.y = 1.02;
+  outline.scale.set(1.32, 1.14, 1.32);
+  outline.renderOrder = 1;
+  g.add(outline);
+  g.userData.outline = outline;
+
+  const halo = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.4, 0.95, 4, 8),
+    new THREE.MeshBasicMaterial({
+      color: isRed ? 0xff8a80 : 0x81d4fa,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.16,
       depthWrite: false,
-    });
-    const outline = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 0.9, 4, 8), outlineMat);
-    outline.position.y = 1.05;
-    outline.scale.set(1.15, 1.05, 1.15);
-    outline.renderOrder = 1;
-    g.add(outline);
-    g.userData.outline = outline;
-  }
+    })
+  );
+  halo.position.y = 1.05;
+  halo.scale.set(1.2, 1.08, 1.2);
+  halo.renderOrder = 0;
+  g.add(halo);
 
   return g;
 }

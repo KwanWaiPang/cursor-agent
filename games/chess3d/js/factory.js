@@ -91,7 +91,7 @@ function initPieceFactory () {
 		ctx.strokeStyle = color === WHITE ? "#8a6a2b" : "#c9a45c";
 		ctx.stroke();
 		ctx.fillStyle = color === WHITE ? "#1a1512" : "#f5efe3";
-		ctx.font = "bold 72px 'Noto Serif SC','ZCOOL XiaoWei',serif";
+		ctx.font = "bold 56px 'Noto Serif SC','ZCOOL XiaoWei',serif";
 		ctx.textAlign = "center";
 		ctx.textBaseline = "middle";
 		ctx.fillText(text, 64, 68);
@@ -104,7 +104,7 @@ function initPieceFactory () {
 			depthWrite: false
 		});
 		var disc = new THREE.Mesh(
-			new THREE.PlaneGeometry(size * 0.72, size * 0.72),
+			new THREE.PlaneGeometry(size * 0.42, size * 0.42),
 			mat
 		);
 		disc.rotation.x = -Math.PI / 2;
@@ -119,73 +119,81 @@ function initPieceFactory () {
 
 	function buildPawn(body, mat, accent, size) {
 		buildBase(body, mat, accent, size);
-		addMesh(body, new THREE.CylinderGeometry(size * 0.18, size * 0.34, size * 0.55, 24), mat, size * 0.48);
-		addMesh(body, new THREE.SphereGeometry(size * 0.28, 24, 16), mat, size * 0.92);
-		return size * 1.22;
+		addMesh(body, new THREE.CylinderGeometry(size * 0.16, size * 0.28, size * 0.18, 20), accent, size * 0.24);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.12, size * 0.22, size * 0.48, 20), mat, size * 0.52);
+		addMesh(body, new THREE.SphereGeometry(size * 0.22, 24, 16), mat, size * 0.88);
+		return size * 1.12;
 	}
 
 	function buildRook(body, mat, accent, size) {
 		buildBase(body, mat, accent, size);
-		addMesh(body, new THREE.CylinderGeometry(size * 0.30, size * 0.36, size * 0.85, 24), mat, size * 0.62);
-		addMesh(body, new THREE.CylinderGeometry(size * 0.42, size * 0.42, size * 0.14, 24), accent, size * 1.12);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.28, size * 0.34, size * 0.92, 8), mat, size * 0.66);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.40, size * 0.40, size * 0.16, 8), accent, size * 1.16);
 		var i, tooth;
 		for (i = 0; i < 4; i++) {
-			tooth = addMesh(body, new THREE.CubeGeometry(size * 0.16, size * 0.22, size * 0.16), mat, size * 1.30);
-			tooth.position.x = Math.cos(i * Math.PI / 2) * size * 0.28;
-			tooth.position.z = Math.sin(i * Math.PI / 2) * size * 0.28;
+			tooth = addMesh(body, new THREE.CubeGeometry(size * 0.18, size * 0.28, size * 0.18), mat, size * 1.36);
+			tooth.position.x = Math.cos(i * Math.PI / 2) * size * 0.30;
+			tooth.position.z = Math.sin(i * Math.PI / 2) * size * 0.30;
 		}
-		return size * 1.48;
+		return size * 1.58;
 	}
 
 	function buildKnight(body, mat, accent, size, color) {
 		buildBase(body, mat, accent, size);
-		addMesh(body, new THREE.CylinderGeometry(size * 0.22, size * 0.34, size * 0.45, 20), mat, size * 0.42);
-		addMesh(body, new THREE.SphereGeometry(size * 0.30, 20, 14), mat, size * 0.72);
-		var neck = addMesh(body, new THREE.CylinderGeometry(size * 0.12, size * 0.24, size * 0.55, 16), mat, size * 1.05);
-		neck.rotation.z = (color === WHITE ? 1 : -1) * 0.35;
-		neck.position.x = (color === WHITE ? -1 : 1) * size * 0.08;
-		var head = addMesh(body, new THREE.CubeGeometry(size * 0.55, size * 0.28, size * 0.22), mat, size * 1.35);
-		head.position.x = (color === WHITE ? -1 : 1) * size * 0.18;
-		head.rotation.z = (color === WHITE ? 1 : -1) * 0.25;
-		var snout = addMesh(body, new THREE.CubeGeometry(size * 0.28, size * 0.16, size * 0.16), mat, size * 1.30);
-		snout.position.x = (color === WHITE ? -1 : 1) * size * 0.42;
-		var ear = addMesh(body, new THREE.CubeGeometry(size * 0.10, size * 0.22, size * 0.08), accent, size * 1.55);
-		ear.position.x = (color === WHITE ? -1 : 1) * size * 0.05;
-		return size * 1.72;
+		addMesh(body, new THREE.CylinderGeometry(size * 0.20, size * 0.32, size * 0.40, 16), mat, size * 0.40);
+		var chest = addMesh(body, new THREE.CubeGeometry(size * 0.28, size * 0.55, size * 0.36), mat, size * 0.78);
+		chest.rotation.z = (color === WHITE ? 1 : -1) * 0.18;
+		chest.position.x = (color === WHITE ? -1 : 1) * size * 0.04;
+		var neck = addMesh(body, new THREE.CylinderGeometry(size * 0.10, size * 0.20, size * 0.42, 12), mat, size * 1.12);
+		neck.rotation.z = (color === WHITE ? 1 : -1) * 0.55;
+		neck.position.x = (color === WHITE ? -1 : 1) * size * 0.10;
+		var head = addMesh(body, new THREE.CubeGeometry(size * 0.62, size * 0.26, size * 0.24), mat, size * 1.40);
+		head.position.x = (color === WHITE ? -1 : 1) * size * 0.22;
+		head.rotation.z = (color === WHITE ? 1 : -1) * 0.18;
+		var snout = addMesh(body, new THREE.CubeGeometry(size * 0.32, size * 0.14, size * 0.16), mat, size * 1.34);
+		snout.position.x = (color === WHITE ? -1 : 1) * size * 0.50;
+		var ear = addMesh(body, new THREE.CubeGeometry(size * 0.10, size * 0.28, size * 0.08), accent, size * 1.62);
+		ear.position.x = (color === WHITE ? -1 : 1) * size * 0.02;
+		var mane = addMesh(body, new THREE.CubeGeometry(size * 0.12, size * 0.34, size * 0.18), accent, size * 1.22);
+		mane.position.x = (color === WHITE ? 1 : -1) * size * 0.08;
+		return size * 1.78;
 	}
 
 	function buildBishop(body, mat, accent, size) {
 		buildBase(body, mat, accent, size);
-		addMesh(body, new THREE.CylinderGeometry(size * 0.16, size * 0.34, size * 0.95, 24), mat, size * 0.68);
-		addMesh(body, new THREE.CylinderGeometry(size * 0.28, size * 0.28, size * 0.08, 20), accent, size * 1.18);
-		addMesh(body, new THREE.SphereGeometry(size * 0.26, 20, 14), mat, size * 1.42, 1, 1.35, 1);
-		addMesh(body, new THREE.SphereGeometry(size * 0.10, 12, 10), accent, size * 1.78);
-		return size * 1.95;
+		addMesh(body, new THREE.CylinderGeometry(size * 0.14, size * 0.32, size * 1.05, 24), mat, size * 0.72);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.26, size * 0.26, size * 0.08, 20), accent, size * 1.26);
+		addMesh(body, new THREE.SphereGeometry(size * 0.24, 20, 14), mat, size * 1.50, 1, 1.45, 1);
+		var slit = addMesh(body, new THREE.CubeGeometry(size * 0.05, size * 0.28, size * 0.22), accent, size * 1.52);
+		slit.rotation.z = 0.15;
+		addMesh(body, new THREE.SphereGeometry(size * 0.09, 12, 10), accent, size * 1.88);
+		return size * 2.02;
 	}
 
 	function buildQueen(body, mat, accent, size) {
 		buildBase(body, mat, accent, size);
-		addMesh(body, new THREE.CylinderGeometry(size * 0.16, size * 0.36, size * 1.15, 24), mat, size * 0.78);
-		addMesh(body, new THREE.CylinderGeometry(size * 0.34, size * 0.34, size * 0.10, 24), accent, size * 1.40);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.15, size * 0.34, size * 1.22, 24), mat, size * 0.82);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.32, size * 0.32, size * 0.10, 24), accent, size * 1.48);
 		var i, tip;
-		for (i = 0; i < 5; i++) {
-			tip = addMesh(body, new THREE.SphereGeometry(size * 0.09, 12, 10), accent, size * 1.58);
-			tip.position.x = Math.cos(i * Math.PI * 2 / 5) * size * 0.22;
-			tip.position.z = Math.sin(i * Math.PI * 2 / 5) * size * 0.22;
+		for (i = 0; i < 8; i++) {
+			tip = addMesh(body, new THREE.CylinderGeometry(0.01, size * 0.07, size * 0.22, 8), accent, size * 1.64);
+			tip.position.x = Math.cos(i * Math.PI * 2 / 8) * size * 0.24;
+			tip.position.z = Math.sin(i * Math.PI * 2 / 8) * size * 0.24;
 		}
-		addMesh(body, new THREE.SphereGeometry(size * 0.14, 14, 12), mat, size * 1.72);
-		return size * 1.95;
+		addMesh(body, new THREE.SphereGeometry(size * 0.16, 14, 12), mat, size * 1.82);
+		addMesh(body, new THREE.SphereGeometry(size * 0.07, 10, 8), accent, size * 1.98);
+		return size * 2.08;
 	}
 
 	function buildKing(body, mat, accent, size) {
 		buildBase(body, mat, accent, size);
-		addMesh(body, new THREE.CylinderGeometry(size * 0.18, size * 0.36, size * 1.20, 24), mat, size * 0.80);
-		addMesh(body, new THREE.CylinderGeometry(size * 0.32, size * 0.38, size * 0.18, 24), accent, size * 1.48);
-		var crossV = addMesh(body, new THREE.CubeGeometry(size * 0.12, size * 0.42, size * 0.12), accent, size * 1.82);
-		var crossH = addMesh(body, new THREE.CubeGeometry(size * 0.34, size * 0.12, size * 0.12), accent, size * 1.88);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.17, size * 0.34, size * 1.28, 24), mat, size * 0.84);
+		addMesh(body, new THREE.CylinderGeometry(size * 0.30, size * 0.36, size * 0.20, 24), accent, size * 1.54);
+		var crossV = addMesh(body, new THREE.CubeGeometry(size * 0.11, size * 0.52, size * 0.11), accent, size * 1.96);
+		var crossH = addMesh(body, new THREE.CubeGeometry(size * 0.38, size * 0.12, size * 0.12), accent, size * 2.02);
 		crossV.name = "cross";
 		crossH.name = "cross";
-		return size * 2.15;
+		return size * 2.28;
 	}
 
 	var builders = {
@@ -204,10 +212,10 @@ function initPieceFactory () {
 		var accent = makeAccentMaterial(color);
 		var body = new THREE.Object3D();
 		var builder = builders[name] || buildPawn;
-		var topY = builder(body, mat, accent, size, color);
+		builder(body, mat, accent, size, color);
 
 		var label = makeLabelDisc(size, color, labels[name] || "?");
-		label.position.y = topY + size * 0.02;
+		label.position.y = size * 0.155;
 
 		piece.add(body);
 		piece.add(label);

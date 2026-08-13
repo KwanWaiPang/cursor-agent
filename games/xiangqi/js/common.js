@@ -167,9 +167,12 @@ window.onload = function(){
 		com.get("menuDy").style.display = "none";
 	})
 
-	// 初始：棋盘与菜单同屏（围棋式左右分栏）
+	// 初始：进页即开普通人机对局（仍可从菜单换残局 / 难度）
 	enterMenu();
 	com.show();
+	play.isPlay = true;
+	play.init(3);
+	enterPlaying("人机对弈 · 红方行棋");
 
 	//换肤
 	com.get("stypeBtn").addEventListener("click", function(e) {

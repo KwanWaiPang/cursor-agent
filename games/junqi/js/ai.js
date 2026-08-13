@@ -1,4 +1,4 @@
-import { SIDE, listMoves, isCamp } from "./engine.js";
+import { SIDE, ROWS, listMoves, isCamp } from "./engine.js";
 
 function pieceValue(p) {
   if (!p) return 0;
@@ -11,12 +11,13 @@ function pieceValue(p) {
 /**
  * 评估一步：吃子、逼近军旗、前进
  */
-export function scoreMove(board, move, side) {
+export function scoreMove(board, move, side, difficulty = "normal") {
   const [tr, tc] = move.to;
   const [fr, fc] = move.from;
   const me = board[fr][fc];
   const foe = board[tr][tc];
-  let score = Math.random() * 3;
+  const jitter = difficulty === "hard" ? Math.random() * 0.6 : Math.random() * 3;
+  let score = jitter;
 
   // 向前推进（南方向上减行，北方向下增行）
   if (side === SIDE.NORTH) score += (tr - fr) * 1.2;
@@ -46,24 +47,35 @@ export function scoreMove(board, move, side) {
   // 保司令
   if (me.type === "commander" && foe && !foe.revealed) score -= 15;
 
+  if (difficulty === "hard") {
+    if (foe?.type === "flag") score += 500;
+    if (side === SIDE.NORTH) score += tr * 0.8;
+    else score += (ROWS - 1 - tr) * 0.8;
+  }
+
   return score + pieceValue(me) * 0.01;
 }
 
-export function pickMove(board, side) {
+export function pickMove(board, side, difficulty = "normal") {
   const moves = listMoves(board, side);
   if (!moves.length) return null;
-  let best = null;
-  let bestScore = -Infinity;
-  for (const m of moves) {
-    const s = scoreMove(board, m, side);
-    if (s > bestScore) {
-      bestScore = s;
-      best = m;
-    }
+  const scored = moves.map((m) => ({
+    m,
+    s: scoreMove(board, m, side, difficulty),
+  }));
+  scored.sort((a, b) => b.s - a.s);
+  if (difficulty === "easy") {
+    const pool = scored.slice(0, Math.max(4, Math.ceil(scored.length * 0.55)));
+    return pool[Math.floor(Math.random() * pool.length)].m;
   }
-  return best;
+  if (difficulty === "hard") {
+    return scored[0].m;
+  }
+  const top = scored[0].s;
+  const pool = scored.filter((x) => x.s >= top - 10).slice(0, 3);
+  return pool[Math.floor(Math.random() * pool.length)].m;
 }
 
-export function think(board, side) {
-  return pickMove(board, side);
+export function think(board, side, difficulty = "normal") {
+  return pickMove(board, side, difficulty);
 }

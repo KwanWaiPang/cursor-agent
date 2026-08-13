@@ -444,6 +444,18 @@ const CSS = `
 .ow-match .clock { color: var(--ink); font-variant-numeric: tabular-nums; }
 .ow-match .sep { width:1px; height: calc(11px * var(--k)); background: var(--hair); }
 
+.ow-objline {
+  position:absolute; left:50%; top:calc(var(--pad) * .7 + 72px * var(--k));
+  transform: translateX(-50%);
+  display:flex; align-items:baseline; gap: calc(var(--u) * 1.6);
+  font-size: calc(12px * var(--k)); letter-spacing:.12em;
+  color: var(--ink); text-shadow: var(--sh);
+  white-space:nowrap; pointer-events:none;
+}
+.ow-objline-k { color: var(--enemy); font-weight:700; letter-spacing:.18em; font-size: calc(10px * var(--k)); }
+.ow-objline-t { color: var(--ink); }
+.ow-objline-d { color: var(--amber, #ffcc66); font-variant-numeric: tabular-nums; letter-spacing:.08em; }
+
 /* =============================================================== minimap */
 .ow-minimap {
   position:absolute; left:var(--pad); top:var(--pad);
@@ -487,6 +499,20 @@ const CSS = `
   position:absolute; left:0; top:calc(100% + var(--u)); display:flex; gap:calc(var(--u)*1.5);
   font-size: calc(9.5px * var(--k)); letter-spacing:.2em; color:var(--ink-3); text-shadow:var(--sh);
 }
+.ow-mm-legend {
+  position:absolute; right:0; top:calc(100% + var(--u));
+  display:flex; gap: calc(var(--u)*1.8);
+  font-size: calc(9.5px * var(--k)); letter-spacing:.12em; text-shadow:var(--sh);
+}
+.ow-mm-legend i { font-style:normal; display:flex; align-items:center; gap: calc(var(--u)*.6); }
+.ow-mm-legend i::before {
+  content:''; width: calc(8px * var(--k)); height: calc(8px * var(--k));
+  box-shadow: 0 0 6px currentColor;
+}
+.ow-mm-en { color:#ff503c; }
+.ow-mm-en::before { background:#ff503c; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.ow-mm-fr { color:#5ac4ff; }
+.ow-mm-fr::before { background:#5ac4ff; border-radius:50%; }
 
 /* ========================================================= world markers */
 .ow-mk {

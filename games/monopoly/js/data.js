@@ -8,11 +8,13 @@ export const CELL_COUNT = 40;
 
 /** 仅保留棋子配色；显示名在开局时按人类/AI 序号生成（玩家1… / AI1…） */
 export const TOKEN_PRESETS = [
-  { id: "red", color: "#ff5252", accent: "#ffcdd2" },
-  { id: "blue", color: "#448aff", accent: "#bbdefb" },
-  { id: "green", color: "#69f0ae", accent: "#c8e6c9" },
-  { id: "gold", color: "#ffd740", accent: "#fff9c4" },
+  { id: "red", color: "#ff5252", accent: "#ffcdd2", shape: "round" },
+  { id: "blue", color: "#448aff", accent: "#bbdefb", shape: "triangle" },
+  { id: "green", color: "#69f0ae", accent: "#c8e6c9", shape: "square" },
+  { id: "gold", color: "#ffd740", accent: "#fff9c4", shape: "star" },
 ];
+
+export const AI_NAMES = ["艾米", "鲍勃", "卡罗"];
 
 /**
  * 起点在右下角，顺时针：底边向左 → 左边向上 → 顶边向右 → 右边向下
@@ -126,7 +128,7 @@ export function ownsFullGroup(state, playerId, group) {
 }
 
 export function canUpgrade(cell, _state = null) {
-  // 本游戏暂无玩家间交易，不强制集齐同色才能盖房（否则残局极难结束）
+  // 不强制集齐同色才能盖房（否则残局极难结束）；玩家间交易另见 tryTrade
   return !!(cell && cell.type === "property");
 }
 

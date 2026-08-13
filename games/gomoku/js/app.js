@@ -5,9 +5,10 @@ import {
   SIZE,
   createBoard,
   place,
-  isWin,
+  winLine,
   isBoardFull,
   opponent,
+  forbiddenReason,
 } from "./engine.js";
 import { think } from "./ai.js";
 
@@ -23,6 +24,7 @@ const modeSelect = document.getElementById("modeSelect");
 const aiOptions = document.getElementById("aiOptions");
 const humanColorSelect = document.getElementById("humanColorSelect");
 const difficultySelect = document.getElementById("difficultySelect");
+const renjuCheck = document.getElementById("renjuCheck");
 const btnNew = document.getElementById("btnNew");
 const btnUndo = document.getElementById("btnUndo");
 const btnRedo = document.getElementById("btnRedo");
@@ -41,7 +43,9 @@ const state = {
   history: [],
   undone: [],
   lastMove: null,
+  winCells: null,
   aiThinking: false,
+  renju: false,
 };
 
 function play(audio) {
@@ -62,6 +66,17 @@ function setMessage(text, warn = false) {
 
 function colorName(c) {
   return c === BLACK ? "黑" : "白";
+}
+
+function ruleOpts() {
+  return { renju: Boolean(state.renju) };
+}
+
+function forbidLabel(reason) {
+  if (reason === "overline") return "长连禁手，不能落子";
+  if (reason === "double-four") return "四四禁手，不能落子";
+  if (reason === "double-three") return "三三禁手，不能落子";
+  return "此处不能落子";
 }
 
 function syncButtons() {
@@ -154,6 +169,29 @@ function draw() {
     }
   }
 
+  if (state.winCells?.length) {
+    const pulse = 0.55 + 0.45 * Math.abs(Math.sin(performance.now() / 280));
+    ctx.save();
+    ctx.strokeStyle = `rgba(198, 40, 40, ${pulse})`;
+    ctx.lineWidth = Math.max(3, cell * 0.12);
+    ctx.lineCap = "round";
+    const a = state.winCells[0];
+    const b = state.winCells[state.winCells.length - 1];
+    ctx.beginPath();
+    ctx.moveTo(pad + a.x * cell, pad + a.y * cell);
+    ctx.lineTo(pad + b.x * cell, pad + b.y * cell);
+    ctx.stroke();
+    for (const c of state.winCells) {
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(255, 214, 0, ${0.55 + 0.4 * pulse})`;
+      ctx.lineWidth = 2.4;
+      ctx.arc(pad + c.x * cell, pad + c.y * cell, cell * 0.46, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+    if (state.over) requestAnimationFrame(draw);
+  }
+
   if (state.lastMove) {
     const { x, y } = state.lastMove;
     ctx.beginPath();
@@ -204,6 +242,11 @@ function endGame(winner, text) {
 
 function applyMove(x, y) {
   if (state.over || state.aiThinking) return false;
+  const reason = forbiddenReason(state.board, x, y, state.turn, ruleOpts());
+  if (reason) {
+    setMessage(forbidLabel(reason), true);
+    return false;
+  }
   if (!place(state.board, x, y, state.turn)) {
     setMessage("此处不能落子", true);
     return false;
@@ -212,11 +255,14 @@ function applyMove(x, y) {
   state.history.push({ x, y, color: state.turn });
   state.undone = [];
   state.lastMove = { x, y };
-  if (isWin(state.board, x, y, state.turn)) {
+  const line = winLine(state.board, x, y, state.turn, ruleOpts());
+  if (line) {
+    state.winCells = line;
     endGame(state.turn, `${colorName(state.turn)}方五子连珠，获胜！`);
     return true;
   }
   if (isBoardFull(state.board)) {
+    state.winCells = null;
     endGame(null, "棋盘已满，和棋");
     return true;
   }
@@ -234,7 +280,7 @@ async function maybeAi() {
   state.aiThinking = true;
   updateHud();
   await new Promise((r) => setTimeout(r, state.difficulty === "hard" ? 280 : 120));
-  const move = think(state.board, state.turn, state.difficulty);
+  const move = think(state.board, state.turn, state.difficulty, ruleOpts());
   state.aiThinking = false;
   if (!move) return;
   applyMove(move.x, move.y);
@@ -251,13 +297,15 @@ function newGame() {
   state.history = [];
   state.undone = [];
   state.lastMove = null;
+  state.winCells = null;
   state.aiThinking = false;
+  state.renju = Boolean(renjuCheck?.checked);
   resultEl.textContent = "";
   resultEl.classList.remove("show");
   setMessage(
     state.mode === "ai"
-      ? `人机对战 · 你执${colorName(state.humanColor)}`
-      : "人人对战 · 黑先白后"
+      ? `人机对战 · 你执${colorName(state.humanColor)}${state.renju ? " · 连珠禁手" : ""}`
+      : `人人对战 · 黑先白后${state.renju ? " · 连珠禁手" : ""}`
   );
   updateHud();
   draw();
@@ -274,6 +322,7 @@ function undo() {
   rebuildFromHistory();
   state.over = false;
   state.winner = null;
+  state.winCells = null;
   resultEl.textContent = "";
   resultEl.classList.remove("show");
   setMessage("已悔棋");
@@ -288,9 +337,13 @@ function redo() {
   rebuildFromHistory();
 
   const last = state.history[state.history.length - 1];
-  if (last && isWin(state.board, last.x, last.y, last.color)) {
-    endGame(last.color, `${colorName(last.color)}方五子连珠，获胜！`);
-    return;
+  if (last) {
+    const line = winLine(state.board, last.x, last.y, last.color, ruleOpts());
+    if (line) {
+      state.winCells = line;
+      endGame(last.color, `${colorName(last.color)}方五子连珠，获胜！`);
+      return;
+    }
   }
   if (isBoardFull(state.board)) {
     endGame(null, "棋盘已满，和棋");

@@ -20,6 +20,8 @@ import {
   setAllHumanAuto,
   sellActionToBank,
   giveUpAndBankrupt,
+  tryTrade,
+  aiAcceptsTrade,
 } from "./engine.js";
 
 const clickAudio = document.getElementById("clickAudio");
@@ -62,6 +64,16 @@ const els = {
   btnSpeed: document.getElementById("btnSpeed"),
   btnAuto: document.getElementById("btnAuto"),
   btnSell: document.getElementById("btnSell"),
+  btnTrade: document.getElementById("btnTrade"),
+  playerName: document.getElementById("playerName"),
+  tradeOverlay: document.getElementById("tradeOverlay"),
+  tradePartner: document.getElementById("tradePartner"),
+  tradeGive: document.getElementById("tradeGive"),
+  tradeTake: document.getElementById("tradeTake"),
+  tradeCash: document.getElementById("tradeCash"),
+  tradeStatus: document.getElementById("tradeStatus"),
+  tradeOk: document.getElementById("tradeOk"),
+  tradeClose: document.getElementById("tradeClose"),
   assetOverlay: document.getElementById("assetOverlay"),
   assetStatus: document.getElementById("assetStatus"),
   assetList: document.getElementById("assetList"),
@@ -390,7 +402,8 @@ async function playTurnRoll() {
 }
 
 function meepleHTML(pl) {
-  return `<span class="meeple" data-id="${pl.id}" style="--piece:${pl.color};--piece-light:${pl.accent || "#fff"}" title="${pl.name}">
+  const shape = pl.shape || "round";
+  return `<span class="meeple" data-shape="${shape}" data-id="${pl.id}" style="--piece:${pl.color};--piece-light:${pl.accent || "#fff"}" title="${pl.name}">
     <span class="meeple-head"></span>
     <span class="meeple-body"></span>
     <span class="meeple-base"></span>
@@ -472,6 +485,7 @@ function render() {
     const priceEl = node.querySelector(".cell-price");
     const tokens = node.querySelector(".cell-tokens");
     node.classList.toggle("owned", cell.owner != null);
+    node.classList.toggle("is-turn-here", p && !p.bankrupt && p.position === i);
     if (cell.owner != null) {
       const owner = state.players[cell.owner];
       node.style.setProperty("--owner", owner.color);
@@ -531,6 +545,11 @@ function render() {
     !p.bankrupt &&
     (state.phase === "ready" || state.phase === "raise");
   if (els.btnSell) els.btnSell.disabled = !canSell;
+  const canTrade =
+    canSell &&
+    state.phase === "ready" &&
+    state.players.some((pl) => !pl.bankrupt && pl.id !== p.id);
+  if (els.btnTrade) els.btnTrade.disabled = !canTrade;
 
   if (state.phase === "dialog" && state.pendingDialog) {
     els.dialog.hidden = false;
@@ -672,7 +691,9 @@ function startNew() {
   const startMoney = Number(els.startMoney.value) || 15000;
   const humanCount = Math.max(1, Number(els.humanCount.value) || 1);
   const aiCount = Math.max(0, Number(els.aiCount.value) || 0);
-  state = createInitialState({ startMoney, humanCount, aiCount });
+  const you = (els.playerName?.value || "旅行者").trim().slice(0, 12) || "旅行者";
+  const names = [you];
+  state = createInitialState({ startMoney, humanCount, aiCount, names });
   if (autoHumans) setAllHumanAuto(state, true);
   busy = false;
   buildBoard();
@@ -681,10 +702,102 @@ function startNew() {
   runAutoLoop();
 }
 
+function deedChecks(listEl, ownerId, name) {
+  const cells = state.cells.filter((c) => isDeed(c) && c.owner === ownerId);
+  listEl.innerHTML = cells.length
+    ? cells
+        .map(
+          (c) => `<li>
+            <label>
+              <input type="checkbox" data-idx="${c.index}" />
+              ${c.name}（$${c.value}${c.level ? ` · ${buildLevelLabel(c.level)}` : ""}）
+            </label>
+          </li>`
+        )
+        .join("")
+    : `<li>${name} 暂无产业</li>`;
+}
+
+function selectedIdx(listEl) {
+  return [...listEl.querySelectorAll("input[type=checkbox]:checked")].map((el) =>
+    Number(el.dataset.idx)
+  );
+}
+
+function fillTradePartner() {
+  const p = currentPlayer(state);
+  els.tradePartner.innerHTML = state.players
+    .filter((pl) => !pl.bankrupt && pl.id !== p.id)
+    .map((pl) => `<option value="${pl.id}">${pl.name}</option>`)
+    .join("");
+}
+
+function refreshTradeLists() {
+  const p = currentPlayer(state);
+  const toId = Number(els.tradePartner.value);
+  const to = state.players[toId];
+  deedChecks(els.tradeGive, p.id, "你");
+  deedChecks(els.tradeTake, toId, to?.name || "对方");
+}
+
+function openTradePanel() {
+  if (!state || state.phase !== "ready") return;
+  const p = currentPlayer(state);
+  if (!p?.isHuman || p.auto) return;
+  fillTradePartner();
+  if (!els.tradePartner.options.length) {
+    els.message.textContent = "没有可交易的对象";
+    return;
+  }
+  els.tradeCash.value = "0";
+  els.tradeStatus.textContent = "";
+  refreshTradeLists();
+  els.tradeOverlay.hidden = false;
+}
+
+function closeTradePanel() {
+  if (els.tradeOverlay) els.tradeOverlay.hidden = true;
+}
+
+function submitTrade() {
+  if (!state) return;
+  const p = currentPlayer(state);
+  const offer = {
+    fromId: p.id,
+    toId: Number(els.tradePartner.value),
+    give: selectedIdx(els.tradeGive),
+    take: selectedIdx(els.tradeTake),
+    cashFrom: Number(els.tradeCash.value) || 0,
+  };
+  const partner = state.players[offer.toId];
+  if (partner && !partner.isHuman) {
+    if (!aiAcceptsTrade(state, offer)) {
+      els.tradeStatus.textContent = `${partner.name} 拒绝了这笔交易（觉得吃亏）。`;
+      play(clickAudio);
+      return;
+    }
+  }
+  const result = tryTrade(state, offer);
+  if (!result.ok) {
+    els.tradeStatus.textContent = result.reason;
+    return;
+  }
+  closeTradePanel();
+  play(selectAudio);
+  render();
+}
+
 els.btnNew.addEventListener("click", startNew);
 els.dialogOk.addEventListener("click", () => onDialog(true));
 els.dialogCancel.addEventListener("click", () => onDialog(false));
 els.btnSell?.addEventListener("click", openAssetPanel);
+els.btnTrade?.addEventListener("click", openTradePanel);
+els.tradeClose?.addEventListener("click", closeTradePanel);
+els.tradeOk?.addEventListener("click", submitTrade);
+els.tradePartner?.addEventListener("change", refreshTradeLists);
+els.tradeOverlay?.addEventListener("click", (ev) => {
+  if (ev.target === els.tradeOverlay) closeTradePanel();
+});
 els.assetClose?.addEventListener("click", closeAssetPanel);
 els.assetBankrupt?.addEventListener("click", onGiveUpBankrupt);
 els.assetOverlay?.addEventListener("click", (ev) => {
@@ -697,6 +810,7 @@ els.deedOverlay.addEventListener("click", (ev) => {
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape") {
     closeDeed();
+    closeTradePanel();
     if (state?.phase !== "raise") closeAssetPanel();
   }
 });

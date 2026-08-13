@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { glbUrlForDexId } from '../src/gameplay/pokemon/GlbModels.ts';
+import { glbUrlForDexId, localGlbUrls } from '../src/gameplay/pokemon/GlbModels.ts';
 import { KANTO_DEX } from '../src/gameplay/dex/index.ts';
 
 test('glb urls cover every kanto national id', () => {
@@ -15,6 +15,10 @@ test('glb urls cover every kanto national id', () => {
     assert.ok(local.includes('models/pokemon/regular'));
     assert.ok(cdn.includes('jsdelivr.net'));
     assert.ok(raw.includes('raw.githubusercontent.com'));
+    const locals = localGlbUrls(e.id);
+    assert.equal(locals.length, 2);
+    assert.ok(locals[0].includes('models/pokemon/regular'));
+    assert.ok(locals[1].includes('public/models/pokemon/regular'));
   }
 });
 

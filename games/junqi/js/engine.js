@@ -506,3 +506,47 @@ export function findFlag(board, side) {
   }
   return null;
 }
+
+export function pieceLegalAt(p, r, c, side) {
+  if (!p || p.side !== side) return false;
+  if (isCamp(r, c)) return false;
+  const rows = side === SIDE.SOUTH ? [6, 7, 8, 9, 10, 11] : [0, 1, 2, 3, 4, 5];
+  if (!rows.includes(r)) return false;
+  const inHq = HQ[side].some(([hr, hc]) => hr === r && hc === c);
+  const backRows = side === SIDE.SOUTH ? [10, 11] : [0, 1];
+  const frontRow = side === SIDE.SOUTH ? 6 : 5;
+  if (p.type === "flag") return inHq;
+  if (p.type === "mine") return backRows.includes(r) && !inHq;
+  if (p.type === "bomb") return r !== frontRow;
+  return true;
+}
+
+export function canSwapDeploy(board, a, b, side) {
+  const pa = board[a[0]][a[1]];
+  const pb = board[b[0]][b[1]];
+  if (!pa || !pb || pa.side !== side || pb.side !== side) return false;
+  if (a[0] === b[0] && a[1] === b[1]) return false;
+  return pieceLegalAt(pa, b[0], b[1], side) && pieceLegalAt(pb, a[0], a[1], side);
+}
+
+export function refreshDeployLocks(board, side) {
+  const hqSet = new Set(HQ[side].map(([r, c]) => key(r, c)));
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const p = board[r][c];
+      if (!p || p.side !== side) continue;
+      const t = TYPES[p.type];
+      p.immovable = !!t.immovable || hqSet.has(key(r, c));
+    }
+  }
+}
+
+export function swapDeploy(board, a, b, side) {
+  if (!canSwapDeploy(board, a, b, side)) return false;
+  const tmp = board[a[0]][a[1]];
+  board[a[0]][a[1]] = board[b[0]][b[1]];
+  board[b[0]][b[1]] = tmp;
+  refreshDeployLocks(board, side);
+  return true;
+}
+

@@ -91,6 +91,55 @@ export function spawnAssaultWave(engine, n = 5, minD = 38, maxD = 56) {
   return made;
 }
 
+/** Push the nearest hostile onto the HUD compass / minimap as the current target. */
+export function installStreetObjectives(engine) {
+  const ui = engine.ctx.peek('ui');
+  const ai = engine.ctx.peek('ai');
+  if (!ui || !ai) return;
+  ui.banner?.show?.('沿街推进', '清除前方敌军', 4.5);
+  const refresh = () => {
+    const list = typeof ai.getHudActors === 'function' ? ai.getHudActors() : [];
+    const player = engine.ctx.peek('player');
+    const origin = player?.position ?? engine.camera?.position;
+    let best = null;
+    let bestD = Infinity;
+    for (const a of list) {
+      if (!a || a.alive === false || a.friendly) continue;
+      const p = a.position ?? a.pos;
+      if (!p) continue;
+      const d = origin
+        ? Math.hypot(p.x - origin.x, p.z - origin.z)
+        : 0;
+      if (d < bestD) {
+        bestD = d;
+        best = a;
+      }
+    }
+    if (best?.position || best?.pos) {
+      const p = best.position ?? best.pos;
+      ui.setObjectives([
+        {
+          id: 'assault',
+          label: '敌',
+          name: '前方敌军',
+          position: p,
+          color: '#ff4a3a',
+        },
+      ]);
+    } else {
+      ui.setObjectives([]);
+    }
+  };
+  refresh();
+  const id = setInterval(() => {
+    if (!engine._running) return;
+    refresh();
+  }, 400);
+  const prev = engine.__streetObjTimer;
+  if (prev) clearInterval(prev);
+  engine.__streetObjTimer = id;
+}
+
 /**
  * Keep pressure on: if the street goes quiet, drop another wave.
  * Call once after enter; it self-schedules via the engine event/update loop.

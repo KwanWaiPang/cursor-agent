@@ -354,10 +354,16 @@ play.getClickMan = function (e){
 
 play.showWin = function (my){
 	play.isPlay = false;
-	if (my===1){
-		alert("恭喜你，你赢了！");
-	}else{
-		alert("很遗憾，你输了！");
+	var won = my === 1;
+	var text = won ? "恭喜你，你赢了！" : "很遗憾，你输了！";
+	var statusLabel = com.get("statusLabel");
+	var phaseBadge = com.get("phaseBadge");
+	var message = com.get("message");
+	if (statusLabel) statusLabel.textContent = text;
+	if (phaseBadge) phaseBadge.textContent = "已结束";
+	if (message) {
+		message.textContent = text;
+		message.className = won ? "message info" : "message warn";
 	}
 }
 

@@ -8,6 +8,7 @@ import {
   CARDS,
   CELL_COUNT,
   TOKEN_PRESETS,
+  AI_NAMES,
   rentOf,
   upgradeCost,
   canUpgrade,
@@ -25,6 +26,7 @@ export function createInitialState(opts) {
     humanCount = 1,
     aiCount = 1,
     speedMs = 700,
+    names = [],
   } = opts;
 
   const total = Math.min(4, Math.max(2, humanCount + aiCount));
@@ -38,13 +40,21 @@ export function createInitialState(opts) {
   for (let i = 0; i < humans + ais; i++) {
     const token = TOKEN_PRESETS[i];
     const isHuman = i < humans;
-    const name = isHuman ? `玩家${++humanSeq}` : `AI${++aiSeq}`;
+    const fallback = isHuman
+      ? humanSeq === 0
+        ? "旅行者"
+        : `旅伴${humanSeq + 1}`
+      : AI_NAMES[aiSeq] || `AI${aiSeq + 1}`;
+    const name = String(names[i] || fallback).trim().slice(0, 12) || fallback;
+    if (isHuman) humanSeq++;
+    else aiSeq++;
     players.push({
       id: i,
       name,
       color: token.color,
       accent: token.accent || "#fff",
       tokenId: token.id,
+      shape: token.shape || "round",
       money: startMoney,
       position: 0,
       stop: 0,
@@ -645,4 +655,63 @@ export function setAllHumanAuto(state, on) {
     if (p.isHuman) p.auto = on;
   });
   return state;
+}
+
+export function deedWorth(cell) {
+  if (!isDeed(cell)) return 0;
+  let v = cell.value || 0;
+  if (cell.type === "property") v += (cell.level || 0) * upgradeCost(cell);
+  return v;
+}
+
+/**
+ * 玩家间交易：give 为 from 出让的格子，take 为对方出让的格子，cashFrom 为 from 付给对方的现金。
+ */
+export function tryTrade(state, { fromId, toId, give = [], take = [], cashFrom = 0 }) {
+  const from = state.players[fromId];
+  const to = state.players[toId];
+  if (!from || !to || from.bankrupt || to.bankrupt || fromId === toId) {
+    return { ok: false, reason: "无法与该玩家交易" };
+  }
+  const cash = Math.max(0, Math.floor(Number(cashFrom) || 0));
+  if (from.money < cash) return { ok: false, reason: "现金不足" };
+  for (const i of give) {
+    if (!state.cells[i] || state.cells[i].owner !== fromId) {
+      return { ok: false, reason: "产业不属于你" };
+    }
+  }
+  for (const i of take) {
+    if (!state.cells[i] || state.cells[i].owner !== toId) {
+      return { ok: false, reason: "对方没有该产业" };
+    }
+  }
+  if (!give.length && !take.length && cash <= 0) {
+    return { ok: false, reason: "请选择产业或现金" };
+  }
+
+  from.money -= cash;
+  to.money += cash;
+  for (const i of give) state.cells[i].owner = toId;
+  for (const i of take) state.cells[i].owner = fromId;
+  const bits = [];
+  if (give.length) bits.push(`出让 ${give.map((i) => state.cells[i].name).join("、")}`);
+  if (take.length) bits.push(`换得 ${take.map((i) => state.cells[i].name).join("、")}`);
+  if (cash) bits.push(`支付 $${cash}`);
+  const msg = `${from.name} 与 ${to.name} 交易：${bits.join("，")}`;
+  state.message = msg;
+  pushLog(state, msg);
+  return { ok: true };
+}
+
+export function tradeNetFor(state, offer, whoId) {
+  const giveVal = (offer.give || []).reduce((s, i) => s + deedWorth(state.cells[i]), 0);
+  const takeVal = (offer.take || []).reduce((s, i) => s + deedWorth(state.cells[i]), 0);
+  const cash = Math.max(0, Math.floor(Number(offer.cashFrom) || 0));
+  if (whoId === offer.toId) return giveVal + cash - takeVal;
+  return takeVal - giveVal - cash;
+}
+
+export function aiAcceptsTrade(state, offer) {
+  const net = tradeNetFor(state, offer, offer.toId);
+  return net >= -200;
 }

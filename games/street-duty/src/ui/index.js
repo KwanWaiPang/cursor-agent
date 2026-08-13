@@ -7,7 +7,7 @@ import { DamageArcs } from './damage.js';
 import { HealthFx } from './health.js';
 import { AmmoPanel } from './ammo.js';
 import { Killfeed } from './killfeed.js';
-import { Compass, MatchBar } from './compass.js';
+import { Compass, MatchBar, ObjectiveLine } from './compass.js';
 import { Minimap } from './minimap.js';
 import { WorldMarkers } from './markers.js';
 import { Prompt, Banner } from './prompts.js';
@@ -86,6 +86,7 @@ export class UiSystem {
     this.minimap = new Minimap(this.chromeLayer, this.rng.fork());
     this.compass = new Compass(this.chromeLayer);
     this.matchBar = new MatchBar(this.chromeLayer);
+    this.objLine = new ObjectiveLine(this.chromeLayer);
     this.killfeed = new Killfeed(this.chromeLayer);
     this.ammo = new AmmoPanel(this.chromeLayer);
     this.prompt = new Prompt(this.chromeLayer);
@@ -535,6 +536,7 @@ export class UiSystem {
     this.ammo.update(dt, s);
     this.killfeed.update(dt);
     this.matchBar.update(s);
+    this._updateObjectiveLine(pos);
     this.prompt.update(dt);
     this.banner.update(dt);
 
@@ -589,6 +591,20 @@ export class UiSystem {
     this._blipCount = n;
   }
 
+  _updateObjectiveLine(pos) {
+    if (!this.objLine) return;
+    let best = Infinity;
+    for (let i = 0; i < this._blipCount; i++) {
+      const b = this._blips[i];
+      if (b.kind === 'friend') continue;
+      const d = Math.hypot(b.x - pos.x, b.z - pos.z);
+      if (d < best) best = d;
+    }
+    const text =
+      best < Infinity ? '沿街推进，清除前方敌军' : '沿街搜索下一波敌军';
+    this.objLine.update(text, best < Infinity ? best : null);
+  }
+
   _buildCompassObjectives(pos) {
     const out = this._compassObjs;
     out.length = 0;
@@ -627,6 +643,7 @@ export class UiSystem {
     this.killfeed.dispose();
     this.compass.dispose();
     this.matchBar.dispose();
+    this.objLine?.dispose();
     this.minimap.dispose();
     this.markers.dispose();
     this.prompt.dispose();

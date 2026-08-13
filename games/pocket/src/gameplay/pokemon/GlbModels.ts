@@ -10,12 +10,25 @@ import type { Creature, SpeciesId } from './shared';
  * GLB creatures from Pokemon-3D-api/assets (Draco + WebP optimized).
  *
  * Preferred path: vendored files under `./models/pokemon/regular/{id}.glb`
- * (copied from `public/` by Vite / Pages sync). CDN / GitHub raw remain as
- * fallbacks. Nintendo owns the IP; fan redistribution for this hub build.
+ * (copied from `public/` by Vite / Pages sync). Local `python -m http.server`
+ * from the repo also serves `./public/models/pokemon/regular/{id}.glb`.
+ * CDN / GitHub raw remain as fallbacks.
  */
 
-/** Served from Vite `public/` and GitHub Pages game root. */
-const LOCAL_BASE = `${(import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL ?? './'}models/pokemon/regular`;
+function assetRoot(): string {
+  const raw = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL ?? './';
+  return raw.endsWith('/') ? raw : `${raw}/`;
+}
+
+/** Vite/Pages copy files to `./models/…`; repo / python http.server keeps them under `public/`. */
+export function localGlbUrls(id: number): string[] {
+  const root = assetRoot();
+  return [
+    `${root}models/pokemon/regular/${id}.glb`,
+    `${root}public/models/pokemon/regular/${id}.glb`,
+  ];
+}
+
 const ASSET_BASE =
   'https://cdn.jsdelivr.net/gh/Pokemon-3D-api/assets@main/models/opt/regular';
 const ASSET_FALLBACK =
@@ -39,12 +52,33 @@ function getLoader(): GLTFLoader {
 }
 
 export function glbUrlForDexId(id: number, mirror: 'local' | 'cdn' | 'raw' = 'local'): string {
-  if (mirror === 'local') {
-    const base = LOCAL_BASE.endsWith('/') ? LOCAL_BASE.slice(0, -1) : LOCAL_BASE;
-    return `${base}/${id}.glb`;
-  }
+  if (mirror === 'local') return localGlbUrls(id)[0];
   const base = mirror === 'cdn' ? ASSET_BASE : ASSET_FALLBACK;
   return `${base}/${id}.glb`;
+}
+
+async function urlExists(url: string): Promise<boolean> {
+  try {
+    const head = await fetch(url, { method: 'HEAD' });
+    if (head.ok) return true;
+  } catch {
+    /* some static servers reject HEAD */
+  }
+  try {
+    const get = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
+    return get.ok || get.status === 206;
+  } catch {
+    return false;
+  }
+}
+
+/** First working URL: vendored `models/` or `public/models/`, then CDN / GitHub raw. */
+export async function resolveGlbUrl(id: number): Promise<string> {
+  const candidates = [...localGlbUrls(id), glbUrlForDexId(id, 'cdn'), glbUrlForDexId(id, 'raw')];
+  for (const url of candidates) {
+    if (await urlExists(url)) return url;
+  }
+  return candidates[candidates.length - 1];
 }
 
 function nationalId(species: SpeciesId): number | null {
@@ -76,14 +110,17 @@ async function loadTemplate(id: number): Promise<THREE.Group> {
   let pending = templateCache.get(id);
   if (!pending) {
     pending = (async () => {
-      try {
-        return await loadGltf(glbUrlForDexId(id, 'local'));
-      } catch {
+      for (const url of localGlbUrls(id)) {
         try {
-          return await loadGltf(glbUrlForDexId(id, 'cdn'));
+          return await loadGltf(url);
         } catch {
-          return await loadGltf(glbUrlForDexId(id, 'raw'));
+          /* try next local path (Pages vs public/) */
         }
+      }
+      try {
+        return await loadGltf(glbUrlForDexId(id, 'cdn'));
+      } catch {
+        return await loadGltf(glbUrlForDexId(id, 'raw'));
       }
     })();
     templateCache.set(id, pending);

@@ -64,6 +64,6 @@ export function shouldPrewarm(quality, search = location.search) {
   const params = new URLSearchParams(search);
   if (params.get('prewarm') === '0') return false;
   if (params.get('prewarm') === '1') return true;
-  // medium+ prewarm avoids mid-fight stalls; low skips for faster first paint.
-  return quality !== 'low';
+  // Default: only ultra prewarms. Hub first-entry is otherwise ~20s+ of shader compile.
+  return quality === 'ultra';
 }

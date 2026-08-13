@@ -28,69 +28,104 @@
         <p>一馆多玩。棋类、军棋、大富翁、射击与口袋冒险，开局即战，无需安装。</p>
       </header>
 
-      <section class="game-grid" aria-label="游戏列表">
-        <a class="game-card" href="./games/go/">
-          <div class="mark">围</div>
-          <h2>围棋</h2>
-          <p>中国规则，人人对战 / 本地 AI，支持 9·13·19 路与自动点目。</p>
-          <span class="cta">进入对局 →</span>
-        </a>
+      <nav class="hub-jump" aria-label="分类跳转">
+        <a href="#cat-board">棋类</a>
+        <a href="#cat-table">桌游</a>
+        <a href="#cat-shoot">射击</a>
+        <a href="#cat-adventure">冒险</a>
+      </nav>
 
-        <a class="game-card" href="./games/xiangqi/">
-          <div class="mark">象</div>
-          <h2>中国象棋</h2>
-          <p>经典楚河汉界。人机对弈与残局挑战，浏览器本地运行。</p>
-          <span class="cta">进入对局 →</span>
-        </a>
+      <section class="game-section" id="cat-board" aria-labelledby="ttl-board">
+        <h2 class="section-title" id="ttl-board">棋类</h2>
+        <div class="game-grid">
+          <a class="game-card" href="./games/go/">
+            <div class="card-preview preview-go" aria-hidden="true"></div>
+            <div class="mark">围</div>
+            <h2>围棋</h2>
+            <p>中国规则，人人对战 / 本地 AI，支持 9·13·19 路与自动点目。</p>
+            <span class="cta">进入对局 →</span>
+          </a>
 
-        <a class="game-card" href="./games/gomoku/">
-          <div class="mark">五</div>
-          <h2>五子棋</h2>
-          <p>十五路自由规则。支持双人对战与本地 AI，可悔棋认输。</p>
-          <span class="cta">进入对局 →</span>
-        </a>
+          <a class="game-card" href="./games/xiangqi/">
+            <div class="card-preview preview-xiangqi" aria-hidden="true"></div>
+            <div class="mark">象</div>
+            <h2>中国象棋</h2>
+            <p>经典楚河汉界。人机对弈与残局挑战，浏览器本地运行。</p>
+            <span class="cta">进入对局 →</span>
+          </a>
 
-        <a class="game-card" href="./games/junqi/">
-          <div class="mark">军</div>
-          <h2>军棋</h2>
-          <p>二人军棋暗棋 · 仅人机：棋子立起、真实棋盘、夺旗获胜。</p>
-          <span class="cta">进入对局 →</span>
-        </a>
+          <a class="game-card" href="./games/gomoku/">
+            <div class="card-preview preview-gomoku" aria-hidden="true"></div>
+            <div class="mark">五</div>
+            <h2>五子棋</h2>
+            <p>十五路自由规则，可选连珠禁手。支持双人对战与本地 AI。</p>
+            <span class="cta">进入对局 →</span>
+          </a>
 
-        <a class="game-card" href="./games/monopoly/">
-          <div class="mark">富</div>
-          <h2>大富翁 · 世界之旅</h2>
-          <p>实体棋环线：世界城市买地收租，本地人机，路过起点领赏。</p>
-          <span class="cta">开始旅行 →</span>
-        </a>
+          <a class="game-card" href="./games/junqi/">
+            <div class="card-preview preview-junqi" aria-hidden="true"></div>
+            <div class="mark">军</div>
+            <h2>军棋</h2>
+            <p>二人军棋暗棋 · 仅人机：棋子立起、真实棋盘、夺旗获胜。</p>
+            <span class="cta">进入对局 →</span>
+          </a>
 
-        <a class="game-card" href="./games/chess3d/">
-          <div class="mark">国</div>
-          <h2>国际象棋 · 3D</h2>
-          <p>WebGL 立体棋盘，可与 AI 对弈，支持悔棋与视角环绕。</p>
-          <span class="cta">进入对局 →</span>
-        </a>
+          <a class="game-card" href="./games/chess3d/">
+            <div class="card-preview preview-chess3d" aria-hidden="true"></div>
+            <div class="mark">国</div>
+            <h2>国际象棋 · 3D</h2>
+            <p>WebGL 立体棋盘与斯顿顿轮廓棋子，可与 AI 对弈，支持悔棋。</p>
+            <span class="cta">进入对局 →</span>
+          </a>
+        </div>
+      </section>
 
-        <a class="game-card game-card-fps" href="./games/fps/">
-          <div class="mark">战</div>
-          <h2>战术突击 · 3D</h2>
-          <p>红方 vs 蓝方街道枪战：掩体/包抄/交替压制，据点清剿与迷你大逃杀。</p>
-          <span class="cta">进入战场 →</span>
-        </a>
+      <section class="game-section" id="cat-table" aria-labelledby="ttl-table">
+        <h2 class="section-title" id="ttl-table">桌游</h2>
+        <div class="game-grid">
+          <a class="game-card" href="./games/monopoly/">
+            <div class="card-preview preview-mono" aria-hidden="true"></div>
+            <div class="mark">富</div>
+            <h2>大富翁 · 世界之旅</h2>
+            <p>实体棋环线：世界城市买地收租，本地人机，可命名、交易产业。</p>
+            <span class="cta">开始旅行 →</span>
+          </a>
+        </div>
+      </section>
 
-        <a class="game-card game-card-street" href="./games/street-duty/">
-          <div class="mark">街</div>
-          <h2>街战突击</h2>
-          <p>完整程序化街战：开局即突击交战，画质贴近官方 demo；加载完成后点击进入。</p>
-          <span class="cta">进入街区 →</span>
-        </a>
+      <section class="game-section" id="cat-shoot" aria-labelledby="ttl-shoot">
+        <h2 class="section-title" id="ttl-shoot">射击</h2>
+        <p class="section-note">两款互不替换：战术突击是轻量红蓝街战；街战突击是全程序化街区。</p>
+        <div class="game-grid">
+          <a class="game-card game-card-fps" href="./games/fps/">
+            <div class="card-preview preview-fps" aria-hidden="true"></div>
+            <div class="mark">战</div>
+            <h2>战术突击 · 3D</h2>
+            <p>红方 vs 蓝方街道枪战：掩体/包抄/交替压制，据点清剿与迷你大逃杀。</p>
+            <span class="cta">进入战场 →</span>
+          </a>
 
-        <a class="game-card game-card-pocket" href="./games/pocket/">
-          <div class="mark">口</div>
-          <h2>口袋冒险</h2>
-          <p>第一人称 3D 卡通粉丝向：真新镇开局、选御三家、高草遇敌；程序化建模，点击进入。</p>
-          <span class="cta">开始冒险 →</span>
-        </a>
+          <a class="game-card game-card-street" href="./games/street-duty/">
+            <div class="card-preview preview-street" aria-hidden="true"></div>
+            <div class="mark">街</div>
+            <h2>街战突击</h2>
+            <p>完整程序化街战：开局即突击交战；低画质跳过预热，加载完成后点击进入。</p>
+            <span class="cta">进入街区 →</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="game-section" id="cat-adventure" aria-labelledby="ttl-adv">
+        <h2 class="section-title" id="ttl-adv">冒险</h2>
+        <div class="game-grid">
+          <a class="game-card game-card-pocket" href="./games/pocket/">
+            <div class="card-preview preview-pocket" aria-hidden="true"></div>
+            <div class="mark">口</div>
+            <h2>口袋冒险</h2>
+            <p>第一人称 3D 卡通粉丝向：真新镇开局、选御三家、1 号道路通向常青市。</p>
+            <span class="cta">开始冒险 →</span>
+          </a>
+        </div>
       </section>
 
       <p class="footer-note">纯前端运行 · 可部署至 GitHub Pages</p>

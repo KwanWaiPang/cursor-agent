@@ -563,7 +563,7 @@ body.monopoly-cartoon {
   bottom: var(--band-size);
   top: var(--token-space);
   left: 0; right: 0;
-  transform: rotate(180deg);
+  transform: none;
 }
 .side-top .cell-tokens {
   top: 1px; bottom: auto; height: var(--token-space);
@@ -575,25 +575,23 @@ body.monopoly-cartoon {
   flex-direction: column;
 }
 .side-left.cell-property .cell-body {
-  transform: rotate(90deg);
-  transform-origin: center;
-  width: calc(100% - var(--band-size) - var(--token-space));
-  height: 100%;
+  transform: none;
+  width: auto;
+  height: auto;
   left: var(--token-space);
-  right: auto;
+  right: var(--band-size);
   top: 0;
   bottom: 0;
-  padding: 2px;
+  padding: 2px 3px;
 }
 .side-left .cell-body {
-  transform: rotate(90deg);
-  transform-origin: center;
-  width: calc(100% - var(--token-space));
-  height: 100%;
+  transform: none;
+  width: auto;
+  height: auto;
   left: var(--token-space);
-  right: auto;
+  right: 0;
   top: 0; bottom: 0;
-  padding: 2px;
+  padding: 2px 3px;
 }
 .side-left .cell-tokens {
   left: 1px; right: auto; top: 1px; bottom: 1px;
@@ -608,24 +606,23 @@ body.monopoly-cartoon {
   flex-direction: column;
 }
 .side-right.cell-property .cell-body {
-  transform: rotate(-90deg);
-  transform-origin: center;
-  width: calc(100% - var(--band-size) - var(--token-space));
-  height: 100%;
+  transform: none;
+  width: auto;
+  height: auto;
   right: var(--token-space);
-  left: auto;
-  top: 0; bottom: 0;
-  padding: 2px;
+  left: var(--band-size);
+  top: 0;
+  bottom: 0;
+  padding: 2px 3px;
 }
 .side-right .cell-body {
-  transform: rotate(-90deg);
-  transform-origin: center;
-  width: calc(100% - var(--token-space));
-  height: 100%;
+  transform: none;
+  width: auto;
+  height: auto;
   right: var(--token-space);
-  left: auto;
+  left: 0;
   top: 0; bottom: 0;
-  padding: 2px;
+  padding: 2px 3px;
 }
 .side-right .cell-tokens {
   right: 1px; left: auto; top: 1px; bottom: 1px;
@@ -644,7 +641,7 @@ body.monopoly-cartoon {
 }
 
 .side-top:not(.cell-property) .cell-body {
-  transform: rotate(180deg);
+  transform: none;
   top: var(--token-space);
   bottom: 0;
 }
@@ -750,7 +747,16 @@ body.monopoly-cartoon {
   border: 2px solid rgba(61, 47, 38, 0.12);
   font-size: 0.9rem;
 }
-.player-list li.current { border-color: #ff6f61; background: rgba(255, 111, 97, 0.12); }
+.player-list li.current {
+  border-color: #e53935;
+  background: linear-gradient(90deg, rgba(255, 87, 34, 0.32), rgba(255, 243, 200, 0.7));
+  box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.38), 0 8px 18px rgba(230, 81, 0, 0.22);
+}
+.player-list li.current .name::after {
+  content: " · 行动中";
+  color: #c62828;
+  font-weight: 700;
+}
 .player-list li.bankrupt { opacity: 0.45; text-decoration: line-through; }
 .player-list .token-wrap {
   grid-row: 1 / 3; align-self: center; display: grid; place-items: center;
@@ -777,6 +783,39 @@ body.monopoly-cartoon {
 }
 .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
 .controls #btnSell { grid-column: 1 / -1; }
+.controls #btnTrade { grid-column: 1 / -1; }
+
+.field input[type="text"],
+.field input[type="number"] {
+  width: 100%; border-radius: 12px; border: 2px solid rgba(61, 47, 38, 0.2);
+  background: rgba(255, 255, 255, 0.7); padding: 0.45rem 0.55rem;
+  font-family: var(--font-body); color: var(--ink); box-sizing: border-box;
+}
+
+.meeple[data-shape="triangle"] .meeple-head {
+  border-radius: 4px 4px 0 0;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.meeple[data-shape="triangle"] .meeple-body {
+  border-radius: 0;
+  clip-path: polygon(50% 8%, 100% 100%, 0 100%);
+}
+.meeple[data-shape="square"] .meeple-head,
+.meeple[data-shape="square"] .meeple-body {
+  border-radius: 3px;
+}
+.meeple[data-shape="star"] .meeple-head {
+  border-radius: 0;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+.meeple[data-shape="star"] .meeple-body {
+  border-radius: 0.15rem;
+}
+
+.cell.is-turn-here {
+  box-shadow: inset 0 0 0 3px #ff6f00, 0 0 12px rgba(255, 111, 0, 0.35);
+  z-index: 5;
+}
 
 .asset-overlay {
   position: fixed; inset: 0; z-index: 46; display: grid; place-items: center;

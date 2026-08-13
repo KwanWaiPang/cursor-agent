@@ -11,6 +11,8 @@ import {
   isHQ,
   hasMovable,
   CAMPS,
+  canSwapDeploy,
+  swapDeploy,
 } from "./engine.js";
 import { think } from "./ai.js";
 
@@ -26,11 +28,12 @@ const btnNew = document.getElementById("btnNew");
 const btnRedeploy = document.getElementById("btnRedeploy");
 const btnStart = document.getElementById("btnStart");
 const btnResign = document.getElementById("btnResign");
+const difficultySelect = document.getElementById("difficultySelect");
 const clickAudio = document.getElementById("clickAudio");
 const selectAudio = document.getElementById("selectAudio");
 
 const state = {
-  phase: "play",
+  phase: "deploy",
   board: null,
   turn: SIDE.SOUTH,
   selected: null,
@@ -38,6 +41,8 @@ const state = {
   winner: null,
   log: [],
   busy: false,
+  difficulty: "normal",
+  swapFrom: null,
 };
 
 function play(a) {
@@ -71,17 +76,34 @@ function newGame() {
   const north = autoDeploy(SIDE.NORTH);
   const south = autoDeploy(SIDE.SOUTH);
   state.board = mergeBoards(north, south);
-  state.phase = "play";
+  state.phase = "deploy";
   state.turn = SIDE.SOUTH;
   state.selected = null;
   state.legal = [];
   state.winner = null;
   state.busy = false;
   state.log = [];
+  state.swapFrom = null;
+  state.difficulty = difficultySelect?.value || "normal";
   combatLog.innerHTML = "尚无交锋";
   resultEl.textContent = "";
   resultEl.classList.remove("show");
-  setMsg("已开战（暗棋）。点己方棋子再点高亮目标；「打乱重排」可换阵。");
+  setMsg("布阵阶段：点两枚己方棋子交换位置，再点「确认开局」。地雷须在最后两排，军旗须在大本营。");
+  updatePhaseUi("南方布阵", "布阵中");
+  if (btnStart) btnStart.textContent = "确认开局";
+  draw();
+  play(selectAudio);
+}
+
+function beginPlay() {
+  if (state.phase !== "deploy") return;
+  state.phase = "play";
+  state.swapFrom = null;
+  state.selected = null;
+  state.legal = [];
+  state.turn = SIDE.SOUTH;
+  if (btnStart) btnStart.textContent = "提示操作";
+  setMsg("已开战（暗棋）。点己方棋子再点高亮目标。");
   updatePhaseUi("南方（你）行动", "对局中");
   draw();
   play(selectAudio);
@@ -365,7 +387,8 @@ function draw() {
       if (!p) continue;
       const { x, y } = nodeXY(r, c, geom);
       const selected =
-        state.selected && state.selected[0] === r && state.selected[1] === c;
+        (state.selected && state.selected[0] === r && state.selected[1] === c) ||
+        (state.swapFrom && state.swapFrom[0] === r && state.swapFrom[1] === c);
       if (isFaceUp(p)) drawFlatPiece(x, y, p, selected, geom);
       else drawStandingPiece(x, y, false, selected, geom);
     }
@@ -532,7 +555,7 @@ async function scheduleAi() {
   if (state.phase !== "play" || state.busy) return;
   state.busy = true;
   await new Promise((r) => setTimeout(r, 320));
-  const move = think(state.board, SIDE.NORTH);
+  const move = think(state.board, SIDE.NORTH, state.difficulty);
   state.busy = false;
   if (!move) {
     endGame(SIDE.SOUTH, "AI 无棋可走，你获胜！");
@@ -543,15 +566,49 @@ async function scheduleAi() {
 
 let lastTouchAt = 0;
 
+function onDeployPointer(r, c) {
+  const p = state.board[r][c];
+  if (!p || p.side !== SIDE.SOUTH) {
+    setMsg("请点己方（南）棋子进行交换", true);
+    return;
+  }
+  if (!state.swapFrom) {
+    state.swapFrom = [r, c];
+    setMsg(`已选 ${p.name}，再点另一枚己方棋交换`);
+    draw();
+    return;
+  }
+  const [fr, fc] = state.swapFrom;
+  if (fr === r && fc === c) {
+    state.swapFrom = null;
+    setMsg("已取消选择");
+    draw();
+    return;
+  }
+  if (!canSwapDeploy(state.board, [fr, fc], [r, c], SIDE.SOUTH)) {
+    setMsg("这两枚不能换：军旗须留大本营，地雷须在最后两排，炸弹不能上最前排", true);
+    return;
+  }
+  swapDeploy(state.board, [fr, fc], [r, c], SIDE.SOUTH);
+  state.swapFrom = null;
+  setMsg(`已交换 ${p.name}。可继续微调，或点「确认开局」。`);
+  draw();
+  play(clickAudio);
+}
+
 function onBoardPointer(e) {
   if (state.phase === "over") {
     setMsg("对局已结束，请点「开始新对局」");
     return;
   }
-  if (state.phase !== "play" || state.busy || state.turn !== SIDE.SOUTH) return;
   const pos = posFromEvent(e);
   if (!pos) return;
   const [r, c] = pos;
+  if (state.phase === "deploy") {
+    onDeployPointer(r, c);
+    return;
+  }
+  if (state.phase !== "play" || state.busy || state.turn !== SIDE.SOUTH) return;
 
   if (state.selected) {
     const hit = state.legal.find((m) => m.to[0] === r && m.to[1] === c);
@@ -578,8 +635,22 @@ canvas.addEventListener(
 );
 
 btnNew.addEventListener("click", newGame);
-btnRedeploy.addEventListener("click", newGame);
+btnRedeploy.addEventListener("click", () => {
+  if (state.phase === "over") {
+    newGame();
+    return;
+  }
+  if (state.phase !== "deploy") {
+    setMsg("对局中不能重排，请先结束或开新局", true);
+    return;
+  }
+  newGame();
+});
 btnStart.addEventListener("click", () => {
+  if (state.phase === "deploy") {
+    beginPlay();
+    return;
+  }
   setMsg("已在对局中。请直接点棋盘上的红方棋子行动。");
 });
 btnResign.addEventListener("click", () => {
