@@ -214,10 +214,14 @@ export class Game {
     document.getElementById("pause")?.classList.add("hidden");
     if (!this._hintShown) {
       this._hintShown = true;
-      const hint = document.getElementById("controlHint");
-      hint?.classList.add("show");
-      this.hud.toast?.("R 换弹 · 右键开镜 · H 支援 · F 急救 · 1–5 切枪");
-      window.setTimeout(() => hint?.classList.remove("show"), 7000);
+      if (this.touchPlay) {
+        this.hud.toast?.("左摇杆移动 · 右半屏瞄准 · 射/镜/跳/蹲");
+      } else {
+        const hint = document.getElementById("controlHint");
+        hint?.classList.add("show");
+        this.hud.toast?.("R 换弹 · 右键开镜 · H 支援 · F 急救 · 1–5 切枪");
+        window.setTimeout(() => hint?.classList.remove("show"), 7000);
+      }
     }
   }
 

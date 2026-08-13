@@ -202,6 +202,8 @@ export class Input {
       }
       return;
     }
+    // A connected pad must not clobber the on-screen stick mid-gesture.
+    if (this.touchDriving) return;
     const dz = (v) => (Math.abs(v) < 0.16 ? 0 : (v - Math.sign(v) * 0.16) / 0.84);
     this.stick.moveX = dz(pad.axes[0] ?? 0);
     this.stick.moveY = dz(pad.axes[1] ?? 0);

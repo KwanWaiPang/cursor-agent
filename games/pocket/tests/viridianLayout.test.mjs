@@ -5,6 +5,7 @@ import {
   VIRIDIAN,
   inForestGrass,
   onViridianPath,
+  treeNeedsCollider,
   viridianPathX,
 } from '../src/world/viridianLayout.ts';
 import { TERRAIN } from '../src/world/Terrain.ts';
@@ -24,6 +25,14 @@ test('forest grass is off the dirt path and between gate and city', () => {
   assert.equal(inForestGrass(path + 4.2, midZ), true);
   assert.equal(inForestGrass(0, 20), false);
   assert.equal(inForestGrass(0, 56), false);
+});
+
+test('tree colliders cover Route 1 south through Viridian City', () => {
+  assert.equal(treeNeedsCollider(1.55, 20), true);
+  assert.equal(treeNeedsCollider(5.2, 40.4), true);
+  assert.equal(treeNeedsCollider(-8, 56), true);
+  assert.equal(treeNeedsCollider(0, VIRIDIAN.playMaxZ + 1), false);
+  assert.equal(treeNeedsCollider(30, 40), false);
 });
 
 test('gym and forest species exist in the Kanto battle table', () => {

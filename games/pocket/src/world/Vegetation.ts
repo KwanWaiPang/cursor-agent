@@ -20,7 +20,7 @@ import {
 } from '../fx/FoliageMaterials';
 import { TERRAIN } from './Terrain';
 import { wildGrassClearance } from './WildGrass';
-import { VIRIDIAN, VIRIDIAN_FOOTPRINTS, inForestGrass, onViridianPath } from './viridianLayout';
+import { VIRIDIAN, VIRIDIAN_FOOTPRINTS, inForestGrass, onViridianPath, treeNeedsCollider } from './viridianLayout';
 
 /**
  * Vegetation — every plant in Pallet Town.
@@ -2112,8 +2112,9 @@ export function buildVegetation(ctx: GameContext): void {
       treeBases.push({ x: sp.x, z: sp.z, r: b.geo.trunkR * girth, y });
 
       // Only things the player can reach need a blocker; the perimeter boxes
-      // already stop them long before the outer wood.
-      if (Math.abs(sp.x) < 23 && sp.z < 27 && sp.z > -27) {
+      // already stop them long before the outer wood. Include Viridian Forest
+      // and the city — the old z<27 cut left every southern trunk ghost-walkable.
+      if (treeNeedsCollider(sp.x, sp.z)) {
         ctx.collision.addCircle(
           sp.x, sp.z,
           b.geo.trunkR * girth * 1.05 + 0.12,
