@@ -188,6 +188,7 @@ export class Game {
     } else {
       this.player.lock();
     }
+  }
 
   get loadout() {
     return this.arsenal.active;
