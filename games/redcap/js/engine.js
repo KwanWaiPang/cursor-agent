@@ -4,12 +4,27 @@ import { audio } from "./audio.js";
 
 const VIEW_W = 256;
 const VIEW_H = 240;
-const HUD_H = 16;
-const SOLID = new Set("#=-Ic{}[]u?!@$Ux");
+const HUD_H = 32;
+const SOLID = new Set("#=-Ic{}[]u?!@$Uxh");
+const STEP = 1 / 60;
+const STOMP_PTS = [100, 200, 400, 800, 1000, 2000, 4000, 8000];
+const SMB = {
+  walkAcc: 0.037,
+  runAcc: 0.056,
+  decel: 0.051,
+  skid: 0.102,
+  maxWalk: 1.5625,
+  maxRun: 2.5625,
+  gravHold: 0.125,
+  gravFall: 0.4375,
+  maxFall: 4.0,
+  jumpSlow: 4.0,
+  jumpFast: 5.0,
+};
 const ICY = new Set("I");
 const HAZARD = new Set("L^");
 const WATER = new Set("~");
-const QITEM = { "?": "coin", "!": "mushroom", "@": "flower", $: "star", U: "oneup", x: "coin" };
+const QITEM = { "?": "coin", "!": "mushroom", "@": "flower", $: "star", U: "oneup", x: "coin", h: "oneup" };
 
 const keys = new Set();
 const tap = new Set();
@@ -144,6 +159,11 @@ export class Game {
     this.fireballs = [];
     this.paused = false;
     this.msg = "";
+    this.acc = 0;
+    this.bumps = [];
+    this.stompCombo = 0;
+    this.clearPhase = "";
+    this.hurry = false;
     this.fit();
     window.addEventListener("resize", () => this.fit());
     window.__REDCAP__ = this;
@@ -178,15 +198,20 @@ export class Game {
     this.power = pw;
     this.player = this.makePlayer(this.level.spawn.x, this.level.spawn.y, pw);
     this.camX = 0;
-    this.invuln = 1.2;
+    this.invuln = 0;
     this.star = 0;
     this.growT = 0;
     this.clearT = 0;
     this.deadT = 0;
-    this.introT = 1.6;
+    this.introT = 2.4;
     this.mode = "intro";
     this.paused = false;
-    this.msg = `${raw.id}  ${raw.name}`;
+    this.hurry = false;
+    audio._hurry = false;
+    this.stompCombo = 0;
+    this.bumps = [];
+    this.clearPhase = "";
+    this.msg = raw.id;
   }
 
   spawn(e) {
@@ -237,7 +262,7 @@ export class Game {
     }
     if (e.type === "flag") {
       base.w = 8;
-      base.h = 96;
+      base.h = 144;
     }
     if (e.type === "axe") {
       base.w = 16;
@@ -257,6 +282,10 @@ export class Game {
     if (e.type === "cannonball") {
       base.w = 12;
       base.h = 12;
+    }
+    if (e.type === "mushroom" || e.type === "oneup" || e.type === "star") {
+      base.vx = 0.7;
+      base.emerge = 0.55;
     }
     return base;
   }
@@ -367,6 +396,7 @@ export class Game {
   bump(tx, ty, who) {
     if (who !== this.player) return;
     const ch = this.tile(tx, ty);
+    this.bumps.push({ tx, ty, t: 0.12 });
     if (ch === "=") {
       if (this.player.power === "small") {
         audio.sfx("bump");
@@ -385,27 +415,43 @@ export class Game {
           });
         }
       }
+      this.bumpEnemyAbove(tx, ty);
       return;
     }
     if (QITEM[ch]) {
       const item = QITEM[ch];
       this.setTile(tx, ty, "u");
       audio.sfx("bump");
-      if (item === "coin") this.addCoin();
-      else {
+      if (item === "coin") {
+        this.addCoin();
+        this.pops.push({ x: tx * TILE, y: ty * TILE - 8, coin: true, t: 0.45, vy: -3 });
+      } else {
         audio.sfx("power");
         this.ents.push(
           this.spawn({
             type: item,
             x: tx * TILE,
-            y: (ty - 1) * TILE,
+            y: ty * TILE,
           }),
         );
         const it = this.ents[this.ents.length - 1];
         it.w = 14;
         it.h = 14;
-        it.vx = item === "mushroom" || item === "oneup" || item === "star" ? 0.7 : 0;
-        it.vy = item === "star" ? -3 : -1;
+        it.vx = 0;
+        it.vy = 0;
+        it.emerge = 0.55;
+      }
+      this.bumpEnemyAbove(tx, ty);
+    }
+  }
+
+  bumpEnemyAbove(tx, ty) {
+    const box = { x: tx * TILE, y: (ty - 1) * TILE, w: 16, h: 16 };
+    for (const e of this.ents) {
+      if (e.dead) continue;
+      if (["walker", "turtle", "spiny"].includes(e.type) && aabb(e, box)) {
+        e.vy = -3;
+        e.vx *= -1;
       }
     }
   }
@@ -443,8 +489,14 @@ export class Game {
 
   stomp(e) {
     audio.sfx("stomp");
-    this.player.vy = -3.2;
-    this.addScore(100, e.x, e.y);
+    this.player.vy = -3.5;
+    this.stompCombo += 1;
+    const n = STOMP_PTS[Math.min(this.stompCombo - 1, STOMP_PTS.length - 1)];
+    if (this.stompCombo >= 8) {
+      this.lives += 1;
+      audio.sfx("oneup");
+      this.pops.push({ x: e.x, y: e.y, text: "1UP", t: 1 });
+    } else this.addScore(n, e.x, e.y);
     if (e.type === "turtle" && !e.shell) {
       e.shell = true;
       e.h = 12;
@@ -453,7 +505,7 @@ export class Game {
       return;
     }
     if (e.type === "turtle" && e.shell) {
-      e.spin = this.player.face * 4;
+      e.spin = this.player.face * 3.5;
       e.vx = e.spin;
       audio.sfx("kick");
       return;
@@ -463,9 +515,15 @@ export class Game {
   }
 
   loop(now) {
-    const dt = Math.min(0.033, (now - this.last) / 1000);
+    const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    this.update(dt);
+    this.acc += dt;
+    let n = 0;
+    while (this.acc >= STEP && n < 5) {
+      this.update(STEP);
+      this.acc -= STEP;
+      n++;
+    }
     this.draw();
     tap.clear();
     requestAnimationFrame(this._loop);
@@ -499,7 +557,9 @@ export class Game {
     }
     if (this.mode === "intro") {
       this.introT -= dt;
-      if (this.introT <= 0 || pressed("Space") || pressed("Enter") || pressed("KeyZ")) this.mode = "play";
+      if (this.introT <= 0 || (this.introT < 1.6 && (pressed("Space") || pressed("Enter") || pressed("KeyZ")))) {
+        this.mode = "play";
+      }
       return;
     }
     if (this.mode === "dead") {
@@ -509,9 +569,9 @@ export class Game {
       if (this.deadT <= 0) {
         this.lives -= 1;
         this.power = "small";
-        if (this.lives < 0) {
+        if (this.lives <= 0) {
           this.mode = "over";
-          this.msg = "游戏结束";
+          this.msg = "GAME OVER";
         } else this.startStage(this.stageIndex, false);
       }
       return;
@@ -520,45 +580,72 @@ export class Game {
       this.clearT -= dt;
       const p = this.player;
       p.sliding = true;
-      if (p.y + p.h < (this.level.h - 2) * TILE) p.y += 80 * dt;
-      else {
-        p.x += 50 * dt;
+      if (this.clearPhase !== "walk" && p.y + p.h < (this.level.h - 2) * TILE) {
+        p.y += 2.2;
+        p.vy = 0;
+      } else {
+        this.clearPhase = "walk";
+        p.x += 1.35;
         p.face = 1;
+        p.onGround = true;
+        if (this.timeLeft > 0) {
+          const drain = Math.min(this.timeLeft, 2.5);
+          this.timeLeft -= drain;
+          this.addScore(Math.floor(drain) * 50);
+        }
       }
-      if (this.clearT <= 0) {
+      if (this.clearT <= 0 && this.timeLeft <= 0) {
         if (this.stageIndex >= STAGES.length - 1) {
           this.mode = "win";
-          this.msg = "王国光复！";
+          this.msg = "THANK YOU!";
         } else this.startStage(this.stageIndex + 1, true);
       }
       return;
     }
 
     this.t += dt;
-    this.timeLeft -= dt;
+    this.timeLeft -= dt * 2.5;
+    if (!this.hurry && this.timeLeft <= 100) {
+      this.hurry = true;
+      audio._hurry = true;
+      audio.sfx("hurry");
+    }
     if (this.timeLeft <= 0) this.killPlayer();
     if (this.invuln > 0) this.invuln -= dt;
     if (this.star > 0) this.star -= dt;
+    if (this.growT > 0) this.growT -= dt;
+    for (const b of this.bumps) b.t -= dt;
+    this.bumps = this.bumps.filter((b) => b.t > 0);
+    const grounded = this.player.onGround;
     this.updatePlayer(dt);
+    if (this.player.onGround && grounded) this.stompCombo = 0;
     this.updateEnts(dt);
     this.updateFire(dt);
     for (const pop of this.pops) {
       pop.t -= dt;
-      pop.y -= 20 * dt;
+      if (pop.coin) {
+        pop.vy += 0.18;
+        pop.y += pop.vy;
+      } else pop.y -= 0.45;
       if (pop.debris) {
-        pop.vy += 12 * dt;
-        pop.x += (pop.vx || 0) * 60 * dt;
-        pop.y += (pop.vy || 0) * 60 * dt;
+        pop.vy += 0.28;
+        pop.x += pop.vx || 0;
+        pop.y += pop.vy || 0;
       }
     }
     this.pops = this.pops.filter((p) => p.t > 0);
-    const target = this.player.x - 80;
-    this.camX += (target - this.camX) * Math.min(1, dt * 8);
-    this.camX = Math.max(0, Math.min(this.camX, this.level.w * TILE - VIEW_W));
+    const follow = this.player.x - 80;
+    if (follow > this.camX) this.camX = Math.min(follow, Math.max(0, this.level.w * TILE - VIEW_W));
+    this.camX = Math.max(0, this.camX);
   }
 
   updatePlayer(dt) {
     const p = this.player;
+    if (this.growT > 0) {
+      p.vx = 0;
+      p.vy = 0;
+      return;
+    }
     const left = held("ArrowLeft", "KeyA");
     const right = held("ArrowRight", "KeyD");
     const down = held("ArrowDown", "KeyS");
@@ -569,49 +656,52 @@ export class Game {
     if (p.duck) p.h = 16;
     else p.h = p.power === "small" ? 15 : 30;
 
-    const max = run ? 2.4 : 1.4;
-    const acc = (p.onGround ? 10 : 6) * dt;
+    const max = run ? SMB.maxRun : SMB.maxWalk;
+    const acc = (run ? SMB.runAcc : SMB.walkAcc) * (p.onGround ? 1 : 0.65);
     p.skid = false;
     if (!p.duck) {
       if (left) {
-        if (p.vx > 0.4 && p.onGround) p.skid = true;
-        p.vx -= acc * 60 * 0.08;
+        if (p.vx > 0.35 && p.onGround) {
+          p.skid = true;
+          p.vx -= SMB.skid;
+        } else p.vx -= acc;
         p.face = -1;
       } else if (right) {
-        if (p.vx < -0.4 && p.onGround) p.skid = true;
-        p.vx += acc * 60 * 0.08;
+        if (p.vx < -0.35 && p.onGround) {
+          p.skid = true;
+          p.vx += SMB.skid;
+        } else p.vx += acc;
         p.face = 1;
       } else if (p.onGround) {
-        p.vx *= Math.pow(0.01, dt);
+        if (p.vx > 0) p.vx = Math.max(0, p.vx - SMB.decel);
+        if (p.vx < 0) p.vx = Math.min(0, p.vx + SMB.decel);
       }
-    } else if (p.onGround) p.vx *= Math.pow(0.01, dt);
+    } else if (p.onGround) {
+      if (p.vx > 0) p.vx = Math.max(0, p.vx - SMB.decel);
+      if (p.vx < 0) p.vx = Math.min(0, p.vx + SMB.decel);
+    }
     const iceTile = this.tile(Math.floor((p.x + p.w / 2) / TILE), Math.floor((p.y + p.h + 1) / TILE));
     const ice = ICY.has(iceTile) || (this.level.theme.ground === "ice" && iceTile === "#");
-    if (ice && p.onGround) p.vx *= 0.995;
+    if (ice && p.onGround) p.vx *= 0.97;
     p.vx = Math.max(-max, Math.min(max, p.vx));
-    if (Math.abs(p.vx) > 0.2) p.walk += dt * (run ? 14 : 10);
+    if (Math.abs(p.vx) > 0.2) p.walk += (run ? 0.22 : 0.16);
 
-    if (p.onGround) p.coyote = 0.1;
-    else p.coyote -= dt;
-    if (pressed("Space") || pressed("KeyZ") || pressed("KeyK") || pressed("ArrowUp")) p.buffer = 0.12;
-    else p.buffer -= dt;
-    if (p.buffer > 0 && p.coyote > 0) {
-      p.vy = wet ? -2.2 : run && Math.abs(p.vx) > 1.6 ? -5.1 : -4.35;
+    if (p.onGround && (pressed("Space") || pressed("KeyZ") || pressed("KeyK") || pressed("ArrowUp"))) {
+      const fast = Math.abs(p.vx) > 1.9;
+      p.vy = wet ? -2.3 : fast ? -SMB.jumpFast : -SMB.jumpSlow;
       p.onGround = false;
-      p.coyote = 0;
-      p.buffer = 0;
-      audio.sfx("jump");
+      audio.sfx(fast ? "jumpRun" : "jump");
     }
-    if (!jump && p.vy < -1.2) p.vy += 18 * dt;
+    if (!jump && p.vy < 0) p.vy += SMB.gravFall * 0.55;
 
-    const grav = wet ? 6 : p.vy < 0 ? 13 : 18;
-    p.vy += grav * dt;
+    const grav = wet ? 0.12 : p.vy < 0 && jump ? SMB.gravHold : SMB.gravFall;
+    p.vy += grav;
     if (wet) p.vy = Math.min(p.vy, 1.6);
-    else p.vy = Math.min(p.vy, 6);
+    else p.vy = Math.min(p.vy, SMB.maxFall);
 
     p.onGround = false;
-    this.moveSolid(p, p.vx * 60 * dt, 0);
-    this.moveSolid(p, 0, p.vy * 60 * dt);
+    this.moveSolid(p, p.vx, 0);
+    this.moveSolid(p, 0, p.vy);
 
     if (p.y > this.level.h * TILE + 8) this.killPlayer();
     const feet = this.tile(Math.floor((p.x + p.w / 2) / TILE), Math.floor((p.y + p.h + 1) / TILE));
@@ -624,8 +714,8 @@ export class Game {
         this.fireballs.push({
           x: p.x + (p.face > 0 ? p.w : -6),
           y: p.y + 8,
-          vx: p.face * 3.2,
-          vy: 1,
+          vx: p.face * 4,
+          vy: 1.6,
           w: 8,
           h: 8,
           t: 2,
@@ -645,30 +735,36 @@ export class Game {
       e.t += dt;
       if (e.type === "walker" || e.type === "spiny" || (e.type === "turtle" && !e.shell) || (e.type === "turtle" && e.spin)) {
         if (e.type === "turtle" && e.spin) e.vx = e.spin;
-        e.vy += 18 * dt;
-        const hit = this.moveSolid(e, e.vx * 60 * dt, 0);
+        e.vy += SMB.gravFall;
+        const hit = this.moveSolid(e, e.vx, 0);
         if (hit) e.vx *= -1;
-        this.moveSolid(e, 0, e.vy * 60 * dt);
+        this.moveSolid(e, 0, e.vy);
         if (e.y > this.level.h * TILE) e.dead = true;
       }
       if (e.type === "flyer") {
-        e.x += e.vx * 60 * dt;
+        e.x += e.vx;
         e.y = e.baseY + Math.sin(e.t * 3) * 10;
         if (this.solid(Math.floor(e.x / TILE), Math.floor(e.y / TILE))) e.vx *= -1;
       }
       if (e.type === "fish") {
-        e.x += e.vx * 60 * dt;
+        e.x += e.vx;
         e.y = e.baseY + Math.sin(e.t * 2) * 6;
       }
       if (e.type === "piranha") {
         e.phase += dt;
-        const hide = Math.sin(e.phase) < 0;
-        e.y = e.pipeY * TILE - 24 + (hide ? 24 : Math.sin(e.phase) * 8);
-        e.hidden = hide;
+        const near = Math.abs(p.x + p.w / 2 - (e.pipeX * TILE + 8)) < 26 && p.y + p.h > (e.pipeY - 4) * TILE;
+        if (near) {
+          e.hidden = true;
+          e.y = e.pipeY * TILE;
+        } else {
+          const wave = Math.sin(e.phase);
+          e.hidden = wave < -0.2;
+          e.y = e.pipeY * TILE - 24 + (e.hidden ? 24 : 8 + wave * 8);
+        }
       }
       if (e.type === "podoboo") {
-        e.vy += 10 * dt;
-        e.y += e.vy * 60 * dt;
+        e.vy += 0.28;
+        e.y += e.vy;
         if (e.y > (this.level.h - 1) * TILE) {
           e.y = (this.level.h - 1) * TILE;
           e.vy = -4.4;
@@ -687,17 +783,17 @@ export class Game {
         }
       }
       if (e.type === "cannonball") {
-        e.x += e.vx * 60 * dt;
+        e.x += e.vx;
         if (e.x < this.camX - 32 || e.x > this.camX + VIEW_W + 32) e.dead = true;
       }
       if (e.type === "platform") {
-        e.x += e.vx * 60 * dt;
+        e.x += e.vx;
         if (e.x < e.minX || e.x > e.maxX) e.vx *= -1;
         if (p.vy >= 0 && aabb({ x: p.x, y: p.y + p.h - 2, w: p.w, h: 4 }, e)) {
           p.y = e.y - p.h;
           p.vy = 0;
           p.onGround = true;
-          p.x += e.vx * 60 * dt;
+          p.x += e.vx;
         }
       }
       if (e.type === "spring" && p.vy > 0 && aabb(p, e)) {
@@ -705,12 +801,16 @@ export class Game {
         audio.sfx("bounce");
       }
       if (e.type === "mushroom" || e.type === "oneup" || e.type === "star") {
-        e.vy += 12 * dt;
-        const hit = this.moveSolid(e, e.vx * 60 * dt, 0);
-        if (hit) e.vx *= -1;
-        this.moveSolid(e, 0, e.vy * 60 * dt);
-        if (e.type === "star") {
-          if (e.onGround) e.vy = -3.2;
+        if (e.emerge > 0) {
+          e.emerge -= dt;
+          e.y -= 0.48;
+          e.vx = 0;
+        } else {
+          e.vy += SMB.gravFall;
+          const hit = this.moveSolid(e, e.vx, 0);
+          if (hit) e.vx *= -1;
+          this.moveSolid(e, 0, e.vy);
+          if (e.type === "star" && e.onGround) e.vy = -3.2;
         }
       }
       if (e.type === "flower") {
@@ -727,6 +827,7 @@ export class Game {
           p.power = "big";
           p.y -= 15;
           p.h = 30;
+          this.growT = 0.75;
         }
         this.power = p.power;
         this.addScore(1000, e.x, e.y);
@@ -753,16 +854,20 @@ export class Game {
         audio.sfx("oneup");
         this.pops.push({ x: e.x, y: e.y, text: "1UP", t: 1 });
       }
-      if (e.type === "flag" && aabb(p, { x: e.x, y: e.y, w: 12, h: 80 })) {
+      if (e.type === "flag" && aabb(p, { x: e.x, y: e.y, w: 12, h: e.h })) {
+        const top = (p.y - e.y) / 96;
+        const pts = top < 0.18 ? 5000 : top < 0.38 ? 2000 : top < 0.58 ? 800 : top < 0.78 ? 400 : 100;
+        this.addScore(pts, e.x, p.y);
         this.mode = "clear";
-        this.clearT = 2.8;
+        this.clearT = 7;
+        this.clearPhase = "slide";
         this.power = p.power;
         audio.sfx("flag");
-        this.addScore(Math.floor(this.timeLeft) * 10);
       }
       if (e.type === "axe" && aabb(p, e)) {
         this.mode = "clear";
-        this.clearT = 2.2;
+        this.clearT = 7;
+        this.clearPhase = "walk";
         this.power = p.power;
         audio.sfx("flag");
       }
@@ -858,6 +963,7 @@ export class Game {
       case "U":
         return A.qblock;
       case "x":
+      case "h":
         return null;
       case "I":
         return A.ice;
@@ -885,60 +991,73 @@ export class Game {
   draw() {
     const ctx = this.octx;
     ctx.imageSmoothingEnabled = false;
-    if (this.mode === "title") {
-      this.drawTitle();
-    } else {
-      this.drawWorld();
-    }
+    if (this.mode === "title") this.drawTitle();
+    else if (this.mode === "intro") this.drawIntro();
+    else this.drawWorld();
     this.ctx.imageSmoothingEnabled = false;
     this.ctx.drawImage(this.off, 0, 0, this.canvas.width, this.canvas.height);
   }
 
   drawTitle() {
     const ctx = this.octx;
-    const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-    g.addColorStop(0, "#5c94fc");
-    g.addColorStop(1, "#b8e0ff");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     const A = this.atlas;
-    ctx.drawImage(A.hill, 8, 168, 64, 28);
-    ctx.drawImage(A.hill, 90, 176, 48, 22);
-    ctx.drawImage(A.cloud, 24, 28, 40, 18);
-    ctx.drawImage(A.cloud, 150, 18, 48, 20);
-    ctx.drawImage(A.cloud, 200, 40, 32, 16);
-    for (let i = 0; i < 16; i++) ctx.drawImage(A.grass, i * 16, 192);
-    for (let i = 0; i < 16; i++) ctx.drawImage(A.dirt, i * 16, 208);
-    ctx.drawImage(A.bush, 28, 184);
-    ctx.drawImage(A.bush, 168, 184);
-    ctx.drawImage(A.pipeTopL, 210, 160);
-    ctx.drawImage(A.pipeTopR, 226, 160);
-    ctx.drawImage(A.pipeL, 210, 176);
-    ctx.drawImage(A.pipeR, 226, 176);
-    ctx.drawImage(A.castle, 186, 128, 32, 64);
-    ctx.drawImage(A.big.idle, 40, 160);
-    ctx.drawImage(A.walker.a, 86, 176);
-    ctx.drawImage(A.turtle.a, 112, 176);
-    ctx.drawImage(A.mushroom, 140, 176);
-    ctx.drawImage(A.coin.a, 70, 120);
+    ctx.fillStyle = "#5c94fc";
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.drawImage(A.cloud, 20, 32, 48, 20);
+    ctx.drawImage(A.cloud, 160, 24, 40, 16);
+    ctx.drawImage(A.hill, 0, 168, 80, 32);
+    ctx.drawImage(A.hill, 88, 176, 56, 24);
+    for (let i = 0; i < 16; i++) {
+      ctx.drawImage(A.grass, i * 16, 192);
+      ctx.drawImage(A.dirt, i * 16, 208);
+    }
+    ctx.drawImage(A.bush, 24, 184);
+    ctx.drawImage(A.bush, 150, 184);
+    ctx.drawImage(A.pipeTopL, 208, 160);
+    ctx.drawImage(A.pipeTopR, 224, 160);
+    ctx.drawImage(A.pipeL, 208, 176);
+    ctx.drawImage(A.pipeR, 224, 176);
+    ctx.drawImage(A.big.idle, 36, 160);
+    ctx.drawImage(A.walker.a, 92, 176);
+    ctx.drawImage(A.turtle.a, 114, 176);
+    ctx.fillStyle = "#181818";
+    ctx.font = "bold 22px monospace";
+    ctx.fillText("红帽奇遇", 71, 64);
+    ctx.fillStyle = "#e52521";
+    ctx.fillText("红帽奇遇", 70, 62);
     ctx.fillStyle = "#fff8e8";
-    ctx.font = "bold 18px monospace";
-    ctx.fillText("红帽奇遇", 78, 70);
     ctx.font = "10px monospace";
+    ctx.fillText("1 PLAYER GAME", 86, 92);
+    if (Math.floor(performance.now() / 400) % 2 === 0) {
+      ctx.fillStyle = "#f8d030";
+      ctx.fillText("▶", 72, 92);
+    }
     ctx.fillStyle = "#203060";
-    ctx.fillText("网页平台跳跃 · 致敬超级马里奥", 48, 88);
+    ctx.font = "8px monospace";
+    ctx.fillText("TOP  000000", 98, 112);
+    ctx.fillText("非官方粉丝向 · 原创像素", 64, 128);
     ctx.fillStyle = "#fff8e8";
-    ctx.fillText("按 空格 / 点屏幕 开始", 64, 118);
-    ctx.fillText("方向移动  Z/空格跳  X冲刺/喷火", 42, 132);
+    ctx.fillText("按空格 / 点屏幕", 86, 148);
+  }
+
+  drawIntro() {
+    const ctx = this.octx;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.fillStyle = "#fff8e8";
+    ctx.font = "10px monospace";
+    const id = this.level?.id || "1-1";
+    ctx.fillText("WORLD", 108, 88);
+    ctx.fillText(id, 118, 104);
+    const spr = this.atlas.small.idle;
+    ctx.drawImage(spr, 96, 128);
+    ctx.fillText("×  " + Math.max(0, this.lives), 120, 140);
   }
 
   drawWorld() {
     const ctx = this.octx;
     const th = this.level.theme;
-    const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-    g.addColorStop(0, th.sky[0]);
-    g.addColorStop(1, th.sky[1]);
-    ctx.fillStyle = g;
+    ctx.fillStyle = th.sky[0];
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
     if (th.stars) {
@@ -971,7 +1090,9 @@ export class Game {
         const ch = this.level.grid[y][x];
         const spr = this.tileSprite(ch);
         if (!spr) continue;
-        ctx.drawImage(spr, Math.round(x * TILE - this.camX), y * TILE);
+        const bump = this.bumps.find((b) => b.tx === x && b.ty === y);
+        const yoff = bump ? -Math.sin((1 - bump.t / 0.12) * Math.PI) * 4 : 0;
+        ctx.drawImage(spr, Math.round(x * TILE - this.camX), y * TILE + yoff);
       }
     }
 
@@ -984,6 +1105,13 @@ export class Game {
       }
     }
 
+    if (th.castleEnd) {
+      const A = this.atlas;
+      const cx = this.level.w * TILE - 72 - this.camX;
+      const cy = (this.level.h - 2) * TILE - 48;
+      ctx.drawImage(A.castle, cx, cy, 48, 48);
+    }
+
     for (const e of this.ents) this.drawEnt(e);
     for (const f of this.fireballs) {
       const img = this.t % 0.1 < 0.05 ? this.atlas.fireball.a : this.atlas.fireball.b;
@@ -993,6 +1121,8 @@ export class Game {
     for (const pop of this.pops) {
       if (pop.debris) {
         this.drawImg(this.atlas.debris, pop.x, pop.y);
+      } else if (pop.coin) {
+        this.drawImg(this.atlas.coin.a, pop.x, pop.y);
       } else {
         ctx.fillStyle = "#fff8e8";
         ctx.font = "8px monospace";
@@ -1000,37 +1130,32 @@ export class Game {
       }
     }
 
-    ctx.fillStyle = "rgba(10,8,20,0.55)";
-    ctx.fillRect(0, 0, VIEW_W, HUD_H);
     ctx.fillStyle = "#fff8e8";
     ctx.font = "8px monospace";
-    ctx.fillText(`阿砖 ×${Math.max(0, this.lives)}`, 6, 11);
-    ctx.fillText(`金币 ${this.coins}`, 78, 11);
-    ctx.fillText(`${this.level.id}`, 140, 11);
-    ctx.fillText(`时间 ${Math.max(0, Math.ceil(this.timeLeft))}`, 178, 11);
-    ctx.fillText(`${this.score}`.padStart(6, "0"), 6, 228);
+    ctx.fillText("阿砖", 24, 16);
+    ctx.fillText("WORLD", 148, 16);
+    ctx.fillText("TIME", 208, 16);
+    ctx.fillText(String(this.score).padStart(6, "0"), 24, 26);
+    ctx.drawImage(this.atlas.coin.a, 88, 14);
+    ctx.fillText("×" + String(this.coins).padStart(2, "0"), 104, 26);
+    ctx.fillText(this.level.id, 156, 26);
+    ctx.fillText(String(Math.max(0, Math.ceil(this.timeLeft))).padStart(3, "0"), 214, 26);
 
-    if (this.mode === "intro") {
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
-      ctx.fillRect(40, 90, 176, 36);
-      ctx.fillStyle = "#fff8e8";
-      ctx.font = "10px monospace";
-      ctx.fillText(this.msg, 56, 112);
-    }
     if (this.paused) {
       ctx.fillStyle = "rgba(0,0,0,0.45)";
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
       ctx.fillStyle = "#fff";
-      ctx.fillText("暂停", 112, 120);
+      ctx.font = "10px monospace";
+      ctx.fillText("PAUSED", 108, 120);
     }
     if (this.mode === "over" || this.mode === "win") {
-      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
       ctx.fillStyle = "#fff8e8";
-      ctx.font = "14px monospace";
-      ctx.fillText(this.msg, 86, 110);
-      ctx.font = "9px monospace";
-      ctx.fillText("空格返回标题", 92, 132);
+      ctx.font = "12px monospace";
+      ctx.fillText(this.mode === "over" ? "GAME OVER" : this.msg, 88, 110);
+      ctx.font = "8px monospace";
+      ctx.fillText("空格返回标题", 96, 132);
     }
 
     ctx.fillStyle = "rgba(255,255,255,0.22)";
@@ -1078,9 +1203,12 @@ export class Game {
     if (e.type === "oneup") img = A.oneup;
     if (e.type === "flag") {
       const ctx = this.octx;
-      ctx.fillStyle = "#fff8e8";
+      ctx.fillStyle = "#ffffff";
       const px = Math.round(e.x - this.camX + 1);
-      ctx.fillRect(px, Math.round(e.y), 2, (this.level.h - 2) * TILE - e.y);
+      const top = Math.round(e.y);
+      ctx.fillRect(px, top, 2, (this.level.h - 2) * TILE - e.y);
+      ctx.fillStyle = "#3cb043";
+      ctx.fillRect(px - 2, top - 3, 6, 6);
       img = A.flag;
     }
     if (e.type === "axe") img = A.castle;
@@ -1096,6 +1224,7 @@ export class Game {
   drawPlayer() {
     const p = this.player;
     if (this.invuln > 0 && Math.floor(this.t * 20) % 2 === 0 && this.mode === "play") return;
+    if (this.growT > 0 && Math.floor(this.t * 16) % 2 === 0) return;
     const fire = p.power === "fire";
     const big = p.power !== "small";
     const pack = fire ? (big ? this.atlas.fireBig : this.atlas.fireSmall) : big ? this.atlas.big : this.atlas.small;

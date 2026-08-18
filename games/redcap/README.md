@@ -6,7 +6,7 @@ A browser platformer in the hub Adventure section.
 
 ## 说明 / About
 
-玩法向超级马里奥致敬（跑、跳、顶砖、踩怪、龟壳、蘑菇 / 火花 / 星星、喷火、旗杆），**全部像素图、音效与八关地图均为原创程序生成**，不是任天堂产品，也没有使用官方素材或 1-1 原版关卡。
+玩法尽量贴近 NES《超级马里奥兄弟》：单向镜头、黑底 WORLD 命数屏、双行 HUD、变速跑跳、顶砖弹出、踩怪连击、旗杆高度分与时间折分。像素图与 1-1 布局均为原创致敬，不是任天堂产品，也没有拷贝官方精灵或原版关卡。
 
 Tribute gameplay only. Original procedural pixel art, chiptune SFX, and eight original stages. Not a Nintendo product.
 

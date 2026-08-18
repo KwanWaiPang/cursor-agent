@@ -31,11 +31,12 @@ function beep(freq, dur, type = "square", vol = 0.1, slide = 0) {
 }
 
 const SFX = {
-  jump: () => beep(420, 0.14, "square", 0.07, 180),
+  jump: () => beep(330, 0.12, "square", 0.07, 280),
+  jumpRun: () => beep(280, 0.14, "square", 0.07, 360),
   bounce: () => beep(520, 0.1, "square", 0.06, 80),
   coin: () => {
-    beep(880, 0.08, "square", 0.06);
-    setTimeout(() => beep(1320, 0.12, "square", 0.05), 50);
+    beep(987, 0.07, "square", 0.06);
+    setTimeout(() => beep(1318, 0.14, "square", 0.055), 55);
   },
   bump: () => beep(90, 0.08, "square", 0.08, -20),
   break: () => {
@@ -49,6 +50,9 @@ const SFX = {
   fire: () => beep(240, 0.08, "sawtooth", 0.05, 200),
   kick: () => beep(200, 0.1, "square", 0.07, -80),
   pipe: () => beep(180, 0.28, "triangle", 0.07, -90),
+  hurry: () => {
+    [784, 880, 988, 880].forEach((f, i) => setTimeout(() => beep(f, 0.07, "square", 0.05), i * 70));
+  },
   die: () => {
     [400, 300, 200, 140].forEach((f, i) => setTimeout(() => beep(f, 0.12, "square", 0.07, -40), i * 90));
   },
@@ -66,7 +70,7 @@ let musicTimer = 0;
 let theme = "overworld";
 
 const THEMES = {
-  overworld: [392, 523, 659, 784, 659, 523, 392, 330],
+  overworld: [523, 659, 784, 659, 392, 523, 587, 523, 440, 494, 523, 392],
   underground: [196, 247, 220, 165, 196, 147, 165, 130],
   castle: [155, 185, 147, 123, 155, 98, 123, 82],
   sky: [523, 659, 784, 988, 784, 659, 587, 523],
@@ -91,10 +95,11 @@ export const audio = {
   tick(dt) {
     if (!musicOn) return;
     musicTimer += dt;
-    if (musicTimer < 0.28) return;
+    const gap = theme === "overworld" && audio._hurry ? 0.16 : 0.26;
+    if (musicTimer < gap) return;
     musicTimer = 0;
     const seq = THEMES[theme];
     const f = seq[(audio._i = ((audio._i || 0) + 1) % seq.length)];
-    beep(f, 0.18, "triangle", 0.025);
+    beep(f, gap * 0.7, "triangle", 0.025);
   },
 };

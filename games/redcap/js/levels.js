@@ -4,7 +4,7 @@
 
 export const THEMES = {
   grassland: {
-    sky: ["#5c94fc", "#7eb0ff"],
+    sky: ["#5c94fc", "#5c94fc"],
     ground: "grass",
     music: "overworld",
     hill: true,
@@ -90,24 +90,36 @@ function layGround(g, holes = [], ch = "#") {
   }
 }
 
+function putPipe(g, x, height) {
+  const gy = g.length - 2;
+  const top = gy - height;
+  for (let i = 0; i < height; i++) {
+    const y = top + i;
+    if (!g[y]) continue;
+    g[y][x] = i === 0 ? "{" : "[";
+    if (g[y][x + 1] !== undefined) g[y][x + 1] = i === 0 ? "}" : "]";
+  }
+}
+
 function withEnd(st, kind = "flag") {
   const rows = st.rows.map((r) => r.split(""));
   const h = rows.length;
   const w = rows[0].length;
-  const gx = w - 14;
-  for (let i = 0; i < 6; i++) {
+  const gx = w - 16;
+  const steps = kind === "flag" ? 8 : 6;
+  for (let i = 0; i < steps; i++) {
     for (let k = 0; k <= i; k++) {
       const y = h - 3 - k;
-      const x = gx - 8 + i;
+      const x = gx - (steps + 1) + i;
       if (rows[y] && rows[y][x] !== undefined) rows[y][x] = "-";
     }
   }
   if (kind === "flag") {
-    const fy = h - 9;
-    const fx = gx + 2;
+    const fy = h - 11;
+    const fx = gx + 1;
     if (rows[fy]) rows[fy][fx] = "E";
     for (let y = fy; y < h - 2; y++) {
-      if (rows[y][fx] === ".") rows[y][fx] = "|";
+      if (rows[y] && rows[y][fx] === ".") rows[y][fx] = "|";
     }
   } else {
     const cx = gx + 3;
@@ -126,43 +138,38 @@ function pack(id, name, theme, time, g, extras = {}) {
 export const STAGES = [];
 
 {
-  const w = 240;
+  const w = 214;
   const h = 15;
   const g = grid(w, h);
   layGround(g, [
-    [56, 62],
-    [98, 106],
-    [150, 158],
-    [196, 202],
+    [70, 73],
+    [87, 91],
+    [154, 158],
   ]);
-  stamp(g, 16, 8, "ooooo");
-  stamp(g, 15, 9, "=?=?=");
-  stamp(g, 18, 12, "g");
-  stamp(g, 32, 12, "g");
-  stamp(g, 36, 12, "P");
-  stamp(g, 44, 7, "ooo");
-  stamp(g, 43, 8, "====");
-  stamp(g, 48, 12, "t");
-  stamp(g, 68, 12, "g");
-  stamp(g, 72, 8, "o.o.o");
-  stamp(g, 71, 9, "=!?=@");
-  stamp(g, 80, 12, "Q");
-  stamp(g, 88, 12, "g");
-  stamp(g, 110, 6, "oooooo");
-  stamp(g, 109, 7, "======");
-  stamp(g, 112, 12, "g");
-  stamp(g, 118, 12, "t");
-  stamp(g, 124, 12, "P");
-  stamp(g, 132, 8, "ooo");
-  stamp(g, 131, 9, "=U==");
-  stamp(g, 140, 12, "g");
+  stamp(g, 16, 9, "?");
+  stamp(g, 20, 9, "=?=!=");
+  stamp(g, 22, 12, "g");
+  stamp(g, 41, 12, "g");
+  putPipe(g, 29, 2);
+  putPipe(g, 39, 3);
+  putPipe(g, 47, 4);
+  putPipe(g, 58, 4);
+  stamp(g, 64, 6, "h");
+  stamp(g, 78, 9, "=====");
+  stamp(g, 81, 5, "?");
+  stamp(g, 94, 9, "=!?=");
+  stamp(g, 91, 12, "g");
+  stamp(g, 93, 12, "g");
+  stamp(g, 108, 12, "t");
+  stamp(g, 118, 12, "g");
+  putPipe(g, 128, 2);
+  stamp(g, 138, 8, "ooo");
+  stamp(g, 137, 9, "=====");
+  stamp(g, 146, 12, "g");
   stamp(g, 162, 12, "g");
-  stamp(g, 168, 7, "o.o.o.o");
-  stamp(g, 167, 8, "======= ");
-  stamp(g, 176, 12, "t");
-  stamp(g, 182, 12, "P");
-  stamp(g, 210, 12, "g");
-  STAGES.push(pack("1-1", "青丘草原", "grassland", 400, g));
+  stamp(g, 166, 12, "t");
+  stamp(g, 178, 9, "=?=");
+  STAGES.push(pack("1-1", "青丘草原", "grassland", 400, g, { castleEnd: true }));
 }
 
 {
@@ -537,7 +544,7 @@ export function parseLevel(stage) {
     grid: gridMap,
     entities,
     spawn,
-    theme: THEMES[stage.theme],
+    theme: { ...THEMES[stage.theme], castleEnd: !!stage.castleEnd },
     id: stage.id,
     name: stage.name,
     time: stage.time,
