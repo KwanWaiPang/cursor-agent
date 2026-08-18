@@ -553,6 +553,15 @@ export function canMoveDeploy(board, from, to, side) {
   return pieceLegalAt(pa, to[0], to[1], side);
 }
 
+export function swapDeploy(board, a, b, side) {
+  if (!canSwapDeploy(board, a, b, side)) return false;
+  const tmp = board[a[0]][a[1]];
+  board[a[0]][a[1]] = board[b[0]][b[1]];
+  board[b[0]][b[1]] = tmp;
+  refreshDeployLocks(board, side);
+  return true;
+}
+
 export function moveDeploy(board, from, to, side) {
   if (!canMoveDeploy(board, from, to, side)) return false;
   if (board[to[0]][to[1]]) return swapDeploy(board, from, to, side);
