@@ -29,6 +29,7 @@ const btnNew = document.getElementById("btnNew");
 const btnRedeploy = document.getElementById("btnRedeploy");
 const btnStart = document.getElementById("btnStart");
 const btnUndo = document.getElementById("btnUndo");
+const btnResign = document.getElementById("btnResign");
 const difficultySelect = document.getElementById("difficultySelect");
 const clickAudio = document.getElementById("clickAudio");
 const selectAudio = document.getElementById("selectAudio");
@@ -93,7 +94,7 @@ function newGame() {
   combatLog.innerHTML = "尚无交锋";
   resultEl.textContent = "";
   resultEl.classList.remove("show");
-  setMsg("布阵阶段：点两枚己方棋子交换位置，再点「确认开局」。地雷须在最后两排，军旗须在大本营。");
+  setMsg("布阵阶段：点己方棋，再点高亮位置交换，然后点「确认开局」。地雷须在最后两排，军旗须在大本营。");
   updatePhaseUi("南方布阵", "布阵中");
   if (btnStart) btnStart.textContent = "确认开局";
   draw();
@@ -622,6 +623,19 @@ async function scheduleAi() {
 
 let lastTouchAt = 0;
 
+function listDeployTargets(from) {
+  const legal = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (from[0] === r && from[1] === c) continue;
+      if (canMoveDeploy(state.board, from, [r, c], SIDE.SOUTH)) {
+        legal.push({ to: [r, c], attack: false });
+      }
+    }
+  }
+  return legal;
+}
+
 function onDeployPointer(r, c) {
   const p = state.board[r][c];
   if (!state.swapFrom) {
@@ -630,13 +644,20 @@ function onDeployPointer(r, c) {
       return;
     }
     state.swapFrom = [r, c];
-    setMsg(`已选 ${p.name}，再点另一枚交换，或点空位放置`);
+    state.legal = listDeployTargets([r, c]);
+    setMsg(
+      state.legal.length
+        ? `已选 ${p.name}，再点高亮位置交换`
+        : `${p.name} 当前位置受布阵规则限制，无法与其它棋交换`,
+      !state.legal.length
+    );
     draw();
     return;
   }
   const [fr, fc] = state.swapFrom;
   if (fr === r && fc === c) {
     state.swapFrom = null;
+    state.legal = [];
     setMsg("已取消选择");
     draw();
     return;
@@ -646,9 +667,14 @@ function onDeployPointer(r, c) {
     return;
   }
   const fromName = state.board[fr][fc]?.name || "棋";
-  moveDeploy(state.board, [fr, fc], [r, c], SIDE.SOUTH);
+  const ok = moveDeploy(state.board, [fr, fc], [r, c], SIDE.SOUTH);
+  if (!ok) {
+    setMsg("交换失败，请再选一枚己方棋", true);
+    return;
+  }
   state.swapFrom = null;
-  setMsg(`已调整 ${fromName}。可继续微调，或点「确认开局」。`);
+  state.legal = [];
+  setMsg(`已调整 ${fromName}。可继续点两枚棋交换，或点「确认开局」。`);
   draw();
   play(clickAudio);
 }
@@ -710,7 +736,7 @@ btnStart.addEventListener("click", () => {
   }
   setMsg("已在对局中。请直接点棋盘上的红方棋子行动。");
 });
-btnResign.addEventListener("click", () => {
+btnResign?.addEventListener("click", () => {
   if (state.phase !== "play") return;
   endGame(SIDE.NORTH, "你已认输");
 });
