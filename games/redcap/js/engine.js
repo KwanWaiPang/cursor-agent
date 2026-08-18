@@ -317,6 +317,19 @@ export class Game {
     if (x != null) this.pops.push({ x, y, text: String(n), t: 0.7 });
   }
 
+  puff(x, y, n = 1) {
+    for (let i = 0; i < n; i++) {
+      this.pops.push({
+        x: x + (i - n / 2) * 4,
+        y: y - 3,
+        dust: true,
+        t: 0.28,
+        vx: (i % 2 ? 1 : -1) * 0.35,
+        vy: -0.35,
+      });
+    }
+  }
+
   addCoin(n = 1) {
     this.coins += n;
     audio.sfx("coin");
@@ -583,6 +596,8 @@ export class Game {
       if (this.clearPhase !== "walk" && p.y + p.h < (this.level.h - 2) * TILE) {
         p.y += 2.2;
         p.vy = 0;
+        const flag = this.ents.find((e) => e.type === "flag");
+        if (flag) flag.clothY = p.y + 4;
       } else {
         this.clearPhase = "walk";
         p.x += 1.35;
@@ -626,6 +641,10 @@ export class Game {
       if (pop.coin) {
         pop.vy += 0.18;
         pop.y += pop.vy;
+      } else if (pop.dust) {
+        pop.x += pop.vx || 0;
+        pop.y += pop.vy || 0;
+        pop.vy = (pop.vy || 0) + 0.04;
       } else pop.y -= 0.45;
       if (pop.debris) {
         pop.vy += 0.28;
@@ -699,9 +718,12 @@ export class Game {
     if (wet) p.vy = Math.min(p.vy, 1.6);
     else p.vy = Math.min(p.vy, SMB.maxFall);
 
+    const wasGround = p.onGround;
     p.onGround = false;
     this.moveSolid(p, p.vx, 0);
     this.moveSolid(p, 0, p.vy);
+    if (p.onGround && !wasGround) this.puff(p.x + 2, p.y + p.h, 2);
+    if (p.skid && p.onGround && Math.floor(this.t * 18) % 2 === 0) this.puff(p.x + p.w / 2, p.y + p.h, 1);
 
     if (p.y > this.level.h * TILE + 8) this.killPlayer();
     const feet = this.tile(Math.floor((p.x + p.w / 2) / TILE), Math.floor((p.y + p.h + 1) / TILE));
@@ -961,7 +983,7 @@ export class Game {
       case "@":
       case "$":
       case "U":
-        return A.qblock;
+        return Math.floor(this.t * 6) % 2 === 0 ? A.qblock.a : A.qblock.b;
       case "x":
       case "h":
         return null;
@@ -1003,10 +1025,10 @@ export class Game {
     const A = this.atlas;
     ctx.fillStyle = "#5c94fc";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-    ctx.drawImage(A.cloud, 20, 32, 48, 20);
-    ctx.drawImage(A.cloud, 160, 24, 40, 16);
-    ctx.drawImage(A.hill, 0, 168, 80, 32);
-    ctx.drawImage(A.hill, 88, 176, 56, 24);
+    ctx.drawImage(A.cloud, 16, 28);
+    ctx.drawImage(A.cloud, 148, 20);
+    ctx.drawImage(A.hill, 4, 180);
+    ctx.drawImage(A.hill, 92, 180);
     for (let i = 0; i < 16; i++) {
       ctx.drawImage(A.grass, i * 16, 192);
       ctx.drawImage(A.dirt, i * 16, 208);
@@ -1017,8 +1039,9 @@ export class Game {
     ctx.drawImage(A.pipeTopR, 224, 160);
     ctx.drawImage(A.pipeL, 208, 176);
     ctx.drawImage(A.pipeR, 224, 176);
-    ctx.drawImage(A.big.idle, 36, 160);
-    ctx.drawImage(A.walker.a, 92, 176);
+    const wf = Math.floor(performance.now() / 140) % 3;
+    ctx.drawImage(A.big[`walk${wf}`] || A.big.idle, 36, 160);
+    ctx.drawImage(A.walker[["a", "b", "c"][wf]] || A.walker.a, 92, 176);
     ctx.drawImage(A.turtle.a, 114, 176);
     ctx.fillStyle = "#181818";
     ctx.font = "bold 22px monospace";
@@ -1071,7 +1094,7 @@ export class Game {
       const A = this.atlas;
       for (let i = 0; i < 6; i++) {
         const x = i * 90 - ((this.camX * 0.3) % 90);
-        ctx.drawImage(A.cloud, x, 18 + (i % 3) * 14, 32, 16);
+        ctx.drawImage(A.cloud, x, 16 + (i % 3) * 12);
       }
     }
     if (th.hill) {
@@ -1079,7 +1102,7 @@ export class Game {
       const gy = (this.level.h - 2) * TILE;
       for (let i = 0; i < 8; i++) {
         const x = i * 88 - ((this.camX * 0.45) % 88);
-        ctx.drawImage(A.hill, x, gy - A.hill.height * 2 + 2, 48, A.hill.height * 2);
+        ctx.drawImage(A.hill, x, gy - A.hill.height + 1, 32, A.hill.height);
       }
     }
 
@@ -1122,7 +1145,10 @@ export class Game {
       if (pop.debris) {
         this.drawImg(this.atlas.debris, pop.x, pop.y);
       } else if (pop.coin) {
-        this.drawImg(this.atlas.coin.a, pop.x, pop.y);
+        const cf = ["a", "b", "c"][Math.floor(this.t * 10) % 3];
+        this.drawImg(this.atlas.coin[cf] || this.atlas.coin.a, pop.x, pop.y);
+      } else if (pop.dust) {
+        this.drawImg(this.atlas.dust, pop.x, pop.y);
       } else {
         ctx.fillStyle = "#fff8e8";
         ctx.font = "8px monospace";
@@ -1136,7 +1162,7 @@ export class Game {
     ctx.fillText("WORLD", 148, 16);
     ctx.fillText("TIME", 208, 16);
     ctx.fillText(String(this.score).padStart(6, "0"), 24, 26);
-    ctx.drawImage(this.atlas.coin.a, 88, 14);
+    ctx.drawImage(this.atlas.coin.a, 90, 16, 8, 8);
     ctx.fillText("×" + String(this.coins).padStart(2, "0"), 104, 26);
     ctx.fillText(this.level.id, 156, 26);
     ctx.fillText(String(Math.max(0, Math.ceil(this.timeLeft))).padStart(3, "0"), 214, 26);
@@ -1184,7 +1210,10 @@ export class Game {
     const flip = e.vx > 0 || e.face > 0;
     const frame = Math.floor(this.t * 8) % 2 === 0;
     let img = null;
-    if (e.type === "walker") img = e.squash ? A.walker.squish : frame ? A.walker.a : A.walker.b;
+    if (e.type === "walker") {
+      const wf = Math.floor(this.t * 8) % 3;
+      img = e.squash ? A.walker.squish : A.walker[["a", "b", "c"][wf]] || A.walker.a;
+    }
     if (e.type === "turtle") {
       const pack = e.color === "red" ? A.redTurtle : A.turtle;
       img = e.shell ? pack.shell : frame ? pack.a : pack.b;
@@ -1196,7 +1225,7 @@ export class Game {
     if (e.type === "podoboo") img = frame ? A.lavaBubble.a : A.lavaBubble.b;
     if (e.type === "cannonball") img = A.cannonball;
     if (e.type === "cannon") img = A.hard;
-    if (e.type === "coin") img = frame ? A.coin.a : A.coin.b;
+    if (e.type === "coin") img = A.coin[["a", "b", "c"][Math.floor(this.t * 10) % 3]] || A.coin.a;
     if (e.type === "mushroom") img = A.mushroom;
     if (e.type === "flower") img = A.flower;
     if (e.type === "star") img = A.star;
@@ -1209,7 +1238,9 @@ export class Game {
       ctx.fillRect(px, top, 2, (this.level.h - 2) * TILE - e.y);
       ctx.fillStyle = "#3cb043";
       ctx.fillRect(px - 2, top - 3, 6, 6);
-      img = A.flag;
+      const cloth = Math.floor(this.t * 6) % 2 === 0 ? A.flag.a : A.flag.b;
+      this.drawImg(cloth, e.x - 1, e.clothY != null ? e.clothY : e.y + 8);
+      return;
     }
     if (e.type === "axe") img = A.castle;
     if (e.type === "spring") img = A.spring;
@@ -1223,25 +1254,26 @@ export class Game {
 
   drawPlayer() {
     const p = this.player;
-    if (this.invuln > 0 && Math.floor(this.t * 20) % 2 === 0 && this.mode === "play") return;
-    if (this.growT > 0 && Math.floor(this.t * 16) % 2 === 0) return;
+    if (this.invuln > 0 && this.growT <= 0 && Math.floor(this.t * 20) % 2 === 0 && this.mode === "play") return;
     const fire = p.power === "fire";
-    const big = p.power !== "small";
+    let big = p.power !== "small";
+    if (this.growT > 0.35) big = Math.floor(this.t * 18) % 2 === 0;
     const pack = fire ? (big ? this.atlas.fireBig : this.atlas.fireSmall) : big ? this.atlas.big : this.atlas.small;
     const packL = fire ? (big ? this.atlas.fireBigL : this.atlas.fireSmallL) : big ? this.atlas.bigL : this.atlas.smallL;
     const use = p.face < 0 ? packL : pack;
     let pose = "idle";
     if (p.dead) pose = "die";
+    else if (p.sliding) pose = "climb";
     else if (p.duck && pack.duck) pose = "duck";
-    else if (!p.onGround) pose = "jump";
+    else if (!p.onGround) pose = p.vy > 0.45 ? "fall" : "jump";
     else if (p.skid) pose = "skid";
-    else if (Math.abs(p.vx) > 0.2) pose = Math.floor(p.walk) % 2 === 0 ? "walk0" : "walk1";
+    else if (Math.abs(p.vx) > 0.2) pose = `walk${Math.floor(p.walk) % 3}`;
     const img = use[pose] || use.idle;
     if (!img) return;
     const y = p.y - (img.height - p.h);
     if (this.star > 0) {
       this.octx.save();
-      this.octx.globalAlpha = 0.85 + Math.sin(this.t * 20) * 0.15;
+      this.octx.globalAlpha = 0.7 + Math.sin(this.t * 24) * 0.3;
     }
     this.drawImg(img, p.x - (img.width - p.w) / 2, y);
     if (this.star > 0) this.octx.restore();
