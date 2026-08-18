@@ -591,7 +591,7 @@ const PIRANHA = {
 ......gG........
 ......GG........
 ......GG........
-`
+`,
   b: `
 .....R....R.....
 ....RRRRRRR.....
@@ -884,21 +884,21 @@ NNNNNNNNNNNNNNNN
 
 const QBLOCK = `
 yyyyyyyyyyyyyyyy
-yYYYYYYYYYYYYYoy
-yYyyyyyyyyyyYYoy
-yYyYYYYYYYYYyYoy
-yYyYYyyyyYYyYYoy
-yYyYYyYYyyYyYYoy
-yYyYYyYYyyYyYYoy
-yYyYYyyyyYYyYYoy
-yYyYYYYYYYYYyYoy
-yYyyyyyyyyyyYYoy
-yYyYYYyyyyyyYYoy
-yYyYYYYYYYYYyYoy
-yYyyyyyyyyyyYYoy
-yYYYYYYYYYYYYYoy
-yooooooooooooooy
-oooooooooooooooo
+yYYYYYYYYYYYYYNy
+yYYYYYYYYYYYYYNy
+yYYYKKKKKKKYYYNy
+yYYYKKKKKKKYYYNy
+yYYYKK...KKYYYNy
+yYYY....KKKYYYNy
+yYYY...KKKYYYYNy
+yYYY..KKKYYYYYNy
+yYYY..KKYYYYYYNy
+yYYY.........YNy
+yYYY..KKYYYYYYNy
+yYYYYYYYYYYYYYNy
+yYYYYYYYYYYYYYNy
+yNNNNNNNNNNNNNNy
+NNNNNNNNNNNNNNNN
 `;
 
 const USED = `
@@ -1101,13 +1101,8 @@ const HILL = `
 ..gGGGGGGGGGGg..
 .gGGGGGGGGGGGGg.
 gGGGGGGGGGGGGGGg
-................
-................
-................
-................
-................
-................
-................
+gGGGgGGGGGgGGGGg
+gGGggGGGGGggGGGg
 `;
 
 const CASTLE = `

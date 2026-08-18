@@ -902,17 +902,25 @@ export class Game {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     const A = this.atlas;
-    for (let i = 0; i < 8; i++) ctx.drawImage(A.hill, 20 + i * 40, 140);
+    ctx.drawImage(A.hill, 8, 168, 64, 28);
+    ctx.drawImage(A.hill, 90, 176, 48, 22);
+    ctx.drawImage(A.cloud, 24, 28, 40, 18);
+    ctx.drawImage(A.cloud, 150, 18, 48, 20);
+    ctx.drawImage(A.cloud, 200, 40, 32, 16);
     for (let i = 0; i < 16; i++) ctx.drawImage(A.grass, i * 16, 192);
     for (let i = 0; i < 16; i++) ctx.drawImage(A.dirt, i * 16, 208);
-    ctx.drawImage(A.bush, 40, 176);
-    ctx.drawImage(A.bush, 180, 176);
-    ctx.drawImage(A.cloud, 30, 40);
-    ctx.drawImage(A.cloud, 140, 28);
-    ctx.drawImage(A.castle, 200, 160);
-    ctx.drawImage(A.big.idle, 48, 160);
-    ctx.drawImage(A.walker.a, 90, 176);
-    ctx.drawImage(A.turtle.a, 120, 176);
+    ctx.drawImage(A.bush, 28, 184);
+    ctx.drawImage(A.bush, 168, 184);
+    ctx.drawImage(A.pipeTopL, 210, 160);
+    ctx.drawImage(A.pipeTopR, 226, 160);
+    ctx.drawImage(A.pipeL, 210, 176);
+    ctx.drawImage(A.pipeR, 226, 176);
+    ctx.drawImage(A.castle, 186, 128, 32, 64);
+    ctx.drawImage(A.big.idle, 40, 160);
+    ctx.drawImage(A.walker.a, 86, 176);
+    ctx.drawImage(A.turtle.a, 112, 176);
+    ctx.drawImage(A.mushroom, 140, 176);
+    ctx.drawImage(A.coin.a, 70, 120);
     ctx.fillStyle = "#fff8e8";
     ctx.font = "bold 18px monospace";
     ctx.fillText("红帽奇遇", 78, 70);
@@ -943,15 +951,16 @@ export class Game {
     if (th.cloud) {
       const A = this.atlas;
       for (let i = 0; i < 6; i++) {
-        const x = i * 90 - (this.camX * 0.3) % 90;
-        ctx.drawImage(A.cloud, x, 24 + (i % 3) * 12);
+        const x = i * 90 - ((this.camX * 0.3) % 90);
+        ctx.drawImage(A.cloud, x, 18 + (i % 3) * 14, 32, 16);
       }
     }
     if (th.hill) {
       const A = this.atlas;
-      for (let i = 0; i < 10; i++) {
-        const x = i * 70 - (this.camX * 0.45) % 70;
-        ctx.drawImage(A.hill, x, 150);
+      const gy = (this.level.h - 2) * TILE;
+      for (let i = 0; i < 8; i++) {
+        const x = i * 88 - ((this.camX * 0.45) % 88);
+        ctx.drawImage(A.hill, x, gy - A.hill.height * 2 + 2, 48, A.hill.height * 2);
       }
     }
 
@@ -968,9 +977,10 @@ export class Game {
 
     if (th.bush) {
       const A = this.atlas;
-      for (let i = 0; i < 12; i++) {
-        const x = i * 96 - (this.camX * 0.7) % 96;
-        ctx.drawImage(A.bush, x, (this.level.h - 3) * TILE);
+      const gy = (this.level.h - 2) * TILE;
+      for (let i = 0; i < 10; i++) {
+        const x = i * 110 - ((this.camX * 0.7) % 110) + 24;
+        ctx.drawImage(A.bush, x, gy - 8);
       }
     }
 
@@ -1023,18 +1033,24 @@ export class Game {
       ctx.fillText("空格返回标题", 92, 132);
     }
 
-    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
     ctx.beginPath();
-    ctx.arc(28, 200, 22, 0, Math.PI * 2);
-    ctx.arc(70, 200, 22, 0, Math.PI * 2);
+    ctx.arc(28, 208, 18, 0, Math.PI * 2);
+    ctx.arc(68, 208, 18, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(228, 200, 24, 0, Math.PI * 2);
+    ctx.arc(228, 206, 22, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillStyle = "rgba(255,255,255,0.16)";
     ctx.beginPath();
-    ctx.arc(188, 200, 16, 0, Math.PI * 2);
+    ctx.arc(188, 210, 14, 0, Math.PI * 2);
     ctx.fill();
+    ctx.fillStyle = "rgba(20,24,40,0.7)";
+    ctx.font = "7px monospace";
+    ctx.fillText("左", 22, 211);
+    ctx.fillText("右", 62, 211);
+    ctx.fillText("冲", 181, 213);
+    ctx.fillText("跳", 221, 210);
   }
 
   drawEnt(e) {
@@ -1060,7 +1076,13 @@ export class Game {
     if (e.type === "flower") img = A.flower;
     if (e.type === "star") img = A.star;
     if (e.type === "oneup") img = A.oneup;
-    if (e.type === "flag") img = A.flag;
+    if (e.type === "flag") {
+      const ctx = this.octx;
+      ctx.fillStyle = "#fff8e8";
+      const px = Math.round(e.x - this.camX + 1);
+      ctx.fillRect(px, Math.round(e.y), 2, (this.level.h - 2) * TILE - e.y);
+      img = A.flag;
+    }
     if (e.type === "axe") img = A.castle;
     if (e.type === "spring") img = A.spring;
     if (e.type === "platform") {
@@ -1086,6 +1108,7 @@ export class Game {
     else if (p.skid) pose = "skid";
     else if (Math.abs(p.vx) > 0.2) pose = Math.floor(p.walk) % 2 === 0 ? "walk0" : "walk1";
     const img = use[pose] || use.idle;
+    if (!img) return;
     const y = p.y - (img.height - p.h);
     if (this.star > 0) {
       this.octx.save();
