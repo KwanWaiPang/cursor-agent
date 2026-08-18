@@ -1,0 +1,44 @@
+.redcap-page .canvas-wrap {
+  display: flex;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(92, 148, 252, 0.22), transparent 55%),
+    rgba(12, 16, 32, 0.35);
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-border);
+  padding: 0.85rem 0.6rem;
+  overflow: hidden;
+}
+
+#game {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: #5c94fc;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+  user-select: none;
+  cursor: pointer;
+}
+
+.redcap-help {
+  margin: 0.9rem auto 0;
+  max-width: 720px;
+  color: rgba(248, 236, 214, 0.82);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 700px) {
+  .redcap-page .canvas-wrap {
+    padding: 0.35rem 0.2rem;
+    border-radius: 12px;
+  }
+
+  .redcap-help {
+    font-size: 0.8rem;
+  }
+}

@@ -30,9 +30,9 @@ For the Street Duty engine contract (subsystems / events), see [`games/street-du
                                │
         ┌──────────┬───────────┴──────┬────────────┬──────────┐
         ▼          ▼                  ▼            ▼          ▼
-   games/go/…  games/fps/   games/street-duty/  games/pocket/ …
-   静态棋类等    静态 FPS       Vite 构建 FPS      静态 2D RPG
-   boards       static FPS     built FPS          top-down RPG
+   games/go/…  games/fps/   games/street-duty/  games/pocket/  games/redcap/
+   静态棋类等    静态 FPS       Vite 构建 FPS      静态 3D 冒险   静态平台跳跃
+   boards       static FPS     built FPS          FP 3D fan      pixel platformer
 ```
 
 | 层 Layer | 职责 Responsibility |
@@ -51,7 +51,7 @@ The hub does not bootstrap game runtimes; each card is a full navigation.
 
 ### 3.1 纯静态 / Static games
 
-`go` · `xiangqi` · `gomoku` · `junqi` · `monopoly` · `chess3d` · `fps` · `pocket`
+`go` · `xiangqi` · `gomoku` · `junqi` · `monopoly` · `chess3d` · `fps` · `pocket` · `redcap`
 
 - 打开即玩，无需 `npm`。  
   Open and play; no `npm` required.
@@ -160,4 +160,6 @@ If Pages is still **legacy branch deploy**, the committed `games/street-duty/ind
 - Street Duty (ZH): [games/street-duty/README.zh.md](./games/street-duty/README.zh.md)
 - Street Duty engine contract: [games/street-duty/ARCHITECTURE.md](./games/street-duty/ARCHITECTURE.md)
 - Tactical Assault: [games/fps/README.md](./games/fps/README.md)
+- Pocket Adventure: [games/pocket/README.md](./games/pocket/README.md)
+- Red Cap Quest: [games/redcap/README.md](./games/redcap/README.md)
 - Upstream Street Duty project: [mshumer/Claude-of-Duty](https://github.com/mshumer/Claude-of-Duty)
