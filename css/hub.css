@@ -99,6 +99,14 @@
   background: radial-gradient(circle, rgba(47, 107, 58, 0.22), transparent 65%);
 }
 
+.game-card-redcap .mark {
+  color: #c62828;
+}
+
+.game-card-redcap::before {
+  background: radial-gradient(circle, rgba(198, 40, 40, 0.22), transparent 65%);
+}
+
 .game-card {
   position: relative;
   display: grid;
@@ -205,6 +213,13 @@
   background:
     radial-gradient(circle at 70% 30%, #fff 8px, #e53935 9px, #e53935 22px, transparent 23px),
     linear-gradient(#7ec8ff 0 46%, #5aa85a 46% 70%, #c9a56a 70%);
+}
+
+.preview-redcap {
+  background:
+    radial-gradient(circle at 22% 58%, #f8c090 7px, transparent 8px),
+    radial-gradient(circle at 22% 48%, #e52521 12px, transparent 13px),
+    linear-gradient(#5c94fc 0 58%, #3cb043 58% 78%, #8b5a2b 78%);
 }
 
 .game-card::before {

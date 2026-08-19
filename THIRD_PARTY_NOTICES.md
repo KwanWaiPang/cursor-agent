@@ -47,3 +47,9 @@ The Game Hub aggregates several open-source games under a shared UI shell.
 - 许可证 / License: MIT（`games/pocket/LICENSE`）
 - 渲染库 / Renderer: [Three.js](https://github.com/mrdoob/three.js) r185（MIT）
 - 说明 / Note: 第一人称 3D 卡通粉丝向；中文 UI、游戏馆入口与 Pages 打包为适配层。宝可梦为权利方商标，本页为非官方粉丝向。 Upstream MIT retained; hub adds Chinese UI and packaging.
+
+## 红帽奇遇 · Red Cap Quest（`games/redcap/`）
+
+- 来源 / Source: 本仓库原创 / Original to this repository
+- 许可证 / License: 与馆内静态页一致（见仓库根许可说明）
+- 说明 / Note: 网页平台跳跃。角色「阿砖」、关卡与全部像素图、音效均为程序生成的原创素材。玩法向超级马里奥系列致敬，**不是**任天堂产品，未使用任天堂精灵、音乐或关卡拷贝。 Super Mario is a trademark of Nintendo; this is an unofficial fan-style tribute with original art and maps.

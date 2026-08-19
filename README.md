@@ -1,8 +1,8 @@
 # 游戏馆 · Game Hub
 
-中文网页游戏集合：棋类、大富翁与两款 3D 射击，统一大厅入口，纯前端运行，可部署到 GitHub Pages。
+中文网页游戏集合：棋类、大富翁、两款 3D 射击、口袋冒险与红帽奇遇，统一大厅入口，纯前端运行，可部署到 GitHub Pages。
 
-A Chinese web game collection — board games, Monopoly-style travel, and two 3D shooters — served from one static hub for GitHub Pages.
+A Chinese web game collection — board games, Monopoly-style travel, two 3D shooters, a fan-style adventure, and a Mario-like platformer — served from one static hub for GitHub Pages.
 
 **在线地址 / Live:** https://kwanwaipang.github.io/cursor-agent/
 
@@ -24,12 +24,14 @@ For a fuller architecture overview, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 | [`games/fps/`](./games/fps/) | 战术突击 · 3D | Tactical Assault | 3D FPS（红蓝对抗） |
 | [`games/street-duty/`](./games/street-duty/) | 街战突击 | Street Duty | 3D FPS（全程序化街战） |
 | [`games/pocket/`](./games/pocket/) | 口袋冒险 | Pocket Adventure | 第一人称 3D 卡通粉丝向开局 |
+| [`games/redcap/`](./games/redcap/) | 红帽奇遇 | Red Cap Quest | 网页平台跳跃（马里奥式致敬） |
 
 两款射击互不替换：
 
 - **战术突击** (`fps`)：红蓝各约 10 人、据点 / 大逃杀、可拾取武器。
 - **街战突击** (`street-duty`)：Claude-of-Duty 本地完整落地；玩家 + 2 队友 + 动态敌方波次。
 - **口袋冒险** (`pocket`)：第一人称 3D 卡通真新镇开局（参考 pallet-town-3d）；选御三家、高草遇敌；官方译名 + 中性作品名。
+- **红帽奇遇** (`redcap`)：网页平台跳跃；八关原创程序像素，顶砖 / 踩怪 / 蘑菇火花 / 喷火帽。玩法向超级马里奥致敬，**不是**任天堂产品，未使用官方素材或关卡。
 
 The two shooters are separate products:
 
@@ -63,7 +65,7 @@ games/<name>/              # 各游戏独立目录 One folder per game
 
 ## 本地预览 / Local preview
 
-### 静态馆（棋类 / 大富翁 / 战术突击）
+### 静态馆（棋类 / 大富翁 / 战术突击 / 红帽奇遇）
 
 ```bash
 python3 -m http.server 8080
@@ -112,6 +114,7 @@ cd games/pocket && npm run build
 | [games/street-duty/README.zh.md](./games/street-duty/README.zh.md) | 街战馆内说明（中文） |
 | [games/fps/README.md](./games/fps/README.md) | 战术突击玩法说明 |
 | [games/pocket/README.md](./games/pocket/README.md) | 口袋冒险说明 |
+| [games/redcap/README.md](./games/redcap/README.md) | 红帽奇遇说明 |
 
 ---
 
