@@ -79,6 +79,7 @@ export class HUD {
   private wasPointerLocked = false;
   private saveContinue: (() => void) | null = null;
   private saveNewGame: (() => void) | null = null;
+  private skipLoad: (() => void) | null = null;
 
   constructor(ctx: GameContext) {
     this.ctx = ctx;
@@ -130,6 +131,7 @@ export class HUD {
     this.root.appendChild(this.start.el);
 
     this.loading = new LoadingScreen();
+    this.loading.onSkip = () => this.requestSkipLoad();
     this.root.appendChild(this.loading.el);
 
     // Mount inside the app container so overlay clicks still bubble to the
@@ -211,6 +213,7 @@ export class HUD {
 
     document.addEventListener('pointerlockchange', this.onLockChange);
     window.addEventListener('keydown', this.onKey, true);
+    this.syncHubBack(false);
   }
 
   private onKey = (e: KeyboardEvent): void => {
@@ -231,6 +234,12 @@ export class HUD {
     }
     if (!this.booted || this.start.visible || this.dialogue.isOpen) return;
     if (this.ctx.scene.userData.battleActive) return;
+    if (e.code === 'Escape') {
+      e.preventDefault();
+      if (document.pointerLockElement) document.exitPointerLock();
+      this.pauseIfUnlocked();
+      return;
+    }
     if (e.code === 'KeyB') {
       e.preventDefault();
       e.stopPropagation();
@@ -268,6 +277,15 @@ export class HUD {
     this.saveNewGame = handlers.onNewGame;
   }
 
+  /** Loading curtain can ask boot to skip remaining optional world work. */
+  bindSkipLoad(fn: () => void): void {
+    this.skipLoad = fn;
+  }
+
+  private requestSkipLoad(): void {
+    this.skipLoad?.();
+  }
+
   hideLoading(): void {
     this.loading.hide(() => {
       this.booted = true;
@@ -279,6 +297,7 @@ export class HUD {
           ? `检测到存档（${formatSaveAge(save.savedAt)}）${save.partner ? ` · ${save.partner.species}` : ''}。可继续或重新开始。`
           : null;
         this.start.show('title', 120, foot);
+        this.syncHubBack(true);
       }
     }, this.auto);
   }
@@ -304,6 +323,7 @@ export class HUD {
     this.ctx.engine.input.suspended = true;
     this.setPrompt(false);
     this.crosshair.classList.remove('is-on');
+    this.syncHubBack(true);
   }
 
   /**
@@ -404,6 +424,8 @@ export class HUD {
 
   private onLockChange = (): void => {
     const locked = document.pointerLockElement === this.ctx.engine.renderer.domElement;
+    document.body.classList.toggle('is-pointer-locked', locked);
+    this.syncHubBack(!locked);
     if (locked) {
       this.wasPointerLocked = true;
       this.lockReturn = 0;
@@ -420,6 +442,14 @@ export class HUD {
       this.lockReturn = 0.35;
     }
   };
+
+  /** Keep the hub link visible; pointer-lock only steals clicks, never hides it. */
+  private syncHubBack(unlocked: boolean): void {
+    const hub = document.getElementById('hub-back');
+    if (!hub) return;
+    hub.classList.toggle('is-unlocked', unlocked || this.start.visible);
+    hub.setAttribute('aria-hidden', 'false');
+  }
 
   dispose(): void {
     window.clearTimeout(this.hintTimer);

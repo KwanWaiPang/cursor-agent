@@ -68,7 +68,10 @@ export class World {
     };
   }
 
-  async build(onProgress?: (label: string, pct: number) => void): Promise<void> {
+  async build(
+    onProgress?: (label: string, pct: number) => void,
+    opts: { shouldSkipRemaining?: () => boolean; coreDoneAt?: number } = {},
+  ): Promise<void> {
     const steps: [string, (ctx: GameContext) => void | Promise<void>][] = [
       ['撑起天空', buildAtmosphere],
       ['塑造大地', buildTerrain],
@@ -82,6 +85,7 @@ export class World {
       ['常青森林与城市', buildViridianCity],
       ['搭建对战场地', buildBattleArena],
     ];
+    const coreDoneAt = opts.coreDoneAt ?? 8;
 
     // Per-step timings. Load time is on the player's critical path and every
     // subsystem's texture bakes are synchronous, so it is worth knowing which
@@ -105,6 +109,10 @@ export class World {
       const ms = performance.now() - start;
       timings.push([label, ms]);
       if (ms > slowest[1]) slowest = [label, ms];
+      if (i + 1 >= coreDoneAt && opts.shouldSkipRemaining?.()) {
+        onProgress?.('已跳过较远区域，可先进入', 1);
+        break;
+      }
     }
 
     const total = performance.now() - t0;

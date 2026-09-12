@@ -37,18 +37,20 @@ async function boot(): Promise<void> {
   const hud = new HUD(world.ctx);
   const audio = new AudioDirector(world.ctx);
 
-  await world.build((label, pct) => hud.setLoading(label, pct));
+  let skipRest = false;
+  hud.bindSkipLoad(() => {
+    skipRest = true;
+  });
+
+  await world.build((label, pct) => hud.setLoading(label, pct), {
+    shouldSkipRemaining: () => skipRest,
+    coreDoneAt: 8,
+  });
 
   const player = new PlayerController(world.ctx, SPAWN, SPAWN_YAW);
   player.teleport(SPAWN, SPAWN_YAW);
 
   buildStarterSequence(world.ctx);
-  // Warm Three.js GLB cache for starters + Route 1 fauna (skipped on low).
-  if (tier !== 'low') {
-    prefetchGlbIds([1, 4, 7, 10, 13, 16, 19, 23, 25, 29, 32, 43]);
-  } else {
-    prefetchGlbIds([1, 4, 7, 16, 19]);
-  }
 
   const battle = new BattleSystem(world.ctx);
 
@@ -93,6 +95,15 @@ async function boot(): Promise<void> {
 
   hud.hideLoading();
   engine.start();
+
+  // Prefetch GLBs after the title is up so first enter is not blocked.
+  const warm = () => {
+    if (tier !== 'low') prefetchGlbIds([1, 4, 7, 10, 13, 16, 19, 23, 25, 29, 32, 43]);
+    else prefetchGlbIds([1, 4, 7, 16, 19]);
+  };
+  const ric = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+  if (typeof ric === 'function') ric(warm);
+  else window.setTimeout(warm, 400);
 
   window.dispatchEvent(new CustomEvent('game:ready'));
   world.ctx.events.emit(EVENTS.WORLD_READY);

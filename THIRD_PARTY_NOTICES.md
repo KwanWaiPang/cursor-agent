@@ -51,5 +51,10 @@ The Game Hub aggregates several open-source games under a shared UI shell.
 ## 红帽奇遇 · Red Cap Quest（`games/redcap/`）
 
 - 来源 / Source: 本仓库原创 / Original to this repository
-- 许可证 / License: 与馆内静态页一致（见仓库根许可说明）
+- 许可证 / License: MIT（仓库根目录 [`LICENSE`](./LICENSE)）
 - 说明 / Note: 网页平台跳跃。角色「阿砖」、关卡与全部像素图、音效均为程序生成的原创素材。玩法向超级马里奥系列致敬，**不是**任天堂产品，未使用任天堂精灵、音乐或关卡拷贝。 Super Mario is a trademark of Nintendo; this is an unofficial fan-style tribute with original art and maps.
+
+---
+
+本仓库为聚合：大厅与原创静态页为 MIT；各子目录若自带许可则从其许可。`games/chess3d/` 为 **GPL-3.0**，不受根目录 MIT 再许可。  
+This repo is an aggregate: hub/original static pages are MIT; per-game licenses in subfolders still apply. `games/chess3d/` remains **GPL-3.0**.

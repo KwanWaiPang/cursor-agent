@@ -10,8 +10,8 @@ Coexists with [`games/fps/`](../fps/) (Tactical Assault); they do **not** replac
 | | 中文 | English |
 |---|---|---|
 | 在线 Live | https://kwanwaipang.github.io/cursor-agent/games/street-duty/ | same URL |
-| 画质 Quality | `?q=low\|medium\|high\|ultra` | URL override |
-| 预热 Prewarm | `?prewarm=0` 跳过着色器预热 | skip shader pre-warm |
+| 画质 Quality | `?q=low\|medium\|high\|ultra` | 默认弱设备 `low`，一般桌面 `medium`；高/超清需手动指定 |
+| 预热 Prewarm | `?prewarm=0` 跳过 · `?prewarm=1` 强制 | 仅 `ultra` 默认预热（约 20s 着色器编译） |
 
 馆级架构见仓库根目录 [ARCHITECTURE.md](../../ARCHITECTURE.md)。  
 Hub architecture: [ARCHITECTURE.md](../../ARCHITECTURE.md).

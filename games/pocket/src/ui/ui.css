@@ -532,6 +532,16 @@
   display: none !important;
 }
 
+.pt-cta--hub {
+  text-decoration: none;
+  animation: none;
+}
+
+.pt-loading__skip {
+  margin-top: 18px;
+  animation: none;
+}
+
 .pt-cta:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 0 #23496f, 0 16px 32px rgba(20, 40, 70, 0.45),

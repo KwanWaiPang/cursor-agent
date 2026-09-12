@@ -1,0 +1,48 @@
+MIT License
+
+Copyright (c) 2026 游戏馆 · Game Hub contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Aggregate notice / 聚合说明
+
+This repository is an **aggregate** of a hub shell plus independently licensed
+games. The MIT text above covers:
+
+- the hub (`index.html`, `css/`, `assets/`, documentation at the repo root)
+- original games that do not ship their own license file (including
+  `games/go/`, `games/gomoku/`, `games/junqi/`, `games/fps/`, `games/redcap/`)
+
+Subdirectories that include their own license **keep that license**:
+
+| Path | License |
+|---|---|
+| `games/xiangqi/` | MIT |
+| `games/monopoly/` | ISC |
+| `games/street-duty/` | MIT |
+| `games/pocket/` | MIT |
+| `games/chess3d/` | **GNU GPL-3.0** (`games/chess3d/LICENSE.md`) |
+
+`games/chess3d/` is GPL-3.0. Combining or redistributing that game with this
+aggregate must follow GPL-3.0 for the chess3d files (and any work that is a
+derivative of them). The hub MIT grant does **not** relicense chess3d.
+
+Third-party sources and notes: `THIRD_PARTY_NOTICES.md`.

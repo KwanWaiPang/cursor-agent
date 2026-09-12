@@ -3,6 +3,7 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: ["main"]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -15,7 +16,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            games/street-duty/package-lock.json
+            games/pocket/package-lock.json
+
+      - name: Pocket adventure tests
+        working-directory: games/pocket
+        run: |
+          npm ci
+          npm test
+
+      - name: Board + hub unit tests
+        run: |
+          node --experimental-default-type=module games/go/js/engine.test.js
+          node --experimental-default-type=module games/go/js/ai.test.js
+          node --experimental-default-type=module --test games/junqi/js/engine.test.js
+          node --experimental-default-type=module --test games/redcap/js/fit.test.js
+          node --experimental-default-type=module --test games/street-duty/src/core/quality.test.js
+
   deploy:
+    needs: test
+    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -56,7 +88,7 @@ jobs:
       - name: Prepare site
         run: |
           mkdir -p _site
-          cp index.html .nojekyll README.md ARCHITECTURE.md THIRD_PARTY_NOTICES.md _site/
+          cp index.html .nojekyll README.md ARCHITECTURE.md THIRD_PARTY_NOTICES.md LICENSE _site/
           cp -r css games assets _site/
           # 街战突击：发布同步后的构建（index.html + assets/），去掉源码树
           # （仓库 Pages 当前为 legacy/branch 部署时，main 上的同内容也会生效）

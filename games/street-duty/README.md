@@ -33,7 +33,15 @@ Click the canvas after load to lock the cursor.
 | G | Grenade |
 | Esc | Pause / release pointer |
 
-Hub play starts with **2 allies** at the near end and hostiles at the **far end** of the street (~40–58 m). No friendly fire in the fireteam; the player **respawns 10 s** after death. Use `?q=low|medium|high|ultra` and `?prewarm=0` as needed.
+Hub play starts with **2 allies** at the near end and hostiles at the **far end** of the street (~40–58 m). No friendly fire in the fireteam; the player **respawns 10 s** after death.
+
+Query params:
+
+| Param | Values | Default |
+|---|---|---|
+| `q` | `low` · `medium` · `high` · `ultra` | Auto: weak/mobile → `low`, else `medium`. High/Ultra only via this flag. |
+| `prewarm` | `0` skip · `1` force | On only for `ultra` (shader compile ~20s). |
+| `capture` / `lockstep` | `1` | Screenshot / demo harness, not everyday play. |
 
 ---
 

@@ -1,0 +1,119 @@
+/* Shared short-viewport shell for board games. Individual games keep their look. */
+
+.game-page .card-controls {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.game-page .card-help details {
+  margin: 0;
+}
+
+.game-page .card-help summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  list-style: none;
+}
+
+.game-page .card-help summary::-webkit-details-marker {
+  display: none;
+}
+
+.game-page .card-help summary::after {
+  content: " ▾";
+  font-size: 0.85em;
+  opacity: 0.55;
+}
+
+.game-page .card-help details:not([open]) summary::after {
+  content: " ▸";
+}
+
+.game-page .card-help details[open] .help {
+  margin-top: 0.65rem;
+}
+
+@media (max-height: 860px) {
+  .game-page .app {
+    padding-top: 0.65rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
+
+  .game-page .topbar {
+    margin-bottom: 0.55rem;
+  }
+
+  .game-page .brand p,
+  .game-page .topbar-sub {
+    display: none;
+  }
+
+  .game-page .layout {
+    gap: 0.7rem;
+  }
+
+  .game-page .board-wrap {
+    padding: 0.45rem !important;
+  }
+
+  .game-page .board-wrap canvas,
+  .game-page #board,
+  .game-page #chess {
+    max-height: calc(100dvh - 5.8rem);
+    width: auto;
+    max-width: 100%;
+    margin-inline: auto;
+    object-fit: contain;
+  }
+
+  .game-page .panel {
+    max-height: calc(100dvh - 5.8rem);
+    overflow-y: auto;
+  }
+
+  .game-page .card {
+    padding: 0.7rem 0.8rem;
+  }
+
+  .game-page .card h2,
+  .game-page .card-help summary {
+    font-size: 1.05rem;
+    margin-bottom: 0.45rem;
+  }
+
+  .game-page .footer-note {
+    margin-top: 0.55rem;
+  }
+}
+
+@media (max-height: 860px) and (min-width: 901px) {
+  .game-page .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  }
+
+  .game-page .board-wrap {
+    position: sticky;
+    top: 0.4rem;
+    max-height: calc(100dvh - 5.2rem);
+  }
+}
+
+@media (max-height: 860px) and (max-width: 900px) {
+  .game-page .layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .game-page .card-controls {
+    order: -1;
+  }
+
+  .game-page .board-wrap canvas,
+  .game-page #board,
+  .game-page #chess {
+    max-height: min(58dvh, calc(100dvh - 14rem));
+  }
+}
