@@ -16,6 +16,7 @@
     />
     <link rel="stylesheet" href="../../css/shared.css" />
     <link rel="stylesheet" href="../../css/game-page.css" />
+    <link rel="stylesheet" href="../../css/board-shell.css" />
     <link rel="stylesheet" href="./css/styles.css" />
     <link
       rel="icon"
@@ -59,7 +60,7 @@
             <div id="result" class="result-banner"></div>
           </section>
 
-          <section class="card">
+          <section class="card card-controls">
             <h2>操作</h2>
             <div class="controls">
               <button id="btnPass" type="button">停着</button>
@@ -70,7 +71,7 @@
             </div>
           </section>
 
-          <section class="card">
+          <section class="card card-controls">
             <h2>新对局</h2>
             <div class="field">
               <label for="modeSelect">对战模式</label>
@@ -118,16 +119,18 @@
             </div>
           </section>
 
-          <section class="card">
-            <h2>规则说明</h2>
-            <ul class="help">
-              <li>黑先白后，轮流在交叉点落子。</li>
-              <li>无气的棋子被提掉；禁止自杀。</li>
-              <li>禁止同形再现（含劫争）。</li>
-              <li>双方连续停着后进入点目，自动标记死子；也可点击棋子手动改。</li>
-              <li>计分采用中国规则：子空皆地，白贴目。</li>
-              <li>AI 支持 9 / 13 / 19 路；普通及以上用限时 MCTS，专家默认开启、思考更久。</li>
-            </ul>
+          <section class="card card-help">
+            <details>
+              <summary>规则说明</summary>
+              <ul class="help">
+                <li>黑先白后，轮流在交叉点落子。</li>
+                <li>无气的棋子被提掉；禁止自杀。</li>
+                <li>禁止同形再现（含劫争）。</li>
+                <li>双方连续停着后进入点目，自动标记死子；也可点击棋子手动改。</li>
+                <li>计分采用中国规则：子空皆地，白贴目。</li>
+                <li>AI 支持 9 / 13 / 19 路；普通及以上用限时 MCTS，专家默认开启、思考更久。</li>
+              </ul>
+            </details>
           </section>
         </aside>
       </main>

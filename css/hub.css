@@ -47,6 +47,12 @@
   background: rgba(20, 12, 8, 0.4);
 }
 
+.hub-jump a:focus-visible,
+.game-card:focus-visible {
+  outline: 3px solid #f3c27a;
+  outline-offset: 3px;
+}
+
 .game-section {
   margin-bottom: 1.65rem;
   animation: rise 900ms 60ms ease both;

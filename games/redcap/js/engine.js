@@ -1,6 +1,7 @@
 import { TILE, buildAtlas } from "./sprites.js";
 import { STAGES, parseLevel } from "./levels.js";
 import { audio } from "./audio.js";
+import { computeFitScale } from "./fit.js";
 
 const VIEW_W = 256;
 const VIEW_H = 240;
@@ -175,8 +176,12 @@ export class Game {
 
   fit() {
     const p = this.canvas.parentElement;
-    const maxW = Math.min(p?.clientWidth || 960, 960);
-    const scale = Math.max(1, Math.floor(maxW / VIEW_W) || 1);
+    const topbar = document.querySelector(".topbar");
+    const help = document.querySelector(".redcap-help");
+    const chrome = (topbar?.offsetHeight || 0) + (help?.offsetHeight || 0) + 56;
+    const availW = Math.min(p?.clientWidth || window.innerWidth || 960, window.innerWidth || 960, 960);
+    const availH = Math.max(160, (window.innerHeight || 800) - chrome);
+    const scale = computeFitScale(availW, availH);
     this.canvas.width = VIEW_W * scale;
     this.canvas.height = VIEW_H * scale;
     this.canvas.style.width = `${VIEW_W * scale}px`;
@@ -572,6 +577,8 @@ export class Game {
       this.introT -= dt;
       if (this.introT <= 0 || (this.introT < 1.6 && (pressed("Space") || pressed("Enter") || pressed("KeyZ")))) {
         this.mode = "play";
+        // Brief spawn grace so 1-1 is not instant contact with the first walker.
+        this.invuln = Math.max(this.invuln, 1.6);
       }
       return;
     }
@@ -755,6 +762,11 @@ export class Game {
       }
       if (e.dead) continue;
       e.t += dt;
+      // Classic Mario: distant walkers stay put until they enter the view.
+      const nearView = e.x < this.camX + VIEW_W + 40 && e.x > this.camX - 48;
+      if (!nearView && ["walker", "spiny", "turtle", "flyer"].includes(e.type) && !(e.type === "turtle" && e.spin)) {
+        continue;
+      }
       if (e.type === "walker" || e.type === "spiny" || (e.type === "turtle" && !e.shell) || (e.type === "turtle" && e.spin)) {
         if (e.type === "turtle" && e.spin) e.vx = e.spin;
         e.vy += SMB.gravFall;

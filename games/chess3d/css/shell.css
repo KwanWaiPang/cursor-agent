@@ -26,10 +26,10 @@ body.chess3d-body canvas {
 body.chess3d-body #gui,
 body.chess3d-body #info,
 body.chess3d-body .chess3d-bar,
-body.chess3d-body .ui-dialog,
-body.chess3d-body .ui-widget-overlay,
+body.chess3d-body .c3d-dialog,
 body.chess3d-body #progressbar,
-body.chess3d-body #tips {
+body.chess3d-body #tips,
+body.chess3d-body #c3d-glow {
   z-index: 20;
 }
 
@@ -272,7 +272,59 @@ body.chess3d-body #tips {
 }
 
 #progressbar {
-  border-color: rgba(248, 236, 214, 0.45) !important;
+  position: fixed;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  height: 18px;
+  max-width: 420px;
+  z-index: 25;
+  background: rgba(28, 20, 16, 0.55);
+  border: 1px solid rgba(248, 236, 214, 0.45);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+#progressbar .c3d-progress-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #0f5c4c, #1a7a66);
+}
+
+#progress-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+}
+
+#tips {
+  position: fixed;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -100%);
+  text-align: center;
+  max-width: 70vw;
+}
+
+#c3d-glow {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+#info:empty,
+#info:not(.is-on) {
+  display: none;
+}
+
+#info.is-on {
+  display: block;
 }
 
 #progress-label,

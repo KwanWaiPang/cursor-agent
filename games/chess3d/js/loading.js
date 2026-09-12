@@ -1,6 +1,6 @@
 // ECMAScript 5 strict mode
 /* jshint globalstrict: true*/
-/* global THREE, $, document, window,  console */
+/* global THREE, document, window,  console */
 /* global onLoaded, LOADING_BAR_SCALE,ROWS,COLS,PIECE_SIZE, BOARD_SIZE, FLOOR_SIZE, WIREFRAME, DEBUG, Cell, WHITE, BLACK, FEEDBACK, SHADOW */
 "use strict";
 
@@ -10,14 +10,11 @@ var textures   = {};
 
 (function() {
 
-	var $bar,$tips;
+	var bar, tips, label;
 	var glow;
 
 	function loadResources () {
-		// counter
 		var loaded = 0;
-		// list of all mesh and texture
-		// 棋子改为程序化几何，不再加载细模 JSON / AO
 		var resources = [
 			'3D/json/board.json',
 			'3D/json/innerBoard.json',
@@ -31,19 +28,15 @@ var textures   = {};
 			'texture/fakeShadow.jpg'
 		];
 
-		// for loading mesh
 		function loadJSON (url) {
 			var loader = new THREE.JSONLoader();
 			loader.load(url, function(geometry) {
-
 				geometries[url] = geometry;
-
 				loaded++;
 				checkLoad();
 			});
 		}
 
-		// for loading texture
 		function loadImage(url) {
 			THREE.ImageUtils.loadTexture(
 				url,
@@ -56,7 +49,6 @@ var textures   = {};
 			);
 		}
 
-		// load all the resources from the list
 		resources.forEach(function(url) {
 			switch ( url.split('.').pop() ) {
 			case 'json' :
@@ -70,10 +62,8 @@ var textures   = {};
 			}
 		});
 
-		// control the progressBar
-		// and fire the onLoaded call back on completion
 		function checkLoad () {
-			$bar.update(loaded/resources.length);
+			bar.update(loaded/resources.length);
 			if (loaded === resources.length) {
 				setTimeout(onLoaded,0.1);
 			}
@@ -82,31 +72,25 @@ var textures   = {};
 	}
 
 	function initGlow() {
-		// create and set the green glow in the background
 		var size = window.innerWidth*LOADING_BAR_SCALE*1.8;
 		glow = document.createElement('canvas');
 		glow.width  = size;
 		glow.height = size;
+		glow.id = 'c3d-glow';
 		document.body.appendChild(glow);
 		var ctx = glow.getContext('2d');
 
-		// make it oval
 		glow.style.width = size + "px";
 		glow.style.height = Math.round(size/2) + "px";
 
-
 		var requestId;
 		function animate() {
-			var dt = getDelta();
-			update(dt);
+			update();
 			requestId = window.requestAnimationFrame(animate);
 		}
 
-		function update(dt) {
-
+		function update() {
 			ctx.clearRect(0,0,size,size);
-
-			// for the pulse effect
 			var cycle = Math.cos(Date.now()/1000 * Math.PI);
 			var maxRadius = size/2.5;
 
@@ -119,9 +103,7 @@ var textures   = {};
 			var radius = maxRadius - amplitude + sizeOffset;
 			var saturation = lerp(70,100,(cycle+1)/2);
 
-
 			var grd = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, radius);
-			// fake a non linear gradient
 			grd.addColorStop(0,    'hsla(90,'+saturation+'%,50%,0.5)');
 			grd.addColorStop(0.125,'hsla(90,'+saturation+'%,50%,0.3828125)');
 			grd.addColorStop(0.25, 'hsla(90,'+saturation+'%,50%,0.28125)');
@@ -130,7 +112,6 @@ var textures   = {};
 			grd.addColorStop(0.75, 'hsla(90,'+saturation+'%,50%,0.03125)');
 			grd.addColorStop(1,    'hsla(90,'+saturation+'%,50%,0.0)');
 
-			// draw the gradient
 			ctx.rect(0,0,size,size);
 			ctx.fillStyle = grd;
 			ctx.fill();
@@ -141,24 +122,12 @@ var textures   = {};
 			this.parentNode.removeChild(this);
 		};
 
-		var oldTime;
-		function getDelta() {
-			var now = Date.now();
-			if (oldTime === undefined) {
-				oldTime = now;
-			}
-			var delta = (now - oldTime)/1000;
-			oldTime = now;
-			return delta;
-		}
-
 		animate();
 	}
 
 
 	function initTips() {
-		// list of tips
-		var tips = [
+		var tipList = [
 			"Aggregating wood fibers",
 			"Generating pieces census report",
 			"Testing board resistance",
@@ -182,115 +151,69 @@ var textures   = {};
 			"Learning the rules"
 		];
 
-		//jQuery object for tips
-		$tips = $('<div>')
-			.attr("id","tips")
-			.css("color","white")
-			.appendTo($('body'));
+		tips = document.createElement('div');
+		tips.id = 'tips';
+		document.body.appendChild(tips);
 
-		// how often tips changes (in ms)
 		var tipTiming = 5000;
 
-
-		$tips.update = function() {
+		tips.update = function() {
 			var self = this;
-			if( tips.length > 0 ) {
-				var index = Math.floor(Math.random() * tips.length);
-
-				var sentence = tips[index];
-				tips.splice(index,1);
-				$(this).text(sentence+"...");
+			if( tipList.length > 0 ) {
+				var index = Math.floor(Math.random() * tipList.length);
+				var sentence = tipList[index];
+				tipList.splice(index,1);
+				this.textContent = sentence+"...";
 			}
 			this.timer = setTimeout(function(){self.update();},tipTiming);
 		};
 
-		// this little ugliness is just to clear the timer
-		// automagically on .remove()
-		var tipsRemove = $tips.remove;
-		$tips.remove = function() {
+		var tipsRemove = tips.remove.bind(tips);
+		tips.remove = function() {
 			clearTimeout(this.timer);
-			tipsRemove.call(this);
+			tipsRemove();
 		};
-		$tips.update();
-
+		tips.update();
 	}
 
 	function initBar() {
-		// jQuery progress bar
-		$bar = $('<div>')
-			.attr("id","progressbar")
-			.css("width",(LOADING_BAR_SCALE*100)+"%")
-			.appendTo($('body'));
+		bar = document.createElement('div');
+		bar.id = 'progressbar';
+		bar.style.width = (LOADING_BAR_SCALE*100)+"%";
+		label = document.createElement('div');
+		label.id = 'progress-label';
+		var fill = document.createElement('i');
+		fill.className = 'c3d-progress-fill';
+		bar.appendChild(fill);
+		bar.appendChild(label);
+		document.body.appendChild(bar);
 
-		// jQuery progress bar label
-		var $label = $('<div>')
-			.attr("id","progress-label")
-			.appendTo($bar);
-
-		// setting up the progressbar
-		$bar.progressbar({
-			value:false,
-			change: function() {
-				$label.text($bar.progressbar("value") + "%");
-			}
-		});
-
-		// avoid rounded corners
-		$bar.removeClass('ui-corner-all');
-		$bar.children().removeClass('ui-corner-all');
-		$bar.children().removeClass('ui-corner-left');
-
-
-		// that's where the progression happens
-		$bar.update = function(p) {
+		bar.update = function(p) {
 			p = Math.round(p*100);
-			$bar.progressbar( "value", p );
-			// somehow need to constantly remove it
-			$bar.children().removeClass('ui-corner-right');
+			fill.style.width = p + "%";
+			label.textContent = p + "%";
 		};
 
-		$bar.update(0);
-
+		bar.update(0);
 	}
 
 	function centering() {
-		$bar.position({
-			of:window,
-			my:"center center",
-			at:"center center"
-		});
-		$tips.position({
-			of:$bar,
-			my:"center bottom",
-			at:"center top-10"
-		});
-		$(glow).position({
-			of:window,
-			my:"center center",
-			at:"center center"
-		});
-
-		window.addEventListener('resize',centering );
+		// CSS handles centering; keep listener so resize still recenters glow.
 	}
 
 	function removeLoader() {
-		$bar.remove();
-		$tips.remove();
-		glow.remove();
+		if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+		if (tips && tips.remove) tips.remove();
+		if (glow && glow.remove) glow.remove();
 		window.removeEventListener('resize',centering );
-
 	}
 
 	window.onload = function () {
-		// the page is loaded
-		// start the resource loader
 		initGlow();
 		initTips();
 		initBar();
 		centering();
-
 		loadResources();
-		//$bar.update(1);
 	};
 
 	window.removeLoader = removeLoader;

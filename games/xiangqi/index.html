@@ -16,6 +16,7 @@
     />
     <link rel="stylesheet" href="../../css/shared.css" />
     <link rel="stylesheet" href="../../css/game-page.css" />
+    <link rel="stylesheet" href="../../css/board-shell.css" />
     <link rel="stylesheet" href="./css/chess.css" />
     <link rel="stylesheet" href="./css/shell.css" />
   </head>
@@ -54,7 +55,7 @@
             <div id="message" class="message info">红先 · 普通难度人机对局已开始</div>
           </section>
 
-          <section class="card" id="opsCard">
+          <section class="card card-controls" id="opsCard">
             <h2>操作</h2>
             <div class="controls bn_box" id="bnBox">
               <button type="button" id="restartBtn">重新开始</button>
@@ -63,7 +64,7 @@
             </div>
           </section>
 
-          <section class="card" id="menuBox">
+          <section class="card card-controls" id="menuBox">
             <h2>新对局</h2>
             <div id="playingBox" class="playing-box" hidden>
               <p id="playingSummary" class="hint">对局进行中</p>
@@ -104,14 +105,16 @@
             </div>
           </section>
 
-          <section class="card">
-            <h2>规则说明</h2>
-            <ul class="help">
-              <li>红先黑后，按中国象棋规则行棋。</li>
-              <li>人机对弈可选执红/执黑与难度；亦可人人轮流，或挑战残局。</li>
-              <li>对局中可悔棋、重开或更换模式。</li>
-              <li>「更换皮肤」可切换棋盘与棋子样式。</li>
-            </ul>
+          <section class="card card-help">
+            <details>
+              <summary>规则说明</summary>
+              <ul class="help">
+                <li>红先黑后，按中国象棋规则行棋。</li>
+                <li>人机对弈可选执红/执黑与难度；亦可人人轮流，或挑战残局。</li>
+                <li>对局中可悔棋、重开或更换模式。</li>
+                <li>「更换皮肤」可切换棋盘与棋子样式。</li>
+              </ul>
+            </details>
           </section>
         </aside>
       </main>

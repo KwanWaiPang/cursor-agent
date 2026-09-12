@@ -52,12 +52,14 @@ body.game-page {
   display: block;
   width: 100% !important;
   height: auto !important;
+  max-height: calc(100dvh - 6.5rem);
   aspect-ratio: 1 / 1.9;
   border-radius: 2px;
   cursor: pointer;
   touch-action: none;
   background: #f6e7c4;
   box-shadow: none;
+  object-fit: contain;
 }
 
 .panel {

@@ -120,5 +120,8 @@ cd games/pocket && npm run build
 
 ## 许可 / License
 
-各游戏目录保留原作者许可；汇总见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。  
-Per-game licenses remain in each folder; see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+大厅与原创静态页：MIT，见根目录 [LICENSE](./LICENSE)。  
+各游戏目录保留原作者许可（**chess3d 为 GPL-3.0**）；汇总见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。  
+
+Hub / original static pages: MIT, see root [LICENSE](./LICENSE).  
+Per-game licenses remain in each folder (**chess3d is GPL-3.0**); see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).

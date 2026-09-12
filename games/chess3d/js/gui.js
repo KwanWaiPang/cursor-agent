@@ -1,8 +1,7 @@
-
 // ECMAScript 5 strict mode
 /* jshint globalstrict: true*/
 /* jslint newcap: true */
-/* global THREE,  $, document, window, console */
+/* global THREE, document, window, console */
 /* global LOADING_BAR_SCALE,ROWS,COLS,PIECE_SIZE, BOARD_SIZE, FLOOR_SIZE, WIREFRAME, DEBUG, Cell, WHITE, BLACK, FEEDBACK, SHADOW */
 /* global SearchAndRedraw, UIPlayMove, camera, levels, g_allMoves:true, promotion:true, g_backgroundEngine:true, validMoves, InitializeBackgroundEngine, EnsureAnalysisStopped, newGame, redrawBoard, parsePGN, g_playerWhite:true */
 	/*global Search,FormatSquare,GenerateMove,MakeMove,GetMoveSAN,MakeSquare,UnmakeMove, FormatMove, ResetGame, GetFen, GetMoveFromString, alert, InitializeFromFen, GenerateValidMoves */
@@ -13,129 +12,129 @@
 "use strict";
 (function () {
 
-	// jQuery pgn textarea
-	var $pgn;
-	// list of moves in pgn format
+	var pgnEl;
 	var g_pgn = [];
-	// jQuery check feedback
-	var $info;
+	var infoEl;
+	var fileInput;
 
-	function initInfo() {
-		// create the DOM element
-		// to display Chc
-		$info = $("<div>")
-			.css("position","absolute")
-			.position({
-				of:$("body"),
-				my:"right top",
-				at:"right top"
-			})
-			.attr("id","info")
-			.appendTo($("body"))
-			.css("left","auto")
-			.css("right","0");
+	function el(tag, className, text) {
+		var node = document.createElement(tag);
+		if (className) node.className = className;
+		if (text !== undefined) node.textContent = text;
+		return node;
 	}
 
+	function initInfo() {
+		infoEl = el("div");
+		infoEl.id = "info";
+		document.body.appendChild(infoEl);
+	}
 
 	function initGUI() {
-		var $gui = $("<div>")
-			.css("position","absolute")
-			.attr("id","gui");
+		var gui = el("div");
+		gui.id = "gui";
 
-		// —— 新对局：与围棋/五子棋一样，执色与 AI 等级写在同一块 ——
-		// 两块始终展开，不用 accordion 叠起
-		$("<h3>").addClass("panel-title").text("新对局").appendTo($gui);
-		var $setup = $("<div>").addClass("setup-panel").appendTo($gui);
+		gui.appendChild(el("h3", "panel-title", "新对局"));
+		var setup = el("div", "setup-panel");
 
-		$("<div>")
-			.addClass("field")
-			.append($("<label>").attr("for", "humanColorSelect").text("你的执色"))
-			.append(
-				$("<select>")
-					.attr("id", "humanColorSelect")
-					.append($("<option>").val("white").text("白（先手）").prop("selected", true))
-					.append($("<option>").val("black").text("黑（后手）"))
-			)
-			.appendTo($setup);
+		var colorField = el("div", "field");
+		var colorLabel = el("label", "", "你的执色");
+		colorLabel.setAttribute("for", "humanColorSelect");
+		var colorSelect = el("select");
+		colorSelect.id = "humanColorSelect";
+		var optW = el("option", "", "白（先手）");
+		optW.value = "white";
+		optW.selected = true;
+		var optB = el("option", "", "黑（后手）");
+		optB.value = "black";
+		colorSelect.appendChild(optW);
+		colorSelect.appendChild(optB);
+		colorField.appendChild(colorLabel);
+		colorField.appendChild(colorSelect);
+		setup.appendChild(colorField);
 
-		var $levelSelect = $("<select>").attr("id", "difficultySelect");
+		var levelSelect = el("select");
+		levelSelect.id = "difficultySelect";
 		var i;
 		for (i = 0; i < levels.length; i++) {
-			$("<option>")
-				.val(i)
-				.text("等级 " + (i + 1) + (i === 0 ? "（最弱）" : i === levels.length - 1 ? "（最强）" : ""))
-				.prop("selected", i === 4)
-				.appendTo($levelSelect);
+			var opt = el("option", "", "等级 " + (i + 1) + (i === 0 ? "（最弱）" : i === levels.length - 1 ? "（最强）" : ""));
+			opt.value = String(i);
+			if (i === 4) opt.selected = true;
+			levelSelect.appendChild(opt);
 		}
-		$("<div>")
-			.addClass("field")
-			.append($("<label>").attr("for", "difficultySelect").text("AI 等级"))
-			.append($levelSelect)
-			.appendTo($setup);
+		var levelField = el("div", "field");
+		var levelLabel = el("label", "", "AI 等级");
+		levelLabel.setAttribute("for", "difficultySelect");
+		levelField.appendChild(levelLabel);
+		levelField.appendChild(levelSelect);
+		setup.appendChild(levelField);
 
-		$("<button>")
-			.attr("type", "button")
-			.addClass("btn-primary")
-			.text("开始新对局")
-			.click(startNewGameFromPanel)
-			.appendTo($setup);
+		var startBtn = el("button", "btn-primary", "开始新对局");
+		startBtn.type = "button";
+		startBtn.addEventListener("click", startNewGameFromPanel);
+		setup.appendChild(startBtn);
+		gui.appendChild(setup);
 
-		// —— 操作 ——
-		$("<h3>").addClass("panel-title").text("操作").appendTo($gui);
-		var $ops = $("<div>").addClass("ops-panel").appendTo($gui);
-		var $menu = $("<ul>").appendTo($ops);
+		gui.appendChild(el("h3", "panel-title", "操作"));
+		var ops = el("div", "ops-panel");
+		var menu = el("ul");
+		makeButton("悔棋", undo, menu);
+		makeButton("载入", loadDialog, menu);
+		makeButton("保存", save, menu);
+		ops.appendChild(menu);
 
-		makeButton("悔棋", undo, $menu);
-		makeButton("载入", loadDialog, $menu);
-		makeButton("保存", save, $menu);
+		var promoField = el("div", "field");
+		var promoLabel = el("label", "", "升变");
+		promoLabel.setAttribute("for", "promoSelect");
+		var promoSelect = el("select");
+		promoSelect.id = "promoSelect";
+		["后", "车", "象", "马"].forEach(function (name) {
+			promoSelect.appendChild(el("option", "", name));
+		});
+		promoSelect.addEventListener("change", changePromo);
+		promoField.appendChild(promoLabel);
+		promoField.appendChild(promoSelect);
+		ops.appendChild(promoField);
 
-		$("<div>")
-			.addClass("field")
-			.append($("<label>").attr("for", "promoSelect").text("升变"))
-			.append(
-				$("<select>")
-					.attr("id", "promoSelect")
-					.append($("<option>").text("后"))
-					.append($("<option>").text("车"))
-					.append($("<option>").text("象"))
-					.append($("<option>").text("马"))
-					.change(changePromo)
-			)
-			.appendTo($ops);
+		pgnEl = el("textarea");
+		pgnEl.cols = 30;
+		pgnEl.rows = 8;
+		pgnEl.readOnly = true;
+		pgnEl.setAttribute("aria-label", "棋谱 PGN");
+		ops.appendChild(pgnEl);
 
-		$pgn = $("<textarea>")
-			.attr("cols", "30")
-			.attr("rows", "8")
-			.attr("readonly", "readonly")
-			.attr("aria-label", "棋谱 PGN")
-			.appendTo($ops);
+		fileInput = el("input");
+		fileInput.type = "file";
+		fileInput.accept = ".pgn,.txt,text/plain";
+		fileInput.hidden = true;
+		fileInput.addEventListener("change", function (evt) {
+			load(evt);
+			fileInput.value = "";
+		});
+		ops.appendChild(fileInput);
 
-		$("body").append($gui);
+		gui.appendChild(ops);
+		document.body.appendChild(gui);
 	}
 
 	function makeButton(name, callback, parent) {
-		var $item = $("<li>").appendTo(parent);
-		return $("<button>")
-			.attr("type", "button")
-			.button({
-				label: name
-			})
-			.click(callback)
-			.appendTo($item);
+		var item = el("li");
+		var button = el("button", "", name);
+		button.type = "button";
+		button.addEventListener("click", callback);
+		item.appendChild(button);
+		parent.appendChild(item);
+		return button;
 	}
 
 	function startNewGameFromPanel() {
-		var colorVal = $("#humanColorSelect").val();
-		var level = parseInt($("#difficultySelect").val(), 10);
+		var colorVal = document.getElementById("humanColorSelect").value;
+		var level = parseInt(document.getElementById("difficultySelect").value, 10);
 		if (isNaN(level) || level < 0 || level >= levels.length) level = 4;
 		newGame(colorVal === "black" ? BLACK : WHITE, level);
 	}
-	/*
-	 * GAME CONTROL
-	 */
-	function newGame(color,level) {
 
-		// change AI parameters according to level
+	function newGame(color,level) {
 		if (levels[level] !== undefined) {
 			g_timeout = levels[level].timeout;
 			g_maxply  = levels[level].maxply;
@@ -155,19 +154,13 @@
 		if (color === WHITE) {
 			g_playerWhite = true;
 			camera.position.x = 0;
-			camera.position.z = 100; // camera on white side
+			camera.position.z = 100;
 		} else {
 			g_playerWhite = false;
 			SearchAndRedraw();
 			camera.position.x = 0;
-			camera.position.z = -100; // camera on black side
+			camera.position.z = -100;
 		}
-	}
-
-
-	function changeStartPlayer(event) {
-		g_playerWhite = $(event.currentTarget).val() === "white";
-		redrawBoard();
 	}
 
 	function undo() {
@@ -194,52 +187,21 @@
 		redrawBoard();
 	}
 
-
 	function loadDialog() {
-		var id = "loadGame";
-		if ($("#"+id).length !== 0) {
-			return false;
-		}
-
-		var $loadGame = $("<div>")
-			.attr("id",id)
-			.attr("title","Load Game")
-			.appendTo($("body"));
-
-		$('<input>')
-			.attr("type","file")
-			.change(function(evt) {
-				load(evt);
-				$loadGame.remove();
-			})
-			.appendTo($loadGame);
-
-		$loadGame
-			.dialog({
-				minWidth:420,
-				close:function(event,ui) {
-					$loadGame.remove();
-				}
-			});
-
+		if (fileInput) fileInput.click();
 	}
 
 	function load(evt) {
-
-		//Retrieve the first (and only!) File from the FileList object
 		var file = evt.target.files[0];
-
 		if (file) {
 			var reader = new FileReader();
 			reader.onload = function(e) {
-				var contents = e.target.result;
-				loadPGN(contents);
+				loadPGN(e.target.result);
 			};
 			reader.readAsText(file);
 		} else {
 			console.log("Failed to load file");
 		}
-
 	}
 
 	function loadFEN(fen) {
@@ -276,7 +238,6 @@
 			this.promo = promo;
 		}
 
-
 		moves.forEach(function(move) {
 			var i;
 			var formatedMove;
@@ -290,15 +251,9 @@
 				"K": new Piece(pieceKing,null)
 			};
 
-			// get the piece flag
-			var piece = pieces[move.piece].flag; // [P,N,B,R,Q,K]
-			// ge the color flag
+			var piece = pieces[move.piece].flag;
 			var color = (move.color === WHITE) ? 0x8 : 0x0;
-
-			// get the from value
 			var startList = [];
-
-			// get all square that has this kind of piece
 			var pieceIdx = (color|piece) << 4;
 
 			while(g_pieceList[pieceIdx] !== 0) {
@@ -308,63 +263,38 @@
 
 			var from = move.from;
 			if (from !== undefined) {
-				// if we have a precision on the starting square like the columns 
-				// or even the position directly
-				// We will filter the startList using it
 				for (i = startList.length - 1; i >= 0; i--) {
 					if( from.length === 1) {
-						// only the row is given
-
 						if (from.match(/[a-h]/) && startList[i].position.charAt(0) !== from) {
-							// different starting row
 							startList.splice(i,1);
 						} else if (from.match(/[1-8]/) && startList[i].position.charAt(1) !== from) {
-							// different starting line
 							startList.splice(i,1);
 						}
 					} else if (from.length === 2) {
-						// the starting coordinate is given
-						// this is then just an extra check
 						if (startList[i].position !== from) {
-							// different starting coordinate
 							startList.splice(i,1);
 						}
 					}
 				}
 			}
 
-			// here we should have a list of starting square
-			// only one should make a valid move 
-			// paired with the provided destination
-
 			var end   = new Cell(move.to);
 			var endSquare   = MakeSquare(end.y, end.x);
+			var promotionFlag = (move.promotion) ? pieces[move.promotion.substr(1)].promo : undefined;
 
-			var promotion = (move.promotion) ? pieces[move.promotion.substr(1)].promo : undefined; // remove the "="
-
-
-			// take formatedMove and endSquare in a closure
 			function checkMove(start) {
 				var startSquare = MakeSquare(start.y, start.x);
-				if (promotion !== undefined) {
-					// we have a promotion so we need to generate a 
-					// specific move and check against it
-					if(vMoves[i] === GenerateMove(startSquare, endSquare, moveflagPromotion | promotion)) {
+				if (promotionFlag !== undefined) {
+					if(vMoves[i] === GenerateMove(startSquare, endSquare, moveflagPromotion | promotionFlag)) {
 						formatedMove = vMoves[i];
 					}
 				} else {
-					// just checking start and end square allows to cover 
-					// all other special moves like "en passant" capture and
-					// castling
 					if ( (vMoves[i] & 0xFF)       == startSquare &&
 						((vMoves[i] >> 8) & 0xFF) == endSquare ) {
 						formatedMove = vMoves[i];
 					}
 				}
 			}
-
-			// to get the move we will check withing all valide moves
-			// which one match the hints given by the pgn
 
 			for (i = 0; i < vMoves.length; i++) {
 				startList.forEach(checkMove);
@@ -398,7 +328,7 @@
 	}
 
 	function clearPGN () {
-		$pgn.val("");
+		if (pgnEl) pgnEl.value = "";
 		g_pgn = [];
 	}
 
@@ -408,9 +338,9 @@
 	}
 
 	function updatePGN() {
-
-		$pgn.val(getPGN());
-		$pgn.scrollTop($pgn[0].scrollHeight);
+		if (!pgnEl) return;
+		pgnEl.value = getPGN();
+		pgnEl.scrollTop = pgnEl.scrollHeight;
 	}
 
 	function getPGN() {
@@ -429,8 +359,6 @@
 		return str;
 	}
 
-
-
 	function save() {
 		var filename = "chessSave.pgn";
 		var a = document.createElement("a");
@@ -442,7 +370,6 @@
 				"\">Download link</a></p>");
 			window.open(str);
 		} else {
-			// auto download
 			var body = document.body;
 			a.textContent = filename;
 			a.href = "data:application/json," + encodeURIComponent(getPGN());
@@ -453,11 +380,10 @@
 			a.dispatchEvent(clickEvent);
 			body.removeChild(a);
 		}
-
 	}
 
 	function changePromo(event) {
-		var choice = $(event.currentTarget).val();
+		var choice = event.currentTarget.value;
 		switch(choice) {
 		case "后":
 		case "Queen":
@@ -479,17 +405,18 @@
 	}
 
 	function displayCheck() {
+		if (!infoEl) return;
 		if (validMoves.length === 0) {
-			$info.text(( g_inCheck ? '将死' : '逼和' ));
+			infoEl.textContent = ( g_inCheck ? '将死' : '逼和' );
 		} else if (g_inCheck) {
-			$info.text('将军');
+			infoEl.textContent = '将军';
 		} else {
-			$info.text('');
+			infoEl.textContent = '';
 		}
-		if ($info.text() !== '') {
-			$info.show("highlight",{},500);
+		if (infoEl.textContent !== '') {
+			infoEl.classList.add("is-on");
 		} else {
-			$info.hide();
+			infoEl.classList.remove("is-on");
 		}
 	}
 

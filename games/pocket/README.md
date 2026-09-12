@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | 在线 Live | https://kwanwaipang.github.io/cursor-agent/games/pocket/ |
-| 操作 | 点击锁定鼠标 · WASD 移动 · Shift 跑 · 空格跳 · 鼠标视角 · **E** 互动 · **B** 图鉴 · Esc 释放/暂停 |
+| 操作 | 点击锁定鼠标 · WASD 移动 · Shift 跑 · 空格跳 · 鼠标视角 · **E** 互动 · **B** 图鉴 · **Esc 暂停并返回游戏馆** |
 | 画质 | URL `?q=low\|medium\|high\|ultra`（默认按设备选 medium/high；低档显著加快草木建造） |
 
 ## 游玩

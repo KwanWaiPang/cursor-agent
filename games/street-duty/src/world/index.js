@@ -130,8 +130,13 @@ export class WorldSystem {
     buildGate(A, rng);
     buildPerimeter(A, rng);
     dressStreet(A, rng);
-    dressBuildings(A, rng, infos);
-    scatterDebris(A, rng);
+    const quality = ctx.config?.quality || 'medium';
+    if (quality !== 'low') {
+      dressBuildings(A, rng, infos);
+      scatterDebris(A, rng);
+    } else {
+      dressBuildings(A, rng, infos.slice(0, Math.min(6, infos.length)));
+    }
 
     this._addLights(A);
 

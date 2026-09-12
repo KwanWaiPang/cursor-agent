@@ -541,8 +541,7 @@ var levels = [
 		if (!target || !target.closest) return false;
 		return !!(
 			target.closest("#gui") ||
-			target.closest(".ui-dialog") ||
-			target.closest(".ui-widget-overlay") ||
+			target.closest(".c3d-dialog") ||
 			target.closest(".chess3d-bar")
 		);
 	}

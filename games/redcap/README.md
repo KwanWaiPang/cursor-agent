@@ -10,6 +10,8 @@ A browser platformer in the hub Adventure section.
 
 Tribute gameplay only. Original procedural pixel art, chiptune SFX, and eight original stages. Not a Nintendo product.
 
+许可 / License: MIT，见仓库根目录 [`LICENSE`](../../LICENSE)。
+
 主角叫「阿砖」。世界：青丘草原、砖穴地底、云上跑道、石火城堡、霜镜雪原、碧波水道、夜林鬼径、熔心要塞。
 
 ## 操作 / Controls

@@ -26,10 +26,13 @@ function keycap(label: string, wide = false): HTMLElement {
 
 export class LoadingScreen {
   readonly el: HTMLElement;
+  onSkip: (() => void) | null = null;
 
   private fill: HTMLElement;
   private stepEl: HTMLElement;
   private pctEl: HTMLElement;
+  private skipBtn: HTMLButtonElement;
+  private skipTimer = 0;
 
   /** 0..1 target set by the world builder. */
   private target = 0;
@@ -63,9 +66,23 @@ export class LoadingScreen {
     row.appendChild(this.pctEl);
     inner.appendChild(row);
 
+    this.skipBtn = el('button', 'pt-cta pt-cta--ghost pt-loading__skip') as HTMLButtonElement;
+    this.skipBtn.type = 'button';
+    this.skipBtn.hidden = true;
+    this.skipBtn.textContent = '跳过等待，先进入';
+    this.skipBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.onSkip?.();
+    });
+    inner.appendChild(this.skipBtn);
+
     this.el.appendChild(inner);
     this.tick = this.tick.bind(this);
     this.raf = requestAnimationFrame(this.tick);
+    this.skipTimer = window.setTimeout(() => {
+      if (!this.done) this.skipBtn.hidden = false;
+    }, 6000);
   }
 
   set(label: string, pct: number): void {
@@ -112,6 +129,8 @@ export class LoadingScreen {
       this.paint();
       this.done = true;
       cancelAnimationFrame(this.raf);
+      window.clearTimeout(this.skipTimer);
+      this.skipBtn.hidden = true;
       this.el.classList.add('is-hidden', 'is-gone');
       this.flush();
       return;
@@ -122,6 +141,8 @@ export class LoadingScreen {
   private dissolve(): void {
     this.done = true;
     cancelAnimationFrame(this.raf);
+    window.clearTimeout(this.skipTimer);
+    this.skipBtn.hidden = true;
     this.el.classList.add('is-hidden');
     window.setTimeout(() => {
       this.el.classList.add('is-gone');
@@ -163,7 +184,7 @@ const LEGEND: LegendEntry[] = [
   { keys: ['Mouse'], text: '视角', wide: true },
   { keys: ['E'], text: '互动' },
   { keys: ['B'], text: '图鉴' },
-  { keys: ['Esc'], text: '释放鼠标', wide: true },
+  { keys: ['Esc'], text: '暂停 / 返回', wide: true },
 ];
 
 /** Which face the start card is wearing. */
@@ -174,13 +195,13 @@ const COPY: Record<StartMode, { eyebrow: string; title: string; cta: string; foo
     eyebrow: '关都 · 真新镇',
     title: '口袋冒险',
     cta: '点击开始',
-    foot: '将锁定鼠标指针。按 Esc 可释放。进度自动保存在本机。',
+    foot: '将锁定鼠标指针。按 Esc 可暂停并返回游戏馆。进度自动保存在本机。',
   },
   paused: {
     eyebrow: '已暂停',
     title: '歇一口气',
     cta: '点击继续',
-    foot: '进度已自动保存。小镇还在你离开的地方等着。',
+    foot: '进度已自动保存。可继续冒险，或返回游戏馆。',
   },
   retry: {
     eyebrow: '还差一点',
@@ -206,6 +227,7 @@ export class StartCard {
   private cta: HTMLButtonElement;
   private continueBtn: HTMLButtonElement;
   private newBtn: HTMLButtonElement;
+  private hubBtn: HTMLAnchorElement;
   private actions: HTMLElement;
   private foot: HTMLElement;
   private shown = false;
@@ -245,9 +267,13 @@ export class StartCard {
     this.newBtn.type = 'button';
     this.newBtn.textContent = '重新开始';
     this.newBtn.hidden = true;
+    this.hubBtn = el('a', 'pt-cta pt-cta--ghost pt-cta--hub') as HTMLAnchorElement;
+    this.hubBtn.href = '../../';
+    this.hubBtn.textContent = '返回游戏馆';
     this.actions.appendChild(this.cta);
     this.actions.appendChild(this.continueBtn);
     this.actions.appendChild(this.newBtn);
+    this.actions.appendChild(this.hubBtn);
     card.appendChild(this.actions);
 
     this.foot = el('p', 'pt-card__foot', '将锁定鼠标指针。按 Esc 可释放。');
