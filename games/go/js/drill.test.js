@@ -21,7 +21,7 @@ function playMain(problem) {
   session.resetAttempt();
   const engine = loadPosition(problem);
   let guard = 0;
-  while (!session.solvedFlag && guard < 48) {
+  while (!session.solvedFlag && guard < 80) {
     guard += 1;
     const opts = session.options();
     assert(opts.length, `${problem.id} ran out of moves before solved`);
@@ -43,24 +43,27 @@ function playMain(problem) {
 function testCurriculumShape() {
   assert(TRACKS.length === 2, "two tracks");
   for (const track of TRACKS) {
-    assert(track.levels.length === 6, `${track.id} has 6 levels`);
+    assert(track.levels.length === 8, `${track.id} has ${track.levels.length} levels`);
     for (const lv of track.levels) {
       const list = problemsOf(track.id, lv.level);
-      assert(list.length === 6, `${track.id} L${lv.level} has ${list.length}`);
+      assert(list.length >= 12, `${track.id} L${lv.level} has ${list.length}`);
     }
   }
-  assert(PROBLEMS.length === 72, `expected 72 problems, got ${PROBLEMS.length}`);
+  assert(PROBLEMS.length >= 180, `expected a larger set, got ${PROBLEMS.length}`);
 }
 
 function testUnlock() {
   const progress = { solved: {} };
-  assert(isLevelUnlocked("tactic", 1, progress), "level 1 open");
-  assert(!isLevelUnlocked("tactic", 2, progress), "level 2 locked");
-  for (const p of problemsOf("tactic", 1)) progress.solved[p.id] = true;
-  assert(isLevelUnlocked("tactic", 2, progress), "level 2 opens");
-  assert(!isLevelUnlocked("tactic", 3, progress), "level 3 still locked");
-  assert(levelCleared("tactic", 1, progress), "level 1 cleared");
-  assert(!isLevelUnlocked("yose", 2, progress), "tracks are separate");
+  for (const track of TRACKS) {
+    assert(track.levels.length >= 8, `${track.id} levels`);
+    for (const lv of track.levels) {
+      assert(isLevelUnlocked(track.id, lv.level, progress), `${track.id} L${lv.level} is free`);
+      assert(problemsOf(track.id, lv.level).length >= 12, `${track.id} L${lv.level} count`);
+    }
+  }
+  const session = new DrillSession({ solved: {} });
+  assert(session.setPlace("tactic", 8, 0), "can open the hardest level immediately");
+  assert(session.problem.level === 8, "landed on level 8");
 }
 
 function testRejectsWrongMove() {

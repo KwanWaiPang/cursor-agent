@@ -39,11 +39,8 @@ export function trackById(id) {
   return TRACKS.find((t) => t.id === id) || TRACKS[0];
 }
 
-export function isLevelUnlocked(track, level, progress) {
-  if (level <= 1) return true;
-  const prev = problemsOf(track, level - 1);
-  if (!prev.length) return true;
-  return prev.every((p) => progress?.solved?.[p.id]);
+export function isLevelUnlocked() {
+  return true;
 }
 
 export function levelCleared(track, level, progress) {
@@ -119,7 +116,7 @@ export class DrillSession {
     this.track = progress.track || "tactic";
     this.level = progress.level || 1;
     this.index = progress.index || 0;
-    if (!isLevelUnlocked(this.track, this.level, this.progress)) {
+    if (!trackById(this.track).levels.some((lv) => lv.level === this.level)) {
       this.level = 1;
       this.index = 0;
     }

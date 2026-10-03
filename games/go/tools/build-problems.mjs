@@ -684,8 +684,87 @@ function classicalPrompt(p, kind) {
   return `${colorName(p.toPlay)}先。${kind}请走出谱上的主变化。收官或死活有时还有别的正着，本题对照这一谱。`;
 }
 
-for (const p of ORIGINALS) assertTree(p);
-console.log(`originals ok: ${ORIGINALS.length}`);
+function mapXY(x, y, size, kind) {
+  if (kind === "mx") return [size - 1 - x, y];
+  if (kind === "my") return [x, size - 1 - y];
+  if (kind === "r180") return [size - 1 - x, size - 1 - y];
+  return [x, y];
+}
+
+function mapMoves(moves, size, kind) {
+  return (moves || []).map((m) => {
+    const [x, y] = mapXY(m.x, m.y, size, kind);
+    return { ...m, x, y, replies: mapMoves(m.replies, size, kind) };
+  });
+}
+
+function transformProblem(src, kind, id, title) {
+  const size = src.size;
+  const mapList = (pts) => pts.map(([x, y]) => mapXY(x, y, size, kind));
+  const check = src.check
+    ? src.check.at
+      ? { ...src.check, at: mapXY(src.check.at[0], src.check.at[1], size, kind) }
+      : { ...src.check }
+    : undefined;
+  return {
+    ...src,
+    id,
+    title,
+    black: mapList(src.black),
+    white: mapList(src.white),
+    moves: mapMoves(src.moves, size, kind),
+    check,
+  };
+}
+
+function shapeKey(p) {
+  const stones = [
+    ...p.black.map(([x, y]) => `b${x},${y}`),
+    ...p.white.map(([x, y]) => `w${x},${y}`),
+  ].sort();
+  const m = p.moves[0];
+  return `${p.toPlay}|${stones.join(";")}|${m.x},${m.y}`;
+}
+
+function expandOriginals(list, want) {
+  const out = [];
+  const seen = new Set();
+  for (const kind of ["id", "mx", "my", "r180"]) {
+    for (const src of list) {
+      const title = kind === "id" ? src.title : `${src.title} · 换个角落`;
+      const p = transformProblem(src, kind, `${src.id}-${kind}`, title);
+      const key = shapeKey(p);
+      if (seen.has(key)) continue;
+      try {
+        assertTree(p);
+      } catch {
+        continue;
+      }
+      seen.add(key);
+      out.push(p);
+      if (out.length >= want) return out;
+    }
+  }
+  return out;
+}
+
+const PER_LEVEL = 12;
+let originals = [];
+for (const level of [1, 2, 3]) {
+  const batch = expandOriginals(
+    ORIGINALS.filter((p) => p.level === level),
+    PER_LEVEL
+  );
+  originals = originals.concat(
+    batch.map((p, i) => ({
+      ...p,
+      id: `tactic-${level}-${String(i + 1).padStart(2, "0")}`,
+    }))
+  );
+  console.log(`original L${level}: ${batch.length}`);
+}
+ORIGINALS.length = 0;
+ORIGINALS.push(...originals);
 
 const qjzm = loadBook("/tmp/go-sgf/qjzm-a.sgf.gz")
   .map((t, i) => viable(problemFromTree(t), `qjzm-${i}`))
@@ -704,18 +783,26 @@ const gzp = ["gzp1", "gzp2", "gzp3"]
 
 console.log(`viable qjzm ${qjzm.length} xxqj ${xxqj.length} gzp ${gzp.length}`);
 
+const N = PER_LEVEL;
 const usedQ = new Set();
-const t4 = take(qjzm, (p) => p.lineLen >= 1 && p.lineLen <= 5 && p.stones <= 16, 6, usedQ);
-const t5 = take(qjzm, (p) => p.lineLen >= 5 && p.lineLen <= 11 && p.stones <= 28, 6, usedQ);
-let t6 = take(xxqj, (p) => p.lineLen >= 5 && p.lineLen <= 12 && p.stones <= 26, 6, new Set());
-if (t4.length < 6 || t5.length < 6 || t6.length < 6) {
-  console.log("short classical buckets", t4.length, t5.length, t6.length);
-}
-if (t4.length < 6) t4.push(...take(qjzm, (p) => p.lineLen <= 8 && p.stones <= 24, 6 - t4.length, usedQ));
-if (t5.length < 6) t5.push(...take(qjzm, (p) => p.stones <= 36, 6 - t5.length, usedQ));
-if (t6.length < 6) {
-  const usedX = new Set(t6.map((p) => p.key));
-  t6.push(...take(xxqj, (p) => p.lineLen >= 3 && p.stones <= 40, 6 - t6.length, usedX));
+const t4 = take(qjzm, (p) => p.lineLen <= 3 && p.stones <= 18, N, usedQ);
+const t5 = take(qjzm, (p) => p.lineLen >= 3 && p.lineLen <= 7 && p.stones <= 26, N, usedQ);
+const t6 = take(qjzm, (p) => p.lineLen >= 6 && p.stones <= 42, N, usedQ);
+const usedX = new Set();
+const t7 = take(xxqj, (p) => p.lineLen >= 3 && p.lineLen <= 9 && p.stones <= 30, N, usedX);
+const t8 = take(xxqj, (p) => p.lineLen >= 8 && p.stones <= 46, N, usedX);
+for (const [name, bucket, pool, pred] of [
+  ["t4", t4, qjzm, (p) => p.lineLen <= 8 && p.stones <= 30],
+  ["t5", t5, qjzm, (p) => p.stones <= 40],
+  ["t6", t6, qjzm, () => true],
+  ["t7", t7, xxqj, (p) => p.lineLen <= 12 && p.stones <= 40],
+  ["t8", t8, xxqj, () => true],
+]) {
+  if (bucket.length < N) {
+    const used = name.startsWith("t7") || name.startsWith("t8") ? usedX : usedQ;
+    bucket.push(...take(pool, pred, N - bucket.length, used));
+  }
+  console.log(name, bucket.length);
 }
 
 const tacticClassical = [
@@ -739,26 +826,46 @@ const tacticClassical = [
     t6,
     "tactic",
     6,
-    (_p, i) => `玄玄棋经 · ${i + 1}`,
+    (_p, i) => `碁经众妙 · 深入 ${i + 1}`,
+    (p) => classicalPrompt(p, "这一级更接近实战复杂死活。"),
+    "碁经众妙（1812，公有领域；正解谱来自 u-go.net / Flygo）"
+  ),
+  ...decorate(
+    t7,
+    "tactic",
+    7,
+    (_p, i) => `玄玄棋经 · 入门 ${i + 1}`,
     (p) => classicalPrompt(p, "玄玄棋经是高段死活。"),
+    "玄玄棋经（约 1349，公有领域；SGF：Jean-Pierre Vesinet）"
+  ),
+  ...decorate(
+    t8,
+    "tactic",
+    8,
+    (_p, i) => `玄玄棋经 · 深入 ${i + 1}`,
+    (p) => classicalPrompt(p, "手数更长的玄玄棋经。"),
     "玄玄棋经（约 1349，公有领域；SGF：Jean-Pierre Vesinet）"
   ),
 ];
 
 const usedG = new Set();
 const slices = [
-  [(p) => p.lineLen === 1 && p.stones <= 18, 1, "一手官子"],
-  [(p) => p.lineLen >= 2 && p.lineLen <= 3 && p.stones <= 24, 2, "短收官"],
-  [(p) => p.lineLen >= 3 && p.lineLen <= 5 && p.stones <= 30, 3, "三手前后"],
-  [(p) => p.lineLen >= 5 && p.lineLen <= 8 && p.stones <= 36, 4, "局部收官"],
-  [(p) => p.lineLen >= 8 && p.lineLen <= 12 && p.stones <= 42, 5, "进阶官子"],
-  [(p) => p.lineLen >= 12 && p.lineLen <= 20 && p.stones <= 48, 6, "高段官子"],
+  [(p) => p.lineLen === 1 && p.stones <= 22, 1, "一手官子"],
+  [(p) => p.lineLen === 2 && p.stones <= 28, 2, "两手收官"],
+  [(p) => p.lineLen >= 3 && p.lineLen <= 4, 3, "短收官"],
+  [(p) => p.lineLen >= 4 && p.lineLen <= 6, 4, "先手官子"],
+  [(p) => p.lineLen >= 6 && p.lineLen <= 9, 5, "局部收官"],
+  [(p) => p.lineLen >= 9 && p.lineLen <= 13, 6, "进阶官子"],
+  [(p) => p.lineLen >= 13 && p.lineLen <= 18, 7, "长谱官子"],
+  [(p) => p.lineLen >= 18 && p.lineLen <= 36, 8, "高段官子"],
 ];
 let yose = [];
 for (const [pred, level, name] of slices) {
-  let picked = take(gzp, pred, 6, usedG);
-  if (picked.length < 6) {
-    picked = picked.concat(take(gzp, (p) => p.lineLen <= 8 + level * 3 && p.stones <= 20 + level * 8, 6 - picked.length, usedG));
+  let picked = take(gzp, pred, N, usedG);
+  if (picked.length < N) {
+    picked = picked.concat(
+      take(gzp, (p) => p.lineLen <= 6 + level * 4 && p.stones <= 24 + level * 6, N - picked.length, usedG)
+    );
   }
   console.log(`yose L${level} ${name}: ${picked.length}`);
   yose = yose.concat(
@@ -790,27 +897,31 @@ const TRACKS = [
   {
     id: "tactic",
     name: "死活战术",
-    intro: "从提子、逃气练到古典死活。做完本级全部题，才解锁下一级。",
+    intro: "局部死活。等级可以随时切换，不必解锁。一到三级是入门形，后面是古典死活。",
     levels: [
       { level: 1, name: "一级 · 提子与逃气" },
       { level: 2, name: "二级 · 连接与双打" },
       { level: 3, name: "三级 · 征子与扑吃" },
       { level: 4, name: "四级 · 碁经众妙入门" },
       { level: 5, name: "五级 · 碁经众妙进阶" },
-      { level: 6, name: "六级 · 玄玄棋经" },
+      { level: 6, name: "六级 · 碁经众妙深入" },
+      { level: 7, name: "七级 · 玄玄棋经入门" },
+      { level: 8, name: "八级 · 玄玄棋经深入" },
     ],
   },
   {
     id: "yose",
     name: "官子残局",
-    intro: "用《官子谱》的古典官子，按手数从短到长。做完本级才解锁下一级。",
+    intro: "局部官子，不是整盘棋谱。等级可以随时切换。手数从短到长。",
     levels: [
       { level: 1, name: "一级 · 一手官子" },
-      { level: 2, name: "二级 · 短收官" },
-      { level: 3, name: "三级 · 三手前后" },
-      { level: 4, name: "四级 · 局部收官" },
-      { level: 5, name: "五级 · 官子谱进阶" },
-      { level: 6, name: "六级 · 官子谱高段" },
+      { level: 2, name: "二级 · 两手收官" },
+      { level: 3, name: "三级 · 短收官" },
+      { level: 4, name: "四级 · 先手官子" },
+      { level: 5, name: "五级 · 局部收官" },
+      { level: 6, name: "六级 · 进阶官子" },
+      { level: 7, name: "七级 · 长谱官子" },
+      { level: 8, name: "八级 · 高段官子" },
     ],
   },
 ];

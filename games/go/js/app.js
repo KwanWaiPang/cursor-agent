@@ -2,7 +2,6 @@ import { BLACK, WHITE, GoEngine, colorName, opponent } from "./engine.js";
 import { GoAI } from "./ai.js";
 import {
   DrillSession,
-  isLevelUnlocked,
   levelCleared,
   loadPosition,
   loadProgress,
@@ -10,6 +9,13 @@ import {
   saveProgress,
   trackById,
 } from "./drill.js";
+import {
+  KIFU,
+  KifuSession,
+  coordName,
+  gameById,
+  stoneNumbers,
+} from "./kifu-play.js";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
@@ -39,6 +45,21 @@ const els = {
   btnDrillNext: document.getElementById("btnDrillNext"),
   btnDrillRetry: document.getElementById("btnDrillRetry"),
   btnDrillSolve: document.getElementById("btnDrillSolve"),
+  difficultyField: document.getElementById("difficultyField"),
+  kifuOptions: document.getElementById("kifuOptions"),
+  kifuSelect: document.getElementById("kifuSelect"),
+  kifuBlurb: document.getElementById("kifuBlurb"),
+  kifuStudy: document.getElementById("kifuStudy"),
+  kifuSideField: document.getElementById("kifuSideField"),
+  kifuSide: document.getElementById("kifuSide"),
+  kifuProgress: document.getElementById("kifuProgress"),
+  kifuNote: document.getElementById("kifuNote"),
+  btnKifuStart: document.getElementById("btnKifuStart"),
+  btnKifuPrev: document.getElementById("btnKifuPrev"),
+  btnKifuNext: document.getElementById("btnKifuNext"),
+  btnKifuEnd: document.getElementById("btnKifuEnd"),
+  btnKifuReveal: document.getElementById("btnKifuReveal"),
+  btnKifuReturn: document.getElementById("btnKifuReturn"),
   btnPass: document.getElementById("btnPass"),
   btnResign: document.getElementById("btnResign"),
   btnUndo: document.getElementById("btnUndo"),
@@ -63,6 +84,10 @@ let drillHint = null;
 let drillFlash = null;
 let flashToken = 0;
 let uiLock = 0;
+let kifu = null;
+let kifuToken = 0;
+let kifuNumbers = null;
+let kifuAiThinking = false;
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -74,6 +99,14 @@ function drillSelected() {
 
 function isDrill() {
   return drillSelected() && !!drill;
+}
+
+function kifuSelected() {
+  return els.modeSelect.value === "kifu";
+}
+
+function isKifu() {
+  return kifuSelected() && !!kifu;
 }
 
 function playSound(id) {
@@ -102,8 +135,17 @@ function aiColor() {
 
 function isHumanTurn() {
   if (isDrill()) return !drill.busy && !drill.solvedFlag && engine.phase === "playing";
+  if (isKifu()) return kifuCanClick();
   if (!isAiMode()) return true;
   return engine.phase === "playing" && engine.toPlay === humanColor();
+}
+
+function kifuCanClick() {
+  if (!kifu || kifuAiThinking || engine.phase !== "playing") return false;
+  if (kifu.mode === "replay") return false;
+  if (kifu.deviated) return engine.toPlay === kifu.userSide;
+  if (kifu.mode === "guess") return true;
+  return engine.toPlay === kifu.userSide;
 }
 
 function showMessage(text, info = false) {
@@ -117,6 +159,13 @@ function phaseText() {
     if (drill.solvedFlag) return "过关";
     return "练习中";
   }
+  if (isKifu()) {
+    if (kifuAiThinking) return "AI应手";
+    if (kifu.deviated) return "离谱";
+    if (kifu.mode === "guess") return "猜下一手";
+    if (kifu.mode === "play") return "跟谱对练";
+    return "打谱";
+  }
   if (aiThinking) return "AI思考中";
   if (engine.phase === "playing") return "对局中";
   if (engine.phase === "scoring") return "点目中";
@@ -126,13 +175,21 @@ function phaseText() {
 function syncAiOptionVisibility() {
   const aiOn = isAiMode();
   const drillOn = drillSelected();
-  els.aiOptions.hidden = !aiOn;
-  els.aiOptions.setAttribute("aria-hidden", aiOn ? "false" : "true");
+  const kifuOn = kifuSelected();
+  els.aiOptions.hidden = !aiOn && !kifuOn;
+  els.aiOptions.setAttribute("aria-hidden", aiOn || kifuOn ? "false" : "true");
+  if (els.humanColorSelect) {
+    els.humanColorSelect.closest(".field").hidden = !aiOn;
+  }
+  if (els.difficultyField) els.difficultyField.hidden = !(aiOn || kifuOn);
   els.drillOptions.hidden = !drillOn;
   els.drillOptions.setAttribute("aria-hidden", drillOn ? "false" : "true");
-  els.matchFields.hidden = drillOn;
-  els.btnNew.textContent = drillOn ? "进入本题" : "开始新对局";
+  els.kifuOptions.hidden = !kifuOn;
+  els.kifuOptions.setAttribute("aria-hidden", kifuOn ? "false" : "true");
+  els.matchFields.hidden = drillOn || kifuOn;
+  els.btnNew.textContent = drillOn ? "进入本题" : kifuOn ? "打开这局" : "开始新对局";
   if (drillOn) fillLevelSelect();
+  if (kifuOn) fillKifuSelect();
 }
 
 function updatePanel() {
@@ -142,6 +199,17 @@ function updatePanel() {
     if (drill.solvedFlag) els.turnLabel.textContent = "本题已过关";
     else if (drill.busy) els.turnLabel.textContent = "正在演示答案…";
     else els.turnLabel.textContent = `${colorName(engine.toPlay)}方行棋 · 你`;
+  } else if (isKifu()) {
+    const who = kifu.deviated
+      ? engine.toPlay === kifu.userSide
+        ? "你"
+        : "AI"
+      : kifu.mode === "replay"
+        ? "打谱"
+        : "你";
+    els.turnLabel.textContent = kifuAiThinking
+      ? `AI（${colorName(engine.toPlay)}）思考中…`
+      : `${colorName(engine.toPlay)}方 · ${who}`;
   } else if (aiThinking) {
     els.turnLabel.textContent = `AI（${colorName(aiColor())}）思考中…`;
   } else if (engine.phase === "playing") {
@@ -163,16 +231,24 @@ function updatePanel() {
   els.moveCount.textContent = `手数 ${plays} · 停着 ${passes}`;
 
   const humanCanAct =
-    engine.phase === "playing" && isHumanTurn() && !aiThinking && !isDrill();
-  els.btnPass.disabled = !humanCanAct;
-  els.btnResign.disabled = engine.phase !== "playing" || aiThinking || isDrill();
+    engine.phase === "playing" && isHumanTurn() && !aiThinking && !isDrill() && !isKifu();
+  const kifuPass =
+    isKifu() &&
+    !kifuAiThinking &&
+    kifu.mode === "guess" &&
+    !kifu.deviated &&
+    kifu.nextMove()?.pass;
+  els.btnPass.disabled = !humanCanAct && !kifuPass;
+  els.btnResign.disabled = engine.phase !== "playing" || aiThinking || isDrill() || isKifu();
   els.btnAutoDead.disabled = engine.phase !== "scoring" || aiThinking;
   els.btnScore.disabled = engine.phase !== "scoring" || aiThinking;
   els.btnUndo.disabled = isDrill()
     ? !drill || drill.busy || drill.log.length === 0
-    : aiThinking ||
-      (engine.moveHistory.length === 0 &&
-        !(engine.phase === "finished" && engine.result?.type === "resign"));
+    : isKifu()
+      ? kifuAiThinking || (kifu.cursor === 0 && !kifu.deviated && engine.moveHistory.length === 0)
+      : aiThinking ||
+        (engine.moveHistory.length === 0 &&
+          !(engine.phase === "finished" && engine.result?.type === "resign"));
   if (isDrill()) {
     const total = problemsOf(drill.problem.track, drill.problem.level).length;
     els.btnDrillPrev.disabled = drill.busy || drill.index <= 0;
@@ -180,7 +256,16 @@ function updatePanel() {
     els.btnDrillRetry.disabled = drill.busy;
     els.btnDrillSolve.disabled = drill.busy;
   }
-  canvas.style.cursor = aiThinking ? "wait" : "crosshair";
+  if (isKifu()) {
+    const atEnd = !kifu.nextMove();
+    els.btnKifuPrev.disabled = kifuAiThinking || (kifu.cursor === 0 && !kifu.deviated);
+    els.btnKifuNext.disabled = kifuAiThinking || kifu.deviated || atEnd || kifu.mode !== "replay";
+    els.btnKifuEnd.disabled = kifuAiThinking || kifu.deviated || atEnd;
+    els.btnKifuReveal.disabled = kifuAiThinking || kifu.deviated || atEnd || kifu.mode === "replay";
+    els.btnKifuReturn.disabled = kifuAiThinking || !kifu.deviated;
+    els.kifuSideField.hidden = kifu.mode !== "play";
+  }
+  canvas.style.cursor = aiThinking || kifuAiThinking ? "wait" : "crosshair";
 
   if (isDrill() && drill.solvedFlag) {
     const p = drill.problem;
@@ -188,8 +273,8 @@ function updatePanel() {
     const next = trackById(p.track).levels.find((l) => l.level === p.level + 1);
     els.result.textContent = cleared
       ? next
-        ? `过关。本级完成，下一级已解锁。`
-        : `过关。这一科的六级都练过了。`
+        ? `过关。本级 ${problemsOf(p.track, p.level).length} 题都走通了，可以换下一级。`
+        : `过关。这一科的题目都练过了。`
       : `过关：${p.title}`;
     els.result.classList.add("show");
   } else if (engine.result) {
@@ -376,8 +461,27 @@ function draw() {
     ctx.arc(p.sx, p.sy, r * 0.78, 0, Math.PI * 2);
     ctx.stroke();
   };
+  if (kifuNumbers) {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let y = y0; y <= y1; y += 1) {
+      for (let x = x0; x <= x1; x += 1) {
+        const num = kifuNumbers[y]?.[x];
+        if (!num || !engine.board[y][x]) continue;
+        const p = pointToXY(x, y, m);
+        ctx.fillStyle = engine.board[y][x] === BLACK ? "rgba(255,236,200,0.94)" : "rgba(40,24,12,0.84)";
+        ctx.font = `700 ${Math.max(8, r * (num >= 100 ? 0.42 : 0.5))}px "Noto Serif SC", serif`;
+        ctx.fillText(String(num), p.sx, p.sy);
+      }
+    }
+  }
+
   ring(drillHint, "#0f5c4c");
   ring(drillFlash, "#8b2e2e");
+  if (isKifu() && kifu.mode === "replay" && !kifu.deviated) {
+    const nxt = kifu.nextMove();
+    if (nxt && !nxt.pass) ring(nxt, "rgba(15,92,76,0.55)");
+  }
 
   if (
     hover &&
@@ -464,13 +568,14 @@ function eventToCoord(evt) {
 }
 
 function refresh(msg, info = false) {
+  kifuNumbers = isKifu() ? stoneNumbers(kifu.game, engine) : null;
   updatePanel();
   draw();
   if (msg !== undefined) showMessage(msg, info);
 }
 
 async function maybeAiMove() {
-  if (isDrill() || !isAiMode() || engine.phase !== "playing") return;
+  if (isDrill() || isKifu() || !isAiMode() || engine.phase !== "playing") return;
   if (engine.toPlay !== aiColor()) return;
   if (aiThinking) return;
 
@@ -533,6 +638,10 @@ function onBoardClick(evt) {
     onDrillMove(coord);
     return;
   }
+  if (isKifu()) {
+    onKifuMove(coord);
+    return;
+  }
 
   if (engine.phase === "scoring") {
     const res = engine.toggleDead(coord.x, coord.y);
@@ -584,7 +693,7 @@ function updateDrillMeta() {
   const done = drill.solvedCount();
   els.drillIntro.textContent = trackById(p.track).intro;
   let text = `${p.title} · 第 ${drill.index + 1}/${total} 题 · 本级已过 ${done}/${total}`;
-  if (levelCleared(p.track, p.level, drill.progress)) text += " · 下一级已解锁";
+  if (levelCleared(p.track, p.level, drill.progress)) text += " · 本级已全部走通";
   els.drillProgress.textContent = text;
   els.drillSource.textContent = p.source || "";
 }
@@ -593,19 +702,16 @@ function fillLevelSelect() {
   uiLock += 1;
   const trackId = els.trackSelect.value || "tactic";
   const track = trackById(trackId);
-  const progress = drill?.progress || loadProgress();
   const wanted = drill && drill.track === trackId ? drill.level : Number(els.levelSelect.value) || 1;
   const previous = els.levelSelect.value;
   els.levelSelect.innerHTML = "";
   for (const lv of track.levels) {
     const opt = document.createElement("option");
     opt.value = String(lv.level);
-    const open = isLevelUnlocked(trackId, lv.level, progress);
-    opt.textContent = open ? lv.name : `${lv.name}（未解锁）`;
-    opt.disabled = !open;
+    opt.textContent = lv.name;
     els.levelSelect.appendChild(opt);
   }
-  const choice = isLevelUnlocked(trackId, wanted, progress) ? wanted : 1;
+  const choice = track.levels.some((lv) => lv.level === wanted) ? wanted : 1;
   els.levelSelect.value = String(choice);
   if (!els.levelSelect.value) els.levelSelect.value = previous || "1";
   if (!drill) {
@@ -743,7 +849,221 @@ function shiftDrill(delta) {
   startDrill();
 }
 
+function fillKifuSelect() {
+  if (!els.kifuSelect || els.kifuSelect.options.length) return;
+  uiLock += 1;
+  let group = "";
+  for (const game of KIFU) {
+    if (game.group !== group) {
+      const optg = document.createElement("optgroup");
+      optg.label = game.group;
+      els.kifuSelect.appendChild(optg);
+      group = game.group;
+    }
+    const opt = document.createElement("option");
+    opt.value = game.id;
+    opt.textContent = `${game.title} · ${game.result}`;
+    els.kifuSelect.lastElementChild.appendChild(opt);
+  }
+  uiLock -= 1;
+}
+
+function kifuHeadline(game) {
+  const seat = game.seat ? "座子局，白先。" : "空枰黑先。";
+  return `${game.blackName} 执黑 · ${game.whiteName} 执白 · ${game.date || "年代不详"} · ${game.result}。${seat}${game.summary}`;
+}
+
+function startKifu() {
+  const id = els.kifuSelect?.value || KIFU[0].id;
+  const game = gameById(id);
+  if (!kifu || kifu.game.id !== game.id) kifu = new KifuSession(game);
+  kifu.game = game;
+  kifu.mode = els.kifuStudy?.value || "replay";
+  kifu.userSide = els.kifuSide?.value === "white" ? 2 : 1;
+  kifu.deviated = false;
+  kifu.cursor = 0;
+  engine = kifu.mount();
+  if (kifu.mode === "play") kifu.autoOpponent(engine);
+  aiToken += 1;
+  aiThinking = false;
+  kifuAiThinking = false;
+  hover = null;
+  drillHint = null;
+  drillFlash = null;
+  els.kifuBlurb.textContent = kifuHeadline(game);
+  refresh(kifuStatusLine(), true);
+}
+
+function kifuStatusLine() {
+  const game = kifu.game;
+  const nxt = kifu.nextMove();
+  const at = `第 ${kifu.cursor} / ${kifu.total} 手`;
+  if (kifu.deviated) return `${game.title}。已经离开棋谱，AI 会接着应。要回到分岔前，按「回到谱上」。`;
+  if (!nxt) return `${game.title} · ${at}。谱已结束。${game.result}`;
+  if (nxt.note) return `${game.title} · ${at}。${nxt.note}`;
+  if (kifu.mode === "guess") return `${game.title} · ${at}。请猜${colorName(engine.toPlay)}的下一手。`;
+  if (kifu.mode === "play") {
+    return `${game.title} · ${at}。你执${colorName(kifu.userSide)}。下在谱上就继续，下到别处则改由 AI 应手。`;
+  }
+  const where = nxt.pass ? "停着" : coordName(nxt.x, nxt.y, game.size);
+  return `${game.title} · ${at}。下一手 ${colorName(nxt.color)} ${where}。`;
+}
+
+function stepKifu(dir) {
+  if (!kifu || kifuAiThinking) return;
+  kifuToken += 1;
+  if (kifu.deviated) {
+    if (dir < 0 && engine.undo().ok) {
+      if (engine.moveHistory.length === kifu.cursor) kifu.deviated = false;
+      refresh(kifuStatusLine(), true);
+    }
+    return;
+  }
+  if (dir > 0) {
+    const res = kifu.advance(engine);
+    if (!res.ok) {
+      showMessage(res.reason || "不能继续");
+      return;
+    }
+    playSound("clickAudio");
+  } else if (kifu.cursor > 0 && engine.undo().ok) {
+    kifu.cursor -= 1;
+  }
+  refresh(kifuStatusLine(), true);
+}
+
+function revealKifuMove() {
+  if (!kifu || kifu.deviated || kifu.mode === "replay") return;
+  const move = kifu.nextMove();
+  if (!move) return;
+  const res = kifu.advance(engine);
+  if (!res.ok) {
+    showMessage(res.reason || "不能揭示");
+    return;
+  }
+  playSound("clickAudio");
+  if (kifu.mode === "play") kifu.autoOpponent(engine);
+  const where = move.pass ? "停着" : coordName(move.x, move.y, kifu.game.size);
+  refresh(`谱上是 ${colorName(move.color)} ${where}。${kifuStatusLine()}`, true);
+}
+
+function returnToRecord() {
+  if (!kifu || !kifu.deviated) return;
+  kifuToken += 1;
+  kifuAiThinking = false;
+  kifu.deviated = false;
+  engine = kifu.mount();
+  if (kifu.mode === "play") kifu.autoOpponent(engine);
+  refresh(`已回到谱上。${kifuStatusLine()}`, true);
+}
+
+function jumpKifuEnd() {
+  if (!kifu || kifu.deviated || kifuAiThinking) return;
+  while (kifu.nextMove()) {
+    const res = kifu.advance(engine);
+    if (!res.ok) break;
+  }
+  refresh(kifuStatusLine(), true);
+}
+
+function onKifuMove(coord) {
+  if (!kifu || kifuAiThinking) return;
+  if (kifu.mode === "replay") {
+    showMessage("打谱请用「下一手」。想自己下，把学习方式换成「试下」或「对练」。", true);
+    return;
+  }
+  if (engine.board[coord.y][coord.x]) {
+    showMessage("此处已有棋子");
+    return;
+  }
+  if (kifu.deviated) {
+    if (engine.toPlay !== kifu.userSide) return;
+    const res = engine.play(coord.x, coord.y);
+    if (!res.ok) {
+      showMessage(res.reason || "这里不能下");
+      return;
+    }
+    playSound("clickAudio");
+    refresh("已离开棋谱。", true);
+    maybeKifuAi();
+    return;
+  }
+  const expect = kifu.nextMove();
+  if (!expect) {
+    showMessage("谱已经结束");
+    return;
+  }
+  if (kifu.mode === "play" && engine.toPlay !== kifu.userSide) return;
+  if (!kifu.matches(coord.x, coord.y)) {
+    if (kifu.mode === "guess") {
+      flashWrong(coord);
+      const where = expect.pass ? "停着" : coordName(expect.x, expect.y, kifu.game.size);
+      showMessage(`不是这一手。谱上是 ${where}。`);
+      return;
+    }
+    const res = engine.play(coord.x, coord.y);
+    if (!res.ok) {
+      showMessage(res.reason || "这里不能下");
+      return;
+    }
+    kifu.deviated = true;
+    playSound("clickAudio");
+    refresh("这手不在谱上，接下来由 AI 应。", true);
+    maybeKifuAi();
+    return;
+  }
+  const res = kifu.advance(engine);
+  if (!res.ok) {
+    showMessage(res.reason || "不能落子");
+    return;
+  }
+  playSound("clickAudio");
+  if (kifu.mode === "play") kifu.autoOpponent(engine);
+  refresh(expect.note ? expect.note : "对了。", true);
+}
+
+async function maybeKifuAi() {
+  if (!isKifu() || !kifu.deviated || kifu.mode !== "play") return;
+  if (engine.phase !== "playing" || engine.toPlay === kifu.userSide) return;
+  if (kifuAiThinking) return;
+  const token = ++kifuToken;
+  kifuAiThinking = true;
+  refresh("AI 正在应你离开棋谱的那一手…", true);
+  try {
+    ai.setDifficulty(els.difficultySelect.value);
+    const move = await ai.chooseMove(engine);
+    if (token !== kifuToken || !kifu?.deviated) return;
+    if (move.type === "pass") engine.pass();
+    else {
+      const res = engine.play(move.x, move.y);
+      if (!res.ok) {
+        refresh("AI 这步无效，请悔棋或回到谱上");
+        return;
+      }
+      playSound("clickAudio");
+    }
+    refresh("AI 已应手。可以继续探索，或回到谱上。", true);
+  } catch (err) {
+    console.error(err);
+    refresh("AI 出错，请回到谱上");
+  } finally {
+    if (token === kifuToken) {
+      kifuAiThinking = false;
+      updatePanel();
+      draw();
+    }
+  }
+}
+
 function newGame() {
+  if (kifuSelected()) {
+    kifuToken += 1;
+    drill = null;
+    startKifu();
+    return;
+  }
+  kifu = null;
+  kifuNumbers = null;
   if (drillSelected()) {
     if (!drill) drill = new DrillSession(loadProgress());
     const track = els.trackSelect.value || "tactic";
@@ -780,6 +1100,12 @@ function newGame() {
 }
 
 els.btnPass.addEventListener("click", () => {
+  if (isKifu() && kifu.mode === "guess" && !kifu.deviated && kifu.nextMove()?.pass) {
+    const res = kifu.advance(engine);
+    if (!res.ok) showMessage(res.reason || "不能停着");
+    else refresh("对了，谱上是停着。", true);
+    return;
+  }
   if (aiThinking || !isHumanTurn()) return;
   const res = engine.pass();
   if (!res.ok) {
@@ -817,6 +1143,10 @@ els.btnResign.addEventListener("click", () => {
 });
 
 els.btnUndo.addEventListener("click", () => {
+  if (isKifu()) {
+    stepKifu(-1);
+    return;
+  }
   if (isDrill()) {
     if (drill.busy) return;
     if (!drill.undo()) {
@@ -898,6 +1228,51 @@ els.btnDrillSolve?.addEventListener("click", () => {
   showDrillSolution();
 });
 
+els.btnKifuStart?.addEventListener("click", () => startKifu());
+els.btnKifuPrev?.addEventListener("click", () => stepKifu(-1));
+els.btnKifuNext?.addEventListener("click", () => stepKifu(1));
+els.btnKifuEnd?.addEventListener("click", () => jumpKifuEnd());
+els.btnKifuReveal?.addEventListener("click", () => revealKifuMove());
+els.btnKifuReturn?.addEventListener("click", () => returnToRecord());
+
+els.kifuSelect?.addEventListener("change", () => {
+  if (uiLock || !kifuSelected()) return;
+  kifu = null;
+  startKifu();
+});
+
+els.kifuStudy?.addEventListener("change", () => {
+  if (!kifu || !kifuSelected()) return;
+  kifu.mode = els.kifuStudy.value;
+  if (kifu.mode === "play" && !kifu.deviated) {
+    kifu.autoOpponent(engine);
+  }
+  refresh(kifuStatusLine(), true);
+});
+
+els.kifuSide?.addEventListener("change", () => {
+  if (!kifu || kifu.mode !== "play") return;
+  kifu.userSide = els.kifuSide.value === "white" ? 2 : 1;
+  if (!kifu.deviated) {
+    engine = kifu.mount();
+    kifu.autoOpponent(engine);
+    refresh(kifuStatusLine(), true);
+  }
+});
+
+window.addEventListener("keydown", (e) => {
+  if (!isKifu() || kifu.mode !== "replay" || kifu.deviated) return;
+  const tag = document.activeElement?.tagName;
+  if (tag === "SELECT" || tag === "INPUT" || tag === "TEXTAREA") return;
+  if (e.key === "ArrowRight") {
+    e.preventDefault();
+    stepKifu(1);
+  } else if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    stepKifu(-1);
+  }
+});
+
 els.trackSelect?.addEventListener("change", () => {
   if (uiLock) return;
   fillLevelSelect();
@@ -935,22 +1310,27 @@ els.modeSelect.addEventListener("change", () => {
     showMessage("请等这一手走完再换模式。", true);
     return;
   }
-  if (!drillSelected() && drill) {
-    if (drill.log.length && !confirm("离开练习？这一题的尝试会丢掉。")) {
+  if ((drill && !drillSelected()) || (kifu && !kifuSelected())) {
+    const dirty = (drill && drill.log.length) || (kifu && (kifu.cursor > 0 || kifu.deviated));
+    if (dirty && !confirm("离开当前练习或棋谱？进度里这一手会丢掉。")) {
       uiLock += 1;
-      els.modeSelect.value = "drill";
+      els.modeSelect.value = drill ? "drill" : "kifu";
       uiLock -= 1;
       syncAiOptionVisibility();
       return;
     }
     drillToken += 1;
+    kifuToken += 1;
     drill = null;
-    newGame();
-    return;
+    kifu = null;
+    if (!drillSelected() && !kifuSelected()) {
+      newGame();
+      return;
+    }
   }
   syncAiOptionVisibility();
-  if (drillSelected()) {
-    if (engine.moveHistory.length && !confirm("进入练习会清空当前对局，确定吗？")) {
+  if (drillSelected() || kifuSelected()) {
+    if (!drill && !kifu && engine.moveHistory.length && !confirm("进入练习或棋谱会清空当前对局，确定吗？")) {
       uiLock += 1;
       els.modeSelect.value = "ai";
       uiLock -= 1;
@@ -971,6 +1351,13 @@ for (const el of [
   els.difficultySelect,
 ]) {
   el.addEventListener("change", () => {
+    if (isDrill() || isKifu()) {
+      if (el === els.difficultySelect) {
+        ai.setDifficulty(els.difficultySelect.value);
+        showMessage("AI 强度已记下。棋谱对练里，只有离开谱之后才会用到。", true);
+      }
+      return;
+    }
     if (engine.moveHistory.length || aiThinking) {
       showMessage("新设置将在下一局生效，请点击「开始新对局」", true);
       return;

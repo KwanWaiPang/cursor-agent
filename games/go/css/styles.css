@@ -258,7 +258,8 @@ button.danger {
   display: none !important;
 }
 
-#matchFields[hidden] {
+#matchFields[hidden],
+.field[hidden] {
   display: none !important;
 }
 
