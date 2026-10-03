@@ -28,7 +28,7 @@ async function testCapturePreference() {
     g.toPlay = BLACK;
     g.positionHistory = [g.serialize()];
 
-    for (const diff of ["medium", "hard", "expert"]) {
+    for (const diff of ["medium", "hard", "expert", "master", "dan"]) {
       const ai = new GoAI(diff);
       ai.cfg.thinkMs = 0;
       ai.cfg.timeMs = { 9: 50, 13: 50, 19: 50 };
@@ -70,14 +70,48 @@ async function testReplyAfterHuman() {
 }
 
 async function testDifficultiesExist() {
-  assert(AI_DIFFICULTIES.includes("easy"), "easy");
-  assert(AI_DIFFICULTIES.includes("medium"), "medium");
-  assert(AI_DIFFICULTIES.includes("hard"), "hard");
-  assert(AI_DIFFICULTIES.includes("expert"), "expert");
-  const easy = new GoAI("easy");
-  const expert = new GoAI("expert");
-  assert(expert.cfg.sims > easy.cfg.sims, "expert has more sims");
-  assert(expert.scaledSims(19) > new GoAI("hard").scaledSims(19), "expert>hard on 19");
+  for (const id of ["novice", "easy", "medium", "hard", "expert", "master", "dan"]) {
+    assert(AI_DIFFICULTIES.includes(id), id);
+  }
+  const order = ["novice", "easy", "medium", "hard", "expert", "master", "dan"];
+  for (let i = 1; i < order.length; i += 1) {
+    const prev = new GoAI(order[i - 1]);
+    const cur = new GoAI(order[i]);
+    assert(cur.cfg.sims >= prev.cfg.sims, `${order[i]} sims >= ${order[i - 1]}`);
+    assert(
+      cur.searchPlan(19).timeMs >= prev.searchPlan(19).timeMs,
+      `${order[i]} thinks at least as long on 19`
+    );
+  }
+  assert(new GoAI("dan").cfg.ladder, "dan reads ladders");
+  assert(new GoAI("hard").cfg.readDepth >= 3, "hard reads captures");
+  assert(!new GoAI("easy").cfg.readDepth, "easy does not deep-read");
+}
+
+async function testLadderAndTactics() {
+  const g = new GoEngine(9, 0);
+  g.board[1][3] = WHITE;
+  g.board[1][2] = BLACK;
+  g.board[2][3] = BLACK;
+  g.toPlay = BLACK;
+  g.positionHistory = [g.serialize()];
+  const ai = new GoAI("dan");
+  assert(ai.ladderCaptures(g, 4, 1, BLACK, 3, 1), "working ladder");
+  assert(!ai.ladderCaptures(g, 3, 0, BLACK, 3, 1), "the other side is not a ladder");
+
+  const chase = new GoEngine(9, 0);
+  chase.board[4][4] = WHITE;
+  chase.board[4][3] = BLACK;
+  chase.board[3][4] = BLACK;
+  chase.board[5][3] = BLACK;
+  chase.board[5][5] = BLACK;
+  chase.toPlay = BLACK;
+  chase.positionHistory = [chase.serialize()];
+  const reader = new GoAI("hard");
+  reader.cfg.timeMs = { 9: 30, 13: 30, 19: 30 };
+  reader.cfg.sims = 0;
+  const move = await reader.chooseMove(chase);
+  assert(move.type === "play" && move.x === 5 && move.y === 4, `atari first, got ${move.x},${move.y}`);
 }
 
 await testDifficultiesExist();
@@ -85,4 +119,5 @@ await testFusekiSupportsLargeBoards();
 await testOpeningMove();
 await testCapturePreference();
 await testReplyAfterHuman();
+await testLadderAndTactics();
 console.log("All AI tests passed.");

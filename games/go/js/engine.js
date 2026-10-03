@@ -632,7 +632,7 @@ export class GoEngine {
         [9, 9],
       ];
     }
-    // 19
+    if (s !== 19) return [];
     const pts = [3, 9, 15];
     const out = [];
     for (const y of pts) for (const x of pts) out.push([x, y]);

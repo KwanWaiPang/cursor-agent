@@ -258,6 +258,29 @@ button.danger {
   display: none !important;
 }
 
+#matchFields[hidden] {
+  display: none !important;
+}
+
+.drill-note,
+.drill-progress,
+.drill-source {
+  margin: 0 0 0.65rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.drill-progress {
+  color: var(--ink);
+}
+
+.drill-source {
+  margin: 0.65rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .help {
   margin: 0;
   font-size: 0.88rem;

@@ -1,5 +1,15 @@
 import { BLACK, WHITE, GoEngine, colorName, opponent } from "./engine.js";
 import { GoAI } from "./ai.js";
+import {
+  DrillSession,
+  isLevelUnlocked,
+  levelCleared,
+  loadPosition,
+  loadProgress,
+  problemsOf,
+  saveProgress,
+  trackById,
+} from "./drill.js";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
@@ -18,6 +28,17 @@ const els = {
   humanColorSelect: document.getElementById("humanColorSelect"),
   difficultySelect: document.getElementById("difficultySelect"),
   aiOptions: document.getElementById("aiOptions"),
+  drillOptions: document.getElementById("drillOptions"),
+  matchFields: document.getElementById("matchFields"),
+  trackSelect: document.getElementById("trackSelect"),
+  levelSelect: document.getElementById("levelSelect"),
+  drillIntro: document.getElementById("drillIntro"),
+  drillProgress: document.getElementById("drillProgress"),
+  drillSource: document.getElementById("drillSource"),
+  btnDrillPrev: document.getElementById("btnDrillPrev"),
+  btnDrillNext: document.getElementById("btnDrillNext"),
+  btnDrillRetry: document.getElementById("btnDrillRetry"),
+  btnDrillSolve: document.getElementById("btnDrillSolve"),
   btnPass: document.getElementById("btnPass"),
   btnResign: document.getElementById("btnResign"),
   btnUndo: document.getElementById("btnUndo"),
@@ -36,6 +57,24 @@ let dpr = Math.max(1, window.devicePixelRatio || 1);
 let aiThinking = false;
 let aiToken = 0;
 let lastTouchAt = 0;
+let drill = null;
+let drillToken = 0;
+let drillHint = null;
+let drillFlash = null;
+let flashToken = 0;
+let uiLock = 0;
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function drillSelected() {
+  return els.modeSelect.value === "drill";
+}
+
+function isDrill() {
+  return drillSelected() && !!drill;
+}
 
 function playSound(id) {
   const el = document.getElementById(id);
@@ -62,6 +101,7 @@ function aiColor() {
 }
 
 function isHumanTurn() {
+  if (isDrill()) return !drill.busy && !drill.solvedFlag && engine.phase === "playing";
   if (!isAiMode()) return true;
   return engine.phase === "playing" && engine.toPlay === humanColor();
 }
@@ -72,6 +112,11 @@ function showMessage(text, info = false) {
 }
 
 function phaseText() {
+  if (isDrill()) {
+    if (drill.busy) return "看答案";
+    if (drill.solvedFlag) return "过关";
+    return "练习中";
+  }
   if (aiThinking) return "AI思考中";
   if (engine.phase === "playing") return "对局中";
   if (engine.phase === "scoring") return "点目中";
@@ -80,14 +125,24 @@ function phaseText() {
 
 function syncAiOptionVisibility() {
   const aiOn = isAiMode();
+  const drillOn = drillSelected();
   els.aiOptions.hidden = !aiOn;
   els.aiOptions.setAttribute("aria-hidden", aiOn ? "false" : "true");
+  els.drillOptions.hidden = !drillOn;
+  els.drillOptions.setAttribute("aria-hidden", drillOn ? "false" : "true");
+  els.matchFields.hidden = drillOn;
+  els.btnNew.textContent = drillOn ? "进入本题" : "开始新对局";
+  if (drillOn) fillLevelSelect();
 }
 
 function updatePanel() {
   const turn = engine.toPlay;
   els.turnDot.className = `stone-dot ${turn === BLACK ? "black" : "white"}`;
-  if (aiThinking) {
+  if (isDrill()) {
+    if (drill.solvedFlag) els.turnLabel.textContent = "本题已过关";
+    else if (drill.busy) els.turnLabel.textContent = "正在演示答案…";
+    else els.turnLabel.textContent = `${colorName(engine.toPlay)}方行棋 · 你`;
+  } else if (aiThinking) {
     els.turnLabel.textContent = `AI（${colorName(aiColor())}）思考中…`;
   } else if (engine.phase === "playing") {
     if (isAiMode()) {
@@ -107,18 +162,37 @@ function updatePanel() {
   const passes = engine.moveHistory.filter((m) => m.type === "pass").length;
   els.moveCount.textContent = `手数 ${plays} · 停着 ${passes}`;
 
-  const humanCanAct = engine.phase === "playing" && isHumanTurn() && !aiThinking;
+  const humanCanAct =
+    engine.phase === "playing" && isHumanTurn() && !aiThinking && !isDrill();
   els.btnPass.disabled = !humanCanAct;
-  els.btnResign.disabled = engine.phase !== "playing" || aiThinking;
+  els.btnResign.disabled = engine.phase !== "playing" || aiThinking || isDrill();
   els.btnAutoDead.disabled = engine.phase !== "scoring" || aiThinking;
   els.btnScore.disabled = engine.phase !== "scoring" || aiThinking;
-  els.btnUndo.disabled =
-    aiThinking ||
-    (engine.moveHistory.length === 0 &&
-      !(engine.phase === "finished" && engine.result?.type === "resign"));
+  els.btnUndo.disabled = isDrill()
+    ? !drill || drill.busy || drill.log.length === 0
+    : aiThinking ||
+      (engine.moveHistory.length === 0 &&
+        !(engine.phase === "finished" && engine.result?.type === "resign"));
+  if (isDrill()) {
+    const total = problemsOf(drill.problem.track, drill.problem.level).length;
+    els.btnDrillPrev.disabled = drill.busy || drill.index <= 0;
+    els.btnDrillNext.disabled = drill.busy || drill.index >= total - 1;
+    els.btnDrillRetry.disabled = drill.busy;
+    els.btnDrillSolve.disabled = drill.busy;
+  }
   canvas.style.cursor = aiThinking ? "wait" : "crosshair";
 
-  if (engine.result) {
+  if (isDrill() && drill.solvedFlag) {
+    const p = drill.problem;
+    const cleared = levelCleared(p.track, p.level, drill.progress);
+    const next = trackById(p.track).levels.find((l) => l.level === p.level + 1);
+    els.result.textContent = cleared
+      ? next
+        ? `过关。本级完成，下一级已解锁。`
+        : `过关。这一科的六级都练过了。`
+      : `过关：${p.title}`;
+    els.result.classList.add("show");
+  } else if (engine.result) {
     els.result.textContent = engine.result.text;
     if (engine.result.type === "score") {
       els.result.textContent += `（黑 ${engine.result.blackScore.toFixed(1)} · 白 ${engine.result.whiteScore.toFixed(1)}，含贴目 ${engine.komi}）`;
@@ -132,9 +206,35 @@ function updatePanel() {
 
 function boardMetrics() {
   const cssSize = canvas.clientWidth;
-  const pad = cssSize * 0.078;
-  const grid = (cssSize - pad * 2) / (engine.size - 1);
-  return { cssSize, pad, grid };
+  const view = isDrill() ? drill.view : null;
+  const x0 = view ? view.x0 : 0;
+  const y0 = view ? view.y0 : 0;
+  const x1 = view ? view.x1 : engine.size - 1;
+  const y1 = view ? view.y1 : engine.size - 1;
+  const span = Math.max(x1 - x0, y1 - y0, 1);
+  // 边上的棋子会盖住坐标。间距至少要容得下半颗棋和一行字。
+  const gutter = 0.98;
+  const pad = Math.max(cssSize * 0.078, (gutter * cssSize) / (span + 2 * gutter));
+  const grid = (cssSize - pad * 2) / span;
+  return {
+    cssSize,
+    pad,
+    grid,
+    view,
+    x0,
+    y0,
+    x1,
+    y1,
+    offX: (span - (x1 - x0)) / 2,
+    offY: (span - (y1 - y0)) / 2,
+  };
+}
+
+function pointToXY(x, y, m) {
+  return {
+    sx: m.pad + (x - m.x0 + m.offX) * m.grid,
+    sy: m.pad + (y - m.y0 + m.offY) * m.grid,
+  };
 }
 
 function resizeCanvas() {
@@ -170,26 +270,55 @@ function drawBoardWood(cssSize) {
 }
 
 function draw() {
-  const { cssSize, pad, grid } = boardMetrics();
+  const m = boardMetrics();
+  const { cssSize, grid, x0, y0, x1, y1 } = m;
   ctx.clearRect(0, 0, cssSize, cssSize);
   drawBoardWood(cssSize);
 
   ctx.strokeStyle = "rgba(40, 24, 12, 0.78)";
   ctx.lineWidth = Math.max(1, grid * 0.04);
   ctx.beginPath();
-  for (let i = 0; i < engine.size; i++) {
-    const p = pad + i * grid;
-    ctx.moveTo(pad, p);
-    ctx.lineTo(pad + (engine.size - 1) * grid, p);
-    ctx.moveTo(p, pad);
-    ctx.lineTo(p, pad + (engine.size - 1) * grid);
+  for (let i = x0; i <= x1; i += 1) {
+    const top = pointToXY(i, y0, m);
+    const bot = pointToXY(i, y1, m);
+    ctx.moveTo(top.sx, top.sy);
+    ctx.lineTo(bot.sx, bot.sy);
+  }
+  for (let j = y0; j <= y1; j += 1) {
+    const left = pointToXY(x0, j, m);
+    const right = pointToXY(x1, j, m);
+    ctx.moveTo(left.sx, left.sy);
+    ctx.lineTo(right.sx, right.sy);
   }
   ctx.stroke();
 
+  const tl = pointToXY(x0, y0, m);
+  const tr = pointToXY(x1, y0, m);
+  const bl = pointToXY(x0, y1, m);
+  const br = pointToXY(x1, y1, m);
+  const edge = (real, a, b) => {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(a.sx, a.sy);
+    ctx.lineTo(b.sx, b.sy);
+    ctx.strokeStyle = "rgba(40, 24, 12, 0.92)";
+    ctx.lineWidth = real ? Math.max(2.2, grid * 0.09) : Math.max(1, grid * 0.045);
+    if (!real) ctx.setLineDash([grid * 0.22, grid * 0.16]);
+    ctx.stroke();
+    ctx.restore();
+  };
+  const view = m.view;
+  edge(!view || view.edgeT, tl, tr);
+  edge(!view || view.edgeB, bl, br);
+  edge(!view || view.edgeL, tl, bl);
+  edge(!view || view.edgeR, tr, br);
+
   ctx.fillStyle = "rgba(40, 24, 12, 0.85)";
   for (const [x, y] of engine.starPoints()) {
+    if (x < x0 || x > x1 || y < y0 || y > y1) continue;
+    const p = pointToXY(x, y, m);
     ctx.beginPath();
-    ctx.arc(pad + x * grid, pad + y * grid, Math.max(2.2, grid * 0.1), 0, Math.PI * 2);
+    ctx.arc(p.sx, p.sy, Math.max(2.2, grid * 0.1), 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -199,45 +328,72 @@ function draw() {
   ctx.font = `600 ${Math.max(10, grid * 0.28)}px "Noto Serif SC", serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  for (let i = 0; i < engine.size; i++) {
-    const p = pad + i * grid;
+  const lift = Math.min(m.pad * 0.62, grid * 0.78);
+  for (let i = x0; i <= x1; i += 1) {
     const letter = GO_FILES[i] || String(i + 1);
-    const rank = String(engine.size - i);
-    ctx.fillText(letter, p, pad * 0.42);
-    ctx.fillText(letter, p, cssSize - pad * 0.42);
-    ctx.fillText(rank, pad * 0.4, p);
-    ctx.fillText(rank, cssSize - pad * 0.4, p);
+    const top = pointToXY(i, y0, m);
+    const bot = pointToXY(i, y1, m);
+    ctx.fillText(letter, top.sx, top.sy - lift);
+    ctx.fillText(letter, bot.sx, bot.sy + lift);
+  }
+  for (let j = y0; j <= y1; j += 1) {
+    const rank = String(engine.size - j);
+    const left = pointToXY(x0, j, m);
+    const right = pointToXY(x1, j, m);
+    ctx.fillText(rank, left.sx - lift, left.sy);
+    ctx.fillText(rank, right.sx + lift, right.sy);
   }
   ctx.restore();
 
   const r = stoneRadius(grid);
-  for (let y = 0; y < engine.size; y++) {
-    for (let x = 0; x < engine.size; x++) {
+  for (let y = y0; y <= y1; y += 1) {
+    for (let x = x0; x <= x1; x += 1) {
       const c = engine.board[y][x];
       if (!c) continue;
       const dead = engine.deadMarks.has(`${x},${y}`);
-      drawStone(pad + x * grid, pad + y * grid, r, c, dead);
+      const p = pointToXY(x, y, m);
+      drawStone(p.sx, p.sy, r, c, dead);
     }
   }
 
   if (engine.lastMove && !engine.lastMove.pass && engine.phase !== "scoring") {
     const { x, y } = engine.lastMove;
-    ctx.beginPath();
-    ctx.fillStyle = engine.board[y][x] === BLACK ? "#f2d38a" : "#2a6d5c";
-    ctx.arc(pad + x * grid, pad + y * grid, r * 0.22, 0, Math.PI * 2);
-    ctx.fill();
+    if (x >= x0 && x <= x1 && y >= y0 && y <= y1 && engine.board[y] && engine.board[y][x]) {
+      const p = pointToXY(x, y, m);
+      ctx.beginPath();
+      ctx.fillStyle = engine.board[y][x] === BLACK ? "#f2d38a" : "#2a6d5c";
+      ctx.arc(p.sx, p.sy, r * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
+
+  const ring = (pt, color) => {
+    if (!pt || pt.x < x0 || pt.x > x1 || pt.y < y0 || pt.y > y1) return;
+    const p = pointToXY(pt.x, pt.y, m);
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(2, r * 0.12);
+    ctx.arc(p.sx, p.sy, r * 0.78, 0, Math.PI * 2);
+    ctx.stroke();
+  };
+  ring(drillHint, "#0f5c4c");
+  ring(drillFlash, "#8b2e2e");
 
   if (
     hover &&
     !aiThinking &&
     isHumanTurn() &&
     engine.phase === "playing" &&
+    hover.x >= x0 &&
+    hover.x <= x1 &&
+    hover.y >= y0 &&
+    hover.y <= y1 &&
     engine.board[hover.y][hover.x] === 0 &&
     engine.isLegal(hover.x, hover.y)
   ) {
+    const p = pointToXY(hover.x, hover.y, m);
     ctx.globalAlpha = 0.38;
-    drawStone(pad + hover.x * grid, pad + hover.y * grid, r, engine.toPlay, false);
+    drawStone(p.sx, p.sy, r, engine.toPlay, false);
     ctx.globalAlpha = 1;
   }
 }
@@ -296,14 +452,14 @@ function eventToCoord(evt) {
   const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
   const xPos = clientX - rect.left;
   const yPos = clientY - rect.top;
-  const { pad, grid } = boardMetrics();
-  const x = Math.round((xPos - pad) / grid);
-  const y = Math.round((yPos - pad) / grid);
+  const m = boardMetrics();
+  const x = Math.round((xPos - m.pad) / m.grid - m.offX + m.x0);
+  const y = Math.round((yPos - m.pad) / m.grid - m.offY + m.y0);
+  if (x < m.x0 || x > m.x1 || y < m.y0 || y > m.y1) return null;
   if (!engine.inBounds(x, y)) return null;
-  const sx = pad + x * grid;
-  const sy = pad + y * grid;
+  const { sx, sy } = pointToXY(x, y, m);
   const dist = Math.hypot(xPos - sx, yPos - sy);
-  if (dist > grid * 0.45) return null;
+  if (dist > m.grid * 0.45) return null;
   return { x, y };
 }
 
@@ -314,7 +470,7 @@ function refresh(msg, info = false) {
 }
 
 async function maybeAiMove() {
-  if (!isAiMode() || engine.phase !== "playing") return;
+  if (isDrill() || !isAiMode() || engine.phase !== "playing") return;
   if (engine.toPlay !== aiColor()) return;
   if (aiThinking) return;
 
@@ -373,6 +529,11 @@ function onBoardClick(evt) {
   const coord = eventToCoord(evt);
   if (!coord) return;
 
+  if (isDrill()) {
+    onDrillMove(coord);
+    return;
+  }
+
   if (engine.phase === "scoring") {
     const res = engine.toggleDead(coord.x, coord.y);
     if (!res.ok) showMessage(res.reason || "");
@@ -409,7 +570,197 @@ function onMove(evt) {
   }
 }
 
+function cropNote() {
+  const view = drill?.view;
+  if (!view) return "";
+  if (view.edgeL && view.edgeR && view.edgeT && view.edgeB) return "";
+  return " 虚线那边棋盘还在延续，不是边线。";
+}
+
+function updateDrillMeta() {
+  if (!drill) return;
+  const p = drill.problem;
+  const total = problemsOf(p.track, p.level).length;
+  const done = drill.solvedCount();
+  els.drillIntro.textContent = trackById(p.track).intro;
+  let text = `${p.title} · 第 ${drill.index + 1}/${total} 题 · 本级已过 ${done}/${total}`;
+  if (levelCleared(p.track, p.level, drill.progress)) text += " · 下一级已解锁";
+  els.drillProgress.textContent = text;
+  els.drillSource.textContent = p.source || "";
+}
+
+function fillLevelSelect() {
+  uiLock += 1;
+  const trackId = els.trackSelect.value || "tactic";
+  const track = trackById(trackId);
+  const progress = drill?.progress || loadProgress();
+  const wanted = drill && drill.track === trackId ? drill.level : Number(els.levelSelect.value) || 1;
+  const previous = els.levelSelect.value;
+  els.levelSelect.innerHTML = "";
+  for (const lv of track.levels) {
+    const opt = document.createElement("option");
+    opt.value = String(lv.level);
+    const open = isLevelUnlocked(trackId, lv.level, progress);
+    opt.textContent = open ? lv.name : `${lv.name}（未解锁）`;
+    opt.disabled = !open;
+    els.levelSelect.appendChild(opt);
+  }
+  const choice = isLevelUnlocked(trackId, wanted, progress) ? wanted : 1;
+  els.levelSelect.value = String(choice);
+  if (!els.levelSelect.value) els.levelSelect.value = previous || "1";
+  if (!drill) {
+    els.drillIntro.textContent = track.intro;
+  }
+  uiLock -= 1;
+}
+
+function startDrill() {
+  if (!drill) drill = new DrillSession(loadProgress());
+  drill.resetAttempt();
+  engine = loadPosition(drill.problem);
+  aiToken += 1;
+  aiThinking = false;
+  hover = null;
+  drillHint = null;
+  drillFlash = null;
+  uiLock += 1;
+  els.trackSelect.value = drill.track;
+  fillLevelSelect();
+  els.levelSelect.value = String(drill.level);
+  uiLock -= 1;
+  updateDrillMeta();
+  const p = drill.problem;
+  const total = problemsOf(p.track, p.level).length;
+  refresh(`${p.title}（${drill.index + 1}/${total}）。${p.prompt}${cropNote()}`, true);
+}
+
+function replayDrillLog() {
+  engine = loadPosition(drill.problem);
+  for (const m of drill.log) {
+    const res = engine.play(m.x, m.y);
+    if (!res.ok) break;
+  }
+}
+
+function onDrillMove(coord) {
+  if (!drill || drill.busy || drill.solvedFlag) return;
+  if (engine.board[coord.y][coord.x]) {
+    showMessage("此处已有棋子");
+    return;
+  }
+  const hit = drill.classify(coord.x, coord.y);
+  if (!hit.ok) {
+    drill.misses += 1;
+    flashWrong(coord);
+    showMessage(
+      drill.misses >= 2
+        ? "还不对。可以看答案，看完再重试，自己走通才算过关。"
+        : "不是正解，再想想。"
+    );
+    return;
+  }
+  const res = engine.play(coord.x, coord.y);
+  if (!res.ok) {
+    showMessage(res.reason || "这里不能下");
+    return;
+  }
+  playSound("clickAudio");
+  const step = drill.commitUser(hit.node);
+  if (step.defense) {
+    const d = engine.play(step.defense.x, step.defense.y);
+    if (!d.ok) {
+      showMessage("这步变化走不下去，请重试本题");
+      return;
+    }
+    const after = drill.commitDefense(step.defense);
+    if (after.solved) finishDrillSolve();
+    else refresh(d.captured?.length ? "对方应了一手，轮到你。" : "对方应了一手。", true);
+    return;
+  }
+  if (step.solved) finishDrillSolve();
+  else refresh("继续。", true);
+}
+
+function finishDrillSolve() {
+  drill.markSolved();
+  saveProgress(drill.progress);
+  updateDrillMeta();
+  fillLevelSelect();
+  els.levelSelect.value = String(drill.level);
+  refresh("走通了。", true);
+}
+
+function flashWrong(coord) {
+  drillFlash = coord;
+  draw();
+  const token = ++flashToken;
+  setTimeout(() => {
+    if (token !== flashToken) return;
+    drillFlash = null;
+    draw();
+  }, 700);
+}
+
+async function showDrillSolution() {
+  if (!drill || drill.busy) return;
+  const token = ++drillToken;
+  drill.busy = true;
+  drill.resetAttempt();
+  drill.busy = true;
+  engine = loadPosition(drill.problem);
+  hover = null;
+  refresh("看答案：下面是谱上的主变化。看完请重试，自己走通才算过关。", true);
+  for (const m of drill.mainLine()) {
+    if (token !== drillToken) return;
+    drillHint = { x: m.x, y: m.y };
+    draw();
+    await sleep(420);
+    if (token !== drillToken) return;
+    const res = engine.play(m.x, m.y);
+    drillHint = null;
+    if (!res.ok) break;
+    playSound("clickAudio");
+    draw();
+    await sleep(260);
+  }
+  if (token !== drillToken) return;
+  await sleep(500);
+  if (token !== drillToken) return;
+  drill.busy = false;
+  drill.resetAttempt();
+  engine = loadPosition(drill.problem);
+  refresh("演示结束。请自己再走一遍。", true);
+}
+
+function shiftDrill(delta) {
+  if (!drill || drill.busy) return;
+  drillToken += 1;
+  if (!drill.step(delta)) {
+    showMessage(delta > 0 ? "已经是本级最后一题" : "已经是本级第一题");
+    return;
+  }
+  saveProgress(drill.progress);
+  startDrill();
+}
+
 function newGame() {
+  if (drillSelected()) {
+    if (!drill) drill = new DrillSession(loadProgress());
+    const track = els.trackSelect.value || "tactic";
+    const level = Number(els.levelSelect.value) || 1;
+    const keepIndex = drill.track === track && drill.level === level;
+    if (!drill.setPlace(track, level, keepIndex ? drill.index : 0)) {
+      showMessage("这一级还没解锁。先把上一级全部走通。");
+      fillLevelSelect();
+      return;
+    }
+    drillToken += 1;
+    saveProgress(drill.progress);
+    startDrill();
+    return;
+  }
+  drill = null;
+  drillToken += 1;
   aiToken += 1;
   aiThinking = false;
   const size = Number(els.sizeSelect.value);
@@ -466,6 +817,16 @@ els.btnResign.addEventListener("click", () => {
 });
 
 els.btnUndo.addEventListener("click", () => {
+  if (isDrill()) {
+    if (drill.busy) return;
+    if (!drill.undo()) {
+      showMessage("没有可悔的棋");
+      return;
+    }
+    replayDrillLog();
+    refresh("已悔棋", true);
+    return;
+  }
   if (aiThinking) return;
   if (isAiMode()) {
     // 回到轮到你下棋的状态：通常撤销 AI 一手 + 你一手
@@ -520,17 +881,87 @@ els.btnScore.addEventListener("click", () => {
 });
 
 els.btnNew.addEventListener("click", () => {
-  if (engine.moveHistory.length && !confirm("开始新对局？当前棋谱将清空。")) {
+  const dirty = isDrill() ? drill && drill.log.length > 0 : engine.moveHistory.length > 0;
+  const ask = isDrill() ? "重开本题？当前尝试会清空。" : "开始新对局？当前棋谱将清空。";
+  if (dirty && !confirm(ask)) return;
+  newGame();
+});
+
+els.btnDrillPrev?.addEventListener("click", () => shiftDrill(-1));
+els.btnDrillNext?.addEventListener("click", () => shiftDrill(1));
+els.btnDrillRetry?.addEventListener("click", () => {
+  if (!drill) return;
+  drillToken += 1;
+  startDrill();
+});
+els.btnDrillSolve?.addEventListener("click", () => {
+  showDrillSolution();
+});
+
+els.trackSelect?.addEventListener("change", () => {
+  if (uiLock) return;
+  fillLevelSelect();
+  if (!drill || !drillSelected()) {
+    showMessage("科目已选好，点击「进入本题」开始。", true);
+    return;
+  }
+  if (drill.log.length && !confirm("换科目会离开当前题，确定吗？")) {
+    els.trackSelect.value = drill.track;
+    fillLevelSelect();
+    els.levelSelect.value = String(drill.level);
+    return;
+  }
+  newGame();
+});
+
+els.levelSelect?.addEventListener("change", () => {
+  if (uiLock) return;
+  if (!drill || !drillSelected()) return;
+  const level = Number(els.levelSelect.value) || 1;
+  if (level === drill.level && els.trackSelect.value === drill.track) return;
+  if (drill.log.length && !confirm("换等级会离开当前题，确定吗？")) {
+    els.levelSelect.value = String(drill.level);
     return;
   }
   newGame();
 });
 
 els.modeSelect.addEventListener("change", () => {
-  syncAiOptionVisibility();
-  if (!engine.moveHistory.length) {
-    showMessage("设置已更新，点击「开始新对局」生效", true);
+  if (uiLock) return;
+  if (aiThinking) {
+    uiLock += 1;
+    els.modeSelect.value = "ai";
+    uiLock -= 1;
+    showMessage("请等这一手走完再换模式。", true);
+    return;
   }
+  if (!drillSelected() && drill) {
+    if (drill.log.length && !confirm("离开练习？这一题的尝试会丢掉。")) {
+      uiLock += 1;
+      els.modeSelect.value = "drill";
+      uiLock -= 1;
+      syncAiOptionVisibility();
+      return;
+    }
+    drillToken += 1;
+    drill = null;
+    newGame();
+    return;
+  }
+  syncAiOptionVisibility();
+  if (drillSelected()) {
+    if (engine.moveHistory.length && !confirm("进入练习会清空当前对局，确定吗？")) {
+      uiLock += 1;
+      els.modeSelect.value = "ai";
+      uiLock -= 1;
+      syncAiOptionVisibility();
+      return;
+    }
+    newGame();
+    return;
+  }
+  showMessage("设置已更新，点击「开始新对局」生效。", true);
+  updatePanel();
 });
 
 for (const el of [

@@ -78,6 +78,7 @@
               <select id="modeSelect">
                 <option value="human">人人对战</option>
                 <option value="ai" selected>人机对战（AI）</option>
+                <option value="drill">分级练习（死活 / 官子）</option>
               </select>
             </div>
             <div id="aiOptions" class="ai-options">
@@ -89,15 +90,41 @@
                 </select>
               </div>
               <div class="field">
-                <label for="difficultySelect">AI 难度（可选）</label>
+                <label for="difficultySelect">AI 强度</label>
                 <select id="difficultySelect">
-                  <option value="easy">入门 · 轻松</option>
-                  <option value="medium" selected>普通 · 快速 MCTS</option>
-                  <option value="hard">进阶 · 更深搜索</option>
-                  <option value="expert">专家 · 最强（思考更久）</option>
+                  <option value="novice">初学 · 随便应</option>
+                  <option value="easy">入门 · 会提子</option>
+                  <option value="medium" selected>初级 · 浅搜索</option>
+                  <option value="hard">中级 · 吃子阅读</option>
+                  <option value="expert">高级 · 深搜索</option>
+                  <option value="master">大师 · 征子与战术</option>
+                  <option value="dan">高段 · 最强（思考更久）</option>
                 </select>
               </div>
             </div>
+            <div id="drillOptions" class="ai-options" hidden>
+              <div class="field">
+                <label for="trackSelect">练习科目</label>
+                <select id="trackSelect">
+                  <option value="tactic">死活战术</option>
+                  <option value="yose">官子残局</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="levelSelect">等级（做完本级才解锁下一级）</label>
+                <select id="levelSelect"></select>
+              </div>
+              <p id="drillIntro" class="drill-note"></p>
+              <p id="drillProgress" class="drill-progress"></p>
+              <div class="controls">
+                <button id="btnDrillPrev" class="secondary" type="button">上一题</button>
+                <button id="btnDrillNext" class="secondary" type="button">下一题</button>
+                <button id="btnDrillRetry" class="secondary" type="button">重试</button>
+                <button id="btnDrillSolve" class="secondary" type="button">看答案</button>
+              </div>
+              <p id="drillSource" class="drill-source"></p>
+            </div>
+            <div id="matchFields">
             <div class="field">
               <label for="sizeSelect">棋盘规格</label>
               <select id="sizeSelect">
@@ -114,6 +141,7 @@
                 <option value="0">0（让子练习）</option>
               </select>
             </div>
+            </div>
             <div class="controls" style="grid-template-columns: 1fr">
               <button id="btnNew" type="button">开始新对局</button>
             </div>
@@ -128,7 +156,9 @@
                 <li>禁止同形再现（含劫争）。</li>
                 <li>双方连续停着后进入点目，自动标记死子；也可点击棋子手动改。</li>
                 <li>计分采用中国规则：子空皆地，白贴目。</li>
-                <li>AI 支持 9 / 13 / 19 路；普通及以上用限时 MCTS，专家默认开启、思考更久。</li>
+                <li>AI 共七档。初学、入门偏随手；初级起搜索；中级会读吃子；大师和高段还会看征子，思考更久。</li>
+                <li>分级练习：死活战术与官子残局各六级，每级 6 题。做完本级才解锁下一级，进度记在本机。</li>
+                <li>入门三级是馆内原创。后面用公有领域的《碁经众妙》《玄玄棋经》和《官子谱》，按谱上的主变化核对。</li>
               </ul>
             </details>
           </section>

@@ -1,7 +1,9 @@
 /**
  * 浏览器端围棋 AI（支持 9 / 13 / 19 路）
- * - 入门：启发式（偏随机）
- * - 普通及以上：启发式先验 + 限时 MCTS（越高等级搜索越深）
+ * - 初学 / 入门：启发式，故意留有漏洞
+ * - 初级及以上：先验 + 限时 MCTS
+ * - 中级及以上：吃子阅读（倒扑、叫吃）
+ * - 大师 / 高段：再加征子判定与 RAVE
  */
 
 import { BLACK, WHITE, opponent, GoEngine } from "./engine.js";
@@ -10,47 +12,112 @@ import { BLACK, WHITE, opponent, GoEngine } from "./engine.js";
  * 难度配置
  * sims: MCTS 基准模拟次数（大棋盘会提高，并由 timeMs 封顶）
  * timeMs: 思考时间预算（毫秒）
+ * readDepth: 吃子阅读深度；ladder: 是否判断征子
  */
 const DIFFICULTY = {
-  easy: {
-    label: "入门",
-    noise: 0.55,
-    topN: 8,
+  novice: {
+    label: "初学",
+    noise: 0.82,
+    topN: 10,
     depth: 0,
     sims: 0,
-    priorTop: 28,
-    thinkMs: 120,
-    timeMs: { 9: 180, 13: 220, 19: 280 },
+    priorTop: 16,
+    thinkMs: 60,
+    timeMs: { 9: 80, 13: 100, 19: 120 },
+    readDepth: 0,
+    explore: 1.7,
+    policyDecay: 0.7,
+  },
+  easy: {
+    label: "入门",
+    noise: 0.42,
+    topN: 6,
+    depth: 0,
+    sims: 0,
+    priorTop: 24,
+    thinkMs: 100,
+    timeMs: { 9: 140, 13: 180, 19: 220 },
+    readDepth: 0,
+    explore: 1.6,
+    policyDecay: 0.62,
   },
   medium: {
-    label: "普通",
-    noise: 0.1,
+    label: "初级",
+    noise: 0.08,
     topN: 2,
     depth: 1,
-    sims: 600,
-    priorTop: 32,
-    thinkMs: 80,
-    timeMs: { 9: 900, 13: 1400, 19: 2000 },
+    sims: 700,
+    priorTop: 28,
+    thinkMs: 40,
+    timeMs: { 9: 800, 13: 1300, 19: 1800 },
+    readDepth: 0,
+    explore: 1.5,
+    raveK: 250,
+    policyDecay: 0.5,
   },
   hard: {
-    label: "进阶",
+    label: "中级",
     noise: 0.02,
     topN: 1,
     depth: 1,
-    sims: 2200,
-    priorTop: 40,
-    thinkMs: 60,
-    timeMs: { 9: 2200, 13: 3500, 19: 5000 },
+    sims: 1800,
+    priorTop: 36,
+    thinkMs: 30,
+    timeMs: { 9: 1600, 13: 2600, 19: 3800 },
+    readDepth: 3,
+    readNodes: 700,
+    explore: 1.35,
+    raveK: 450,
+    policyDecay: 0.42,
   },
   expert: {
-    label: "专家",
+    label: "高级",
     noise: 0,
     topN: 1,
     depth: 2,
-    sims: 4500,
-    priorTop: 48,
-    thinkMs: 40,
-    timeMs: { 9: 4000, 13: 6500, 19: 9000 },
+    sims: 3600,
+    priorTop: 44,
+    thinkMs: 20,
+    timeMs: { 9: 2800, 13: 4500, 19: 6500 },
+    readDepth: 4,
+    readNodes: 1100,
+    explore: 1.2,
+    raveK: 700,
+    policyDecay: 0.36,
+  },
+  master: {
+    label: "大师",
+    noise: 0,
+    topN: 1,
+    depth: 2,
+    sims: 5200,
+    priorTop: 52,
+    thinkMs: 20,
+    timeMs: { 9: 3800, 13: 5800, 19: 8000 },
+    readDepth: 5,
+    readNodes: 1600,
+    ladder: true,
+    explore: 1.08,
+    raveK: 950,
+    policyDecay: 0.3,
+    visitRatio: 0.82,
+  },
+  dan: {
+    label: "高段",
+    noise: 0,
+    topN: 1,
+    depth: 2,
+    sims: 7000,
+    priorTop: 60,
+    thinkMs: 20,
+    timeMs: { 9: 4800, 13: 7200, 19: 9800 },
+    readDepth: 6,
+    readNodes: 2400,
+    ladder: true,
+    explore: 0.95,
+    raveK: 1300,
+    policyDecay: 0.24,
+    visitRatio: 0.75,
   },
 };
 
@@ -118,7 +185,8 @@ export class GoAI {
 
   setDifficulty(difficulty) {
     this.difficulty = DIFFICULTY[difficulty] ? difficulty : "medium";
-    this.cfg = DIFFICULTY[this.difficulty];
+    const base = DIFFICULTY[this.difficulty];
+    this.cfg = { ...base, timeMs: { ...base.timeMs } };
   }
 
   sizeKey(size) {
@@ -163,6 +231,23 @@ export class GoAI {
     const started = performance.now();
     const color = engine.toPlay;
     const plan = this.searchPlan(engine.size);
+    await sleep(0);
+
+    if (this.cfg.readDepth) {
+      const forced = this.tacticalPick(engine, color);
+      if (forced) {
+        await this.ensureThinkTime(started, Math.min(280, plan.timeMs));
+        return forced;
+      }
+    }
+    if (this.cfg.ladder) {
+      const lad = this.ladderPick(engine, color);
+      if (lad) {
+        await this.ensureThinkTime(started, Math.min(280, plan.timeMs));
+        return lad;
+      }
+    }
+
     const urgents = this.findUrgentMoves(engine, color);
     const captures = urgents.filter((u) => u.urgent >= 40);
 
@@ -812,6 +897,135 @@ export class GoAI {
     return best;
   }
 
+  /** 只在叫吃、提子、逃气里做短阅读，用来发现倒扑和净吃。 */
+  tacticalMoves(engine, color) {
+    const out = [];
+    const seen = new Set();
+    for (const u of this.findUrgentMoves(engine, color)) {
+      if ((u.urgent || 0) < 18) continue;
+      const k = keyOf(u.x, u.y);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(u);
+    }
+    out.sort((a, b) => b.urgent - a.urgent);
+    return out.slice(0, 6);
+  }
+
+  tacticalPick(engine, color) {
+    const moves = this.tacticalMoves(engine, color);
+    if (!moves.length) return null;
+    const budget = { n: 0, max: this.cfg.readNodes || 700 };
+    let best = null;
+    let bestVal = 0;
+    for (const m of moves) {
+      const trial = engine.tryPlay(m.x, m.y, color);
+      if (!trial.ok) continue;
+      const child = applyTrial(engine, trial, color, m.x, m.y);
+      const reply = this.readTactics(
+        child,
+        opponent(color),
+        this.cfg.readDepth - 1,
+        budget
+      );
+      const val = trial.captured.length * 10 - reply;
+      if (val > bestVal) {
+        bestVal = val;
+        best = { type: "play", x: m.x, y: m.y, score: 40 + val };
+      }
+      if (budget.n > budget.max) break;
+    }
+    if (!best || bestVal < 10) return null;
+    return best;
+  }
+
+  readTactics(engine, color, depth, budget) {
+    if (budget.n > budget.max || depth <= 0 || engine.phase !== "playing") return 0;
+    const moves = this.tacticalMoves(engine, color);
+    if (!moves.length) return 0;
+    let best = 0;
+    for (const m of moves) {
+      budget.n += 1;
+      if (budget.n > budget.max) break;
+      const trial = engine.tryPlay(m.x, m.y, color);
+      if (!trial.ok) continue;
+      const child = applyTrial(engine, trial, color, m.x, m.y);
+      const reply = this.readTactics(child, opponent(color), depth - 1, budget);
+      const val = trial.captured.length * 10 - reply;
+      if (val > best) best = val;
+    }
+    return best;
+  }
+
+  /**
+   * 征子：走吃之后对方只有一路可逃，且一路追下去能在边上提掉。
+   * 返回 true 表示从 (x,y) 开始可以把 (stoneX,stoneY) 所在的对方棋子征吃。
+   */
+  ladderCaptures(engine, x, y, color, stoneX, stoneY) {
+    const opp = opponent(color);
+    const trial = engine.tryPlay(x, y, color);
+    if (!trial.ok) return false;
+    if (trial.board[stoneY][stoneX] !== opp) return trial.captured.length > 0;
+    const state = applyTrial(engine, trial, color, x, y);
+    return this._ladderChase(state, stoneX, stoneY, color, opp, 0);
+  }
+
+  _ladderChase(state, stoneX, stoneY, color, opp, steps) {
+    if (steps > 22) return false;
+    if (state.board[stoneY][stoneX] !== opp) return true;
+    const group = state.getGroup(stoneX, stoneY);
+    if (state.toPlay === opp) {
+      if (group.liberties.size !== 1) return false;
+      const [lx, ly] = [...group.liberties][0].split(",").map(Number);
+      if (!state.play(lx, ly).ok) return true;
+      return this._ladderChase(state, stoneX, stoneY, color, opp, steps + 1);
+    }
+    if (group.liberties.size === 1) {
+      const [lx, ly] = [...group.liberties][0].split(",").map(Number);
+      if (!state.play(lx, ly).ok) return false;
+      return this._ladderChase(state, stoneX, stoneY, color, opp, steps + 1);
+    }
+    if (group.liberties.size > 4) return false;
+    for (const lib of group.liberties) {
+      const [hx, hy] = lib.split(",").map(Number);
+      const t = state.tryPlay(hx, hy, color);
+      if (!t.ok) continue;
+      const captured = t.board[stoneY][stoneX] !== opp;
+      if (!captured && state.getGroup(stoneX, stoneY, t.board).liberties.size !== 1) {
+        continue;
+      }
+      const copy = state.clone();
+      if (!copy.play(hx, hy).ok) continue;
+      if (this._ladderChase(copy, stoneX, stoneY, color, opp, steps + 1)) return true;
+    }
+    return false;
+  }
+
+  ladderPick(engine, color) {
+    const opp = opponent(color);
+    const seen = new Set();
+    let checked = 0;
+    for (let y = 0; y < engine.size; y += 1) {
+      for (let x = 0; x < engine.size; x += 1) {
+        if (engine.board[y][x] !== opp) continue;
+        const k0 = keyOf(x, y);
+        if (seen.has(k0)) continue;
+        const group = engine.getGroup(x, y);
+        for (const [sx, sy] of group.stones) seen.add(keyOf(sx, sy));
+        if (group.stones.length > 2 || group.liberties.size !== 2) continue;
+        checked += 1;
+        if (checked > 8) return null;
+        for (const lib of group.liberties) {
+          const [lx, ly] = lib.split(",").map(Number);
+          if (this.ladderCaptures(engine, lx, ly, color, x, y)) {
+            return { type: "play", x: lx, y: ly, score: 70 };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   async mctsSelect(engine, priorMoves, sims, timeMs) {
     const rootColor = engine.toPlay;
     const deadline = performance.now() + timeMs;
@@ -875,12 +1089,25 @@ export class GoAI {
         }
       }
 
-      const result = this.playout(state, rootColor, playoutLen);
+      const played = this.playout(state, rootColor, playoutLen);
+      const result = played.value;
       let cur = node;
       while (cur) {
         cur.visits += 1;
         cur.value += result;
         cur = cur.parent;
+      }
+      if (this.cfg.raveK && played.points) {
+        for (const child of root.children) {
+          if (!child.move) continue;
+          for (const p of played.points) {
+            if (p.color === rootColor && p.x === child.move.x && p.y === child.move.y) {
+              child.raveN = (child.raveN || 0) + 1;
+              child.raveW = (child.raveW || 0) + result;
+              break;
+            }
+          }
+        }
       }
 
       if (i % 32 === 31) await sleep(0);
@@ -888,7 +1115,6 @@ export class GoAI {
 
     if (!root.children.length) return priorMoves[0];
 
-    // 访问次数优先，专家再参考胜率
     root.children.sort((a, b) => {
       if (b.visits !== a.visits) return b.visits - a.visits;
       const va = a.visits ? a.value / a.visits : -1;
@@ -896,7 +1122,13 @@ export class GoAI {
       return vb - va;
     });
 
-    const best = root.children[0];
+    let best = root.children[0];
+    if (this.cfg.visitRatio && this.cfg.visitRatio < 1 && best.visits > 0) {
+      const minV = best.visits * this.cfg.visitRatio;
+      const close = root.children.filter((c) => c.visits >= minV && c.visits > 0);
+      close.sort((a, b) => b.value / b.visits - a.value / a.visits);
+      if (close.length) best = close[0];
+    }
     const winRate = best.visits ? best.value / best.visits : 0;
     return {
       x: best.move.x,
@@ -908,17 +1140,21 @@ export class GoAI {
   }
 
   uctSelect(node) {
-    // PUCT：先验越强越优先尝试
-    const c =
-      this.difficulty === "expert"
-        ? 1.25
-        : this.difficulty === "hard"
-          ? 1.4
-          : 1.55;
+    // PUCT + RAVE：先验和快速走子的胜率一起分配模拟
+    const c = this.cfg.explore ?? 1.45;
+    const raveK = this.cfg.raveK || 0;
     let best = null;
     let bestScore = -Infinity;
     for (const child of node.children) {
-      const exploit = child.visits ? child.value / child.visits : 0;
+      const n = child.visits;
+      const wr = n ? child.value / n : 0;
+      const rn = child.raveN || 0;
+      const rr = rn ? child.raveW / rn : wr;
+      let exploit = wr;
+      if (raveK && rn) {
+        const beta = Math.sqrt(raveK / (3 * n + raveK));
+        exploit = (1 - beta) * wr + beta * rr;
+      }
       const explore =
         c *
         child.prior *
@@ -971,6 +1207,7 @@ export class GoAI {
 
   playout(engine, rootColor, maxMoves) {
     const state = lightState(engine);
+    const points = [];
 
     let passes = state.consecutivePasses;
     for (let i = 0; i < maxMoves; i++) {
@@ -980,12 +1217,14 @@ export class GoAI {
         state.pass();
         passes += 1;
       } else {
+        const color = state.toPlay;
         const res = state.play(move.x, move.y);
         if (!res.ok) {
           state.pass();
           passes += 1;
         } else {
           passes = 0;
+          points.push({ color, x: move.x, y: move.y });
         }
       }
       if (passes >= 2) break;
@@ -994,7 +1233,7 @@ export class GoAI {
       }
     }
 
-    return this.quickScore(state, rootColor);
+    return { value: this.quickScore(state, rootColor), points };
   }
 
   policyMove(engine) {
@@ -1036,7 +1275,8 @@ export class GoAI {
     legal.sort((a, b) => b.s - a.s);
     const top = legal.slice(0, Math.min(4, legal.length));
     // 偏置最强着，减少胡走
-    const weights = top.map((_, i) => Math.pow(0.55, i));
+    const decay = this.cfg.policyDecay ?? 0.55;
+    const weights = top.map((_, i) => Math.pow(decay, i));
     const sum = weights.reduce((a, b) => a + b, 0);
     let r = Math.random() * sum;
     for (let i = 0; i < top.length; i++) {

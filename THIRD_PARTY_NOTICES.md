@@ -19,7 +19,13 @@ The Game Hub aggregates several open-source games under a shared UI shell.
 
 ## 围棋 · Go（`games/go/`）
 
-- 本仓库原创 / Original to this repository
+- 对局引擎与 AI：本仓库原创 / Engine and AI: original to this repository
+- 练习题一到三级：馆内原创 / Beginner drills: original
+- 古典死活与官子（公有领域）/ Classical problems, public domain:
+  - 碁经众妙 Gokyo Shumyo（Hayashi Genbi，1812）。正解谱转录见 [u-go.net classical problems](https://www.u-go.net/classic/)（Ulrich Goertz；底稿来自 Flygo，经许可再分发）
+  - 玄玄棋经 Xuanxuan Qijing（严德甫、晏天章，约 1349）。SGF 由 Jean-Pierre Vesinet 整理，经 u-go.net 发布
+  - 官子谱 Guan Zi Pu。谱面转录 Flygo → u-go.net
+- 未收录赵治勋、李昌镐等近代死活集 / Modern copyrighted problem books are not included
 
 ## 大富翁 · 世界之旅 · World Tour Monopoly（`games/monopoly/`）
 
