@@ -2,7 +2,7 @@
 
 .game-page .shell,
 .game-page .app {
-  width: min(1180px, calc(100% - 2rem));
+  width: min(1720px, calc(100vw - 2rem));
   margin: 0 auto;
   padding: 1.25rem 0 2rem;
   padding-left: env(safe-area-inset-left);
@@ -136,7 +136,8 @@
     position: sticky;
     top: 0.75rem;
     align-self: start;
-    max-height: calc(100vh - 6.5rem);
+    max-width: 100%;
+    max-height: none;
   }
 
   .game-page .panel {
@@ -149,7 +150,7 @@
 @media (max-width: 900px) {
   .game-page .shell,
   .game-page .app {
-    width: min(100% - 1rem, 720px);
+    width: calc(100% - 0.75rem);
     padding-top: 0.85rem;
     padding-bottom: calc(1.35rem + env(safe-area-inset-bottom));
   }
@@ -191,17 +192,22 @@
     border-radius: 14px;
   }
 
+  .game-page .board-wrap {
+    max-width: 100%;
+  }
+
   .game-page .board-wrap canvas,
   .game-page #board,
   .game-page #chess {
     max-width: 100%;
-    width: 100%;
     height: auto;
     touch-action: none;
   }
 
   .game-page .panel {
     gap: 0.7rem;
+    max-height: none;
+    overflow: visible;
   }
 
   .game-page .card {

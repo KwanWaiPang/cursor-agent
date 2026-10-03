@@ -42,6 +42,12 @@ body.game-page {
   animation: rise 900ms 80ms ease both;
 }
 
+.layout > .board-wrap {
+  width: max-content;
+  max-width: 100%;
+  justify-self: center;
+}
+
 .board-wrap {
   position: relative;
   background:

@@ -1,3 +1,4 @@
+import { measureBoardBox } from "../../../js/fit-board.js";
 import { BLACK, WHITE, GoEngine, colorName, opponent } from "./engine.js";
 import { GoAI } from "./ai.js";
 import {
@@ -324,7 +325,7 @@ function pointToXY(x, y, m) {
 
 function resizeCanvas() {
   const wrap = canvas.parentElement;
-  const cssSize = Math.min(wrap.clientWidth - 2, 720);
+  const { width: cssSize } = measureBoardBox(wrap, { aspect: 1, min: 240 });
   canvas.style.width = `${cssSize}px`;
   canvas.style.height = `${cssSize}px`;
   canvas.width = Math.round(cssSize * dpr);

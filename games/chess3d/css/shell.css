@@ -385,7 +385,7 @@ body.chess3d-body #c3d-glow {
     right: 0.65rem !important;
     left: 0.65rem !important;
     width: auto !important;
-    max-height: min(52vh, 440px);
+    max-height: min(38vh, 320px);
     overflow: auto;
     -webkit-overflow-scrolling: touch;
   }

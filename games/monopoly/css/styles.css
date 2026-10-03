@@ -50,8 +50,8 @@ body.monopoly-cartoon {
   grid-template-rows: repeat(11, minmax(0, 1fr));
   gap: var(--gap);
   aspect-ratio: 1 / 1;
-  width: 100%;
-  max-height: min(82vh, 960px);
+  width: min(100%, calc(100dvh - 11rem));
+  max-height: none;
   margin: 0 auto;
   background:
     radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.18), transparent 45%),
@@ -969,7 +969,7 @@ body.monopoly-cartoon {
 }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
-  .board { max-height: none; }
+  .board { width: min(100%, calc(100dvh - 8.5rem)); max-height: none; }
 }
 @media (max-width: 560px) {
   .board { gap: 2px; padding: 3px; }

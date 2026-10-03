@@ -1,3 +1,4 @@
+import { measureBoardBox } from "../../../js/fit-board.js";
 import {
   BLACK,
   WHITE,
@@ -100,8 +101,9 @@ function updateHud() {
 
 function draw() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const css = Math.min(canvas.parentElement.clientWidth - 8, 720);
+  const { width: css } = measureBoardBox(canvas.parentElement, { aspect: 1, min: 240 });
   canvas.style.width = `${css}px`;
+  canvas.style.height = `${css}px`;
   canvas.width = Math.floor(css * dpr);
   canvas.height = Math.floor(css * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

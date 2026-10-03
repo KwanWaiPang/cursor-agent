@@ -39,7 +39,7 @@ body.game-page {
 .board-wrap canvas,
 #chess {
   display: block;
-  width: min(100%, 560px);
+  width: min(calc(100vw - 24rem), calc((100dvh - 12rem) * 530 / 567));
   height: auto;
   margin: 0 auto;
   border-radius: 10px;
@@ -276,7 +276,7 @@ body:not(.is-playing) #opsCard button {
 
   .board-wrap canvas,
   #chess {
-    width: min(100%, 560px);
+    width: min(calc(100vw - 1.25rem), calc((100dvh - 5.2rem) * 530 / 567));
     max-width: 100%;
     height: auto;
   }

@@ -43,17 +43,17 @@ body.game-page {
   padding: clamp(0.4rem, 1.2vw, 0.65rem);
   box-shadow: var(--shadow);
   border: 1px solid rgba(140, 60, 40, 0.35);
-  max-width: min(100%, 480px);
+  max-width: 100%;
   margin: 0 auto;
-  width: 100%;
+  width: max-content;
 }
 
 #board {
   display: block;
-  width: 100% !important;
-  height: auto !important;
-  max-height: calc(100dvh - 6.5rem);
-  aspect-ratio: 1 / 1.9;
+  width: auto;
+  height: auto;
+  max-height: none;
+  aspect-ratio: auto;
   border-radius: 2px;
   cursor: pointer;
   touch-action: none;
@@ -261,14 +261,6 @@ button.danger {
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
-  }
-
-  .board-wrap {
-    max-width: min(100%, 420px);
-  }
-
-  #board {
-    width: 100%;
   }
 }
 

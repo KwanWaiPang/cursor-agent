@@ -1,3 +1,4 @@
+import { measureBoardBox } from "../../../js/fit-board.js";
 import {
   ROWS,
   COLS,
@@ -117,9 +118,10 @@ function beginPlay() {
 
 function cellGeom() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const parentW = Math.max(canvas.parentElement.clientWidth - 4, 280);
-  const cssW = Math.min(parentW, 460);
-  const cssH = cssW * 1.9;
+  const { width: cssW, height: cssH } = measureBoardBox(canvas.parentElement, {
+    aspect: 1.9,
+    min: 220,
+  });
   canvas.style.width = `${cssW}px`;
   canvas.style.height = `${cssH}px`;
   canvas.width = Math.floor(cssW * dpr);

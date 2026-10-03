@@ -60,16 +60,6 @@
     padding: 0.45rem !important;
   }
 
-  .game-page .board-wrap canvas,
-  .game-page #board,
-  .game-page #chess {
-    max-height: calc(100dvh - 5.8rem);
-    width: auto;
-    max-width: 100%;
-    margin-inline: auto;
-    object-fit: contain;
-  }
-
   .game-page .panel {
     max-height: calc(100dvh - 5.8rem);
     overflow-y: auto;
@@ -107,13 +97,8 @@
     grid-template-columns: 1fr !important;
   }
 
-  .game-page .card-controls {
-    order: -1;
-  }
-
-  .game-page .board-wrap canvas,
-  .game-page #board,
-  .game-page #chess {
-    max-height: min(58dvh, calc(100dvh - 14rem));
+  .game-page .panel {
+    max-height: none;
+    overflow: visible;
   }
 }
