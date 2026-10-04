@@ -1,5 +1,5 @@
 /**
- * 分级死活 / 官子练习。题目见 problems.js。
+ * 分级解题 / 官子练习。题目见 problems.js。
  * 进度存在 localStorage，测试可传入内存对象。
  */
 

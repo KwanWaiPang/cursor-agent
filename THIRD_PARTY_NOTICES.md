@@ -21,14 +21,15 @@ The Game Hub aggregates several open-source games under a shared UI shell.
 
 - 对局引擎与 AI：本仓库原创 / Engine and AI: original to this repository
 - 练习题一到三级：馆内原创 / Beginner drills: original
-- 古典死活与官子（公有领域）/ Classical problems, public domain:
+- 古典解题与官子（公有领域）/ Classical problems, public domain:
   - 碁经众妙 Gokyo Shumyo（Hayashi Genbi，1812）。正解谱转录见 [u-go.net classical problems](https://www.u-go.net/classic/)（Ulrich Goertz；底稿来自 Flygo，经许可再分发）
   - 玄玄棋经 Xuanxuan Qijing（严德甫、晏天章，约 1349）。SGF 由 Jean-Pierre Vesinet 整理，经 u-go.net 发布
   - 官子谱 Guan Zi Pu。谱面转录 Flygo → u-go.net
-- 未收录赵治勋、李昌镐等近代死活集 / Modern copyrighted problem books are not included
+- 未收录赵治勋、李昌镐等近代题集 / Modern copyrighted problem books are not included
 - 19 路经典全谱 / Full-board classical games, public domain, collected by Andries Brouwer (CWI), who states he claims no rights and that the games are in the public domain: <https://homepages.cwi.nl/~aeb/go/games/>
-  - 当湖十局（范西屏、施襄夏，1739）、施襄夏对程兰如、徐星友对程兰如、烂柯
-  - 秀策耳赤之局（1846）与御城棋；本因坊道策御城棋（1667）
+  - 当湖十局（范西屏、施襄夏，1739）、施襄夏对程兰如、徐星友对程兰如、烂柯，以及唐宋对局
+  - 秀策耳赤之局（1846）与全部御城棋；对太田雄藏的三十番棋、对海老泽健造与村濑秀甫的十番棋
+  - 本因坊道策御城棋、本因坊秀伯御城棋、本因坊丈和名局（1835，对赤星因彻）
 
 ## 大富翁 · 世界之旅 · World Tour Monopoly（`games/monopoly/`）
 

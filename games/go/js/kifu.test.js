@@ -37,6 +37,12 @@ function testEarNoteAndGuess() {
   assert(coordName(first.x, first.y, 19).length >= 2, "coord name");
   const danghu = KIFU.find((g) => g.group === "当湖十局");
   assert(danghu.seat && danghu.toPlay === WHITE, "danghu is white to play with seat stones");
+  assert(KIFU.filter((g) => g.group === "当湖十局").length === 10, "all ten danghu games");
+  const jowaGame = KIFU.find((g) => g.id === "276-4");
+  assert(jowaGame && jowaGame.size === 19 && jowaGame.moves.length > 100, "1835 Jowa game");
+  assert(!jowaGame.title.includes("吐血"), "title stays neutral");
+  assert(KIFU.some((g) => g.group === "秀策三十番棋"), "shusaku thirty-game match");
+  assert(!KIFU.some((g) => /[A-Za-z]{4,}/.test(g.blackName + g.whiteName)), "player names stay in Chinese");
   const seated = freshKifu(danghu);
   const stones = seated.board.flat().filter(Boolean).length;
   assert(stones === 4, `seat stones ${stones}`);
