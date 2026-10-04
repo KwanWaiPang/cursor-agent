@@ -38,76 +38,6 @@ const FILES = [
   { file: "/tmp/kifu/dosaku/022.sgf", group: "道策御城棋", title: "道策御城棋 · 对安井算哲" },
 ];
 
-const MORE = [
-  ...["246", "269", "310", "311", "324", "357", "375", "388", "425", "431", "450", "451", "457", "468", "469"].map(
-    (n) => ({ file: `/tmp/kifu/more/castle/${n}.sgf`, group: "秀策御城棋" })
-  ),
-  ...["035", "051", "059", "062", "069", "079"].map((n) => ({
-    file: `/tmp/kifu/more/dosaku/${n}.sgf`,
-    group: "道策御城棋",
-  })),
-  ...["001", "010", "020"].map((n) => ({
-    file: `/tmp/kifu/more/jowa/${n}.sgf`,
-    group: "丈和早年",
-  })),
-  ...["082", "086", "093", "104", "109", "111", "120", "122", "128"].map((n) => ({
-    file: `/tmp/kifu/more/dosaku2/${n}.sgf`,
-    group: "道策御城棋",
-  })),
-  ...["cg136", "cg138", "cg139", "cg141", "cg143", "cg145", "cg147"].map((n) => ({
-    file: `/tmp/kifu/more/shuhaku/${n}.sgf`,
-    group: "秀伯御城棋",
-  })),
-  {
-    file: "/tmp/kifu/more/jowa2/243.sgf",
-    group: "丈和名局",
-    title: "赤星因彻 对 本因坊丈和",
-  },
-  {
-    file: "/tmp/kifu/more/jowa2/276.sgf",
-    group: "丈和名局",
-    title: "赤星因彻 对 本因坊丈和（1835）",
-    blurb:
-      "1835 年赤星因彻执黑对本因坊丈和的一局名局。这是 19 路全谱，可以整盘打谱。",
-  },
-  {
-    file: "/tmp/kifu/more/jowa2/285.sgf",
-    group: "丈和名局",
-    title: "本因坊秀和 对 本因坊丈和",
-  },
-  ...["291", "292", "293"].map((n) => ({
-    file: `/tmp/kifu/more/jowa2/${n}.sgf`,
-    group: "丈和名局",
-  })),
-  ...["325", "326", "327", "328", "329", "330", "331", "332", "333", "334", "335", "336", "337", "339", "340", "341", "342", "343", "344", "345", "346", "352", "356"].map(
-    (n) => ({
-      file: `/tmp/kifu/more/ota/${n}.sgf`,
-      group: "秀策三十番棋",
-    })
-  ),
-  ...["434", "435", "436", "437", "438", "439", "440", "441", "443", "444"].map((n) => ({
-    file: `/tmp/kifu/more/ebizawa/${n}.sgf`,
-    group: "秀策对海老泽",
-  })),
-  ...["458", "459", "460", "461", "462", "463", "464", "465", "466", "467"].map((n) => ({
-    file: `/tmp/kifu/more/murase/${n}.sgf`,
-    group: "秀策对秀甫",
-  })),
-  ...[
-    ["1", "早期传说"],
-    ["3", "唐代名局"],
-    ["4", "唐代名局"],
-    ["5", "宋代名局"],
-    ["11", "宋代名局"],
-    ["12", "宋代名局"],
-  ].map(([n, group]) => ({
-    file: `/tmp/kifu/more/cn/${n}.sgf`,
-    group,
-  })),
-];
-
-for (const item of MORE) FILES.push(item);
-
 const NAMES = [
   [/Fan Xiping/i, "范西屏"],
   [/Shi Dingan/i, "施襄夏"],
@@ -124,58 +54,15 @@ const NAMES = [
   [/Hattori Seitetsu/i, "服部正彻"],
   [/Honinbo Dosaku/i, "本因坊道策"],
   [/Yasui Chitetsu/i, "安井算哲"],
-  [/Yasui Santetsu/i, "安井算哲"],
   [/An Immortal/i, "仙人"],
-  [/Honinbo Jowa/i, "本因坊丈和"],
-  [/Ota Yuzo/i, "太田雄藏"],
-  [/Ito Showa/i, "伊藤松和"],
-  [/Sakaguchi Sentoku/i, "阪口仙得"],
-  [/Hayashi Hakuei/i, "林柏悦"],
-  [/Hayashi Yubi/i, "林有美"],
-  [/Hattori Seitetsu/i, "服部正彻"],
-  [/Inoue Matsumoto Inseki/i, "井上松本因硕"],
-  [/Gu Shiyan/i, "顾师言"],
-  [/Yan Jingshi/i, "阎景实"],
-  [/Jia Xuan/i, "贾玄"],
-  [/Yang Xican/i, "杨希粲"],
-  [/Li Baixiang/i, "李百祥"],
-  [/Guo Fan/i, "郭范"],
-  [/Ito Naoki/i, "伊藤难西"],
-  [/Kadono Matsunosuke/i, "葛野松之助"],
-  [/Nagasaka Inosuke/i, "长坂猪之助"],
-  [/Sun Ce/i, "孙策"],
-  [/L[uü] Fan/i, "吕范"],
-  [/Akaboshi Intetsu/i, "赤星因彻"],
-  [/Honinbo Shuwa/i, "本因坊秀和"],
-  [/Honinbo Shuhaku/i, "本因坊秀伯"],
-  [/Murase Shuho/i, "村濑秀甫"],
-  [/Honinbo Shuho/i, "本因坊秀甫"],
-  [/Ebizawa Kenzo/i, "海老泽健造"],
-  [/Yasui Shunchi/i, "安井春知"],
-  [/Yasui Shuntetsu Senkaku/i, "安井春哲仙角"],
-  [/Yasui Senkaku/i, "安井仙角"],
-  [/Honinbo Doetsu/i, "本因坊道悦"],
-  [/Inoue Shunseki/i, "井上春硕"],
-  [/Hayashi Monri/i, "林门入"],
-  [/Honinbo Genjo/i, "本因坊元丈"],
-  [/Yang Zhonghe/i, "杨中和"],
-  [/Wang Jue/i, "王珏"],
-  [/Sun Shen/i, "孙侁"],
-  [/Liu Zhongfu/i, "刘仲甫"],
 ];
 
 function personName(raw) {
-  const text = String(raw || "")
-    .replace(/\s+\d+[dp]\b/i, "")
-    .replace(/\s+Meijin\b/i, "")
-    .trim();
+  const text = String(raw || "").replace(/\s+\d+[dp]\b/i, "").trim();
   if (!text) return "未知";
-  if (text.includes("&")) return text.split("&").map((part) => personName(part.trim())).join("、");
   for (const [re, zh] of NAMES) {
     if (re.test(text)) return zh;
   }
-  const cjk = text.match(/[\u4e00-\u9fff]{2,}/);
-  if (cjk) return cjk[0];
   return text;
 }
 
@@ -316,23 +203,15 @@ function loadGame(spec) {
     };
   }
   const seat = black.length + white.length > 0;
-  const blackName = personName(meta.PB);
-  const whiteName = personName(meta.PW);
-  const handicap = Number.parseInt(meta.HA || "0", 10) || 0;
-  const given = handicap >= 2 && black.length >= 3 && white.length === 0;
-  const summary = spec.blurb
-    ? spec.blurb
-    : given
-      ? `19路让${handicap}子棋。黑方先摆了 ${black.length} 子，通常白先。可以整盘打谱，看让子棋怎么走全局。`
-      : seat
-        ? "19路全谱。四角（或星位）已有座子，通常白先。打谱时看双方如何从全局拆边、攻逼。"
-        : "19路全谱，空枰黑先。可以逐步打谱，猜下一手，或执一方跟谱；下偏后由 AI 接上。";
+  const summary = seat
+    ? "19路全谱，四角星位是座子（黑白各两子），通常白先。从全局看双方如何经营。"
+    : "19路全谱，空枰黑先。可以逐步打谱，也可以猜下一手，或执一方跟谱对练。";
   return {
     id: spec.file.split("/").pop().replace(".sgf", "").toLowerCase() + "-" + spec.group.length,
     group: spec.group,
-    title: spec.title || `${blackName} 对 ${whiteName}`,
-    blackName,
-    whiteName,
+    title: spec.title,
+    blackName: personName(meta.PB),
+    whiteName: personName(meta.PW),
     date: String(meta.DT || "").split(",")[0] || "",
     place: meta.PC || "",
     result: formatResult(meta.RE),
@@ -351,12 +230,6 @@ function loadGame(spec) {
 const games = [];
 for (const spec of FILES) {
   try {
-    if (!readFileSync(spec.file)) continue;
-  } catch {
-    console.error("SKIP missing", spec.file);
-    continue;
-  }
-  try {
     const game = loadGame(spec);
     games.push(game);
     console.log(`ok ${game.title} ${game.moves.length}手 ${game.result} 座子:${game.seat}`);
@@ -365,36 +238,9 @@ for (const spec of FILES) {
   }
 }
 
-const GROUP_ORDER = [
-  "当湖十局",
-  "清代名局",
-  "早期传说",
-  "唐代名局",
-  "宋代名局",
-  "秀策名局",
-  "秀策御城棋",
-  "秀策三十番棋",
-  "秀策对海老泽",
-  "秀策对秀甫",
-  "道策御城棋",
-  "秀伯御城棋",
-  "丈和早年",
-  "丈和名局",
-];
-
 const unique = [];
 const ids = new Set();
-const ordered = games
-  .map((g, i) => ({ g, i }))
-  .sort((a, b) => {
-    const ia = GROUP_ORDER.indexOf(a.g.group);
-    const ib = GROUP_ORDER.indexOf(b.g.group);
-    const oa = ia < 0 ? GROUP_ORDER.length : ia;
-    const ob = ib < 0 ? GROUP_ORDER.length : ib;
-    return oa - ob || a.i - b.i;
-  })
-  .map((item) => item.g);
-for (const g of ordered) {
+for (const g of games) {
   let id = g.id;
   let n = 2;
   while (ids.has(id)) id = `${g.id}-${n++}`;
@@ -407,7 +253,7 @@ const body = `/**
  * 由 games/go/tools/build-kifu.mjs 生成。
  * 来源：Andries Brouwer（CWI）公开的公有领域棋谱，
  * https://homepages.cwi.nl/~aeb/go/games/
- * 含当湖十局、唐宋棋、秀策耳赤之局与御城棋、秀策番棋、道策与秀伯御城棋、丈和名局。
+ * 含当湖十局、秀策耳赤之局与御城棋、道策御城棋。
  */
 export const KIFU_GROUPS = ${JSON.stringify([...new Set(unique.map((g) => g.group))], null, 2)};
 

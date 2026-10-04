@@ -748,7 +748,7 @@ function expandOriginals(list, want) {
   return out;
 }
 
-const PER_LEVEL = 20;
+const PER_LEVEL = 12;
 let originals = [];
 for (const level of [1, 2, 3]) {
   const batch = expandOriginals(
@@ -925,127 +925,6 @@ const TRACKS = [
     ],
   },
 ];
-
-const FILES19 = "ABCDEFGHJKLMNOPQRST";
-function coordLabel(x, y, size) {
-  return `${FILES19[x] || "?"}${size - y}`;
-}
-
-function describeMove(before, after, move, res, attacker) {
-  const who = move.color === BLACK ? "黑" : "白";
-  const opp = move.color === BLACK ? WHITE : BLACK;
-  const name = coordLabel(move.x, move.y, before.size);
-  const defending = Boolean(attacker) && move.color !== attacker;
-  if (!res?.ok) return `${who}下在 ${name}。`;
-  if (res.captured?.length) {
-    const reason = defending
-      ? "这是对方的应手，先把能提的子提掉。"
-      : "这一口是对方的气，补上后它没气了。";
-    return `${who}下在 ${name}，提掉 ${res.captured.length} 子。原因：${reason}`;
-  }
-  let atari = false;
-  const seen = new Set();
-  for (const [nx, ny] of after.neighbors(move.x, move.y)) {
-    if (after.board[ny][nx] !== opp) continue;
-    const k = `${nx},${ny}`;
-    if (seen.has(k)) continue;
-    const g = after.getGroup(nx, ny);
-    for (const [sx, sy] of g.stones) seen.add(`${sx},${sy}`);
-    if (g.liberties.size === 1) atari = true;
-  }
-  if (atari) {
-    const reason = defending
-      ? "对方反叫吃，下一手要应，不然这块棋会被提掉。"
-      : "它只剩一口气，不应的话下一手就被提掉。";
-    return `${who}下在 ${name}，把对方叫吃。原因：${reason}`;
-  }
-  let saved = false;
-  const self = after.getGroup(move.x, move.y);
-  for (const [sx, sy] of self.stones) {
-    if (sx === move.x && sy === move.y) continue;
-    if (before.board[sy][sx] !== move.color) continue;
-    const prev = before.getGroup(sx, sy);
-    if (prev.liberties.size <= 1 && self.liberties.size >= 2) saved = true;
-  }
-  if (saved) {
-    const reason = defending
-      ? "被叫吃的棋只有一口气，对方把它长出或连上，所以还要继续追。"
-      : "原来只剩一口气，不走就会被吃。";
-    return `${who}下在 ${name}，把被叫吃的棋连出或长气。原因：${reason}`;
-  }
-  if (self.liberties.size <= 1) {
-    return defending
-      ? `${who}下在 ${name}，走到只剩一口气的地方。原因：这是被追着走的应手，下一手可以反提。`
-      : `${who}下在 ${name}。这手看着紧，但是后面能反提，所以不是送吃。`;
-  }
-  return defending
-    ? `${who}下在 ${name}。这是谱上的应手，占住自己要守的点。`
-    : `${who}下在 ${name}。这手是为了占住要点，让后面的吃子或做活成立。`;
-}
-
-function annotateTree(engine, moves, attacker) {
-  for (const move of moves || []) {
-    const copy = engine.clone();
-    const res = move.pass ? copy.pass() : copy.play(move.x, move.y);
-    move.why = describeMove(engine, copy, move, res, attacker);
-    if (move.replies?.length && res.ok) annotateTree(copy, move.replies, attacker);
-  }
-}
-
-function mainLineNodes(moves) {
-  const line = [];
-  let cur = moves;
-  let guard = 0;
-  while (cur?.length && guard < 80) {
-    line.push(cur[0]);
-    cur = cur[0].replies;
-    guard += 1;
-  }
-  return line;
-}
-
-function annotateProblem(problem) {
-  const engine = loadEngine({ ...problem, id: problem.id || "annotate" });
-  annotateTree(engine, problem.moves, problem.toPlay);
-  const line = mainLineNodes(problem.moves);
-  const who = problem.toPlay === BLACK ? "黑" : "白";
-  const ownMoves = line.filter((m) => m.color === problem.toPlay);
-  const fight = ownMoves.length > 1;
-  const first = ownMoves[0];
-  const solverText = ownMoves.map((m) => m.why || "").join(" ");
-  const hasCap = solverText.includes("提掉");
-  const hasSave = solverText.includes("长气") || solverText.includes("连出");
-  const hasAtari = solverText.includes("叫吃");
-  const goal =
-    hasSave && hasCap
-      ? "先把危险的棋救活，再把对方吃掉"
-      : hasCap
-        ? fight
-          ? "把这段对战里该吃的棋提掉"
-          : "把该吃的棋提掉"
-        : hasSave
-          ? "先把危险的棋救活"
-          : hasAtari
-            ? fight
-              ? "先叫吃，再把对方的应手下完"
-              : "把对方叫吃"
-            : fight
-              ? "按谱上的次序和对方下完这段变化"
-              : "占住这一手的要点";
-  const branches = first?.replies?.length || 0;
-  const battle = fight
-    ? `这题要下完一段对战，不是只摆一子。你走正着后，对方会应手，你再继续。${
-        branches > 1 ? "对方有几种应手，这里先走谱上的第一种。" : ""
-      }`
-    : "这题只要下一子就能结束，谱上没有后续应手。";
-  const next = first?.why ? `下一手：${first.why}` : "";
-  problem.explain = `${who}先。目标是${goal}。${battle}${next}`;
-  problem.lesson = ownMoves.map((m, i) => `第${i + 1}手，${m.why}`).join("");
-  problem.prompt = problem.explain;
-  delete problem.check;
-}
-
-for (const problem of PROBLEMS) annotateProblem(problem);
 
 const body = `/**
  * 围棋练习题。入门三级为馆内原创；四级起为公有领域古典解题与官子。
