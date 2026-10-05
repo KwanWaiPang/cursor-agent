@@ -60,7 +60,7 @@
             <div id="result" class="result-banner"></div>
           </section>
 
-          <section class="card card-controls">
+          <section class="card card-controls" id="actionCard">
             <h2>操作</h2>
             <div class="controls">
               <button id="btnPass" type="button">停着</button>
@@ -72,7 +72,7 @@
           </section>
 
           <section class="card card-controls">
-            <h2>新对局</h2>
+            <h2 id="setupHeading">新对局</h2>
             <div class="field">
               <label for="modeSelect">对战模式</label>
               <select id="modeSelect">
@@ -81,6 +81,59 @@
                 <option value="drill">分级练习（解题 / 官子）</option>
                 <option value="kifu">经典棋谱（19路全谱）</option>
               </select>
+            </div>
+            <div id="kifuOptions" class="ai-options" hidden>
+              <p id="kifuProgress" class="drill-progress"></p>
+              <div class="controls">
+                <button id="btnKifuStart" class="secondary" type="button">开局</button>
+                <button id="btnKifuPrev" class="secondary" type="button">上一手</button>
+                <button id="btnKifuNext" class="secondary" type="button">下一手</button>
+                <button id="btnKifuEnd" class="secondary" type="button">终局</button>
+              </div>
+              <div class="field" style="margin-top: 0.55rem">
+                <label for="kifuJump">跳到第几手</label>
+                <input id="kifuJump" type="number" min="0" step="1" placeholder="例如 127" />
+              </div>
+              <div class="controls">
+                <button id="btnKifuJump" class="secondary" type="button">跳到这一手</button>
+              </div>
+              <label class="inline-check" for="kifuNumbersToggle">
+                <input id="kifuNumbersToggle" type="checkbox" checked />
+                显示手数
+              </label>
+              <div class="field">
+                <label for="kifuFilter">查找棋谱</label>
+                <input id="kifuFilter" type="search" placeholder="棋手或局名，例如秀策、范西屏" autocomplete="off" />
+              </div>
+              <div class="field">
+                <label for="kifuSelect">棋谱（19路全谱）</label>
+                <select id="kifuSelect"></select>
+              </div>
+              <div class="field">
+                <label for="kifuStudy">学习方式</label>
+                <select id="kifuStudy">
+                  <option value="replay">打谱 · 逐步看整局</option>
+                  <option value="guess">试下 · 猜下一手</option>
+                  <option value="play">对练 · 我执一方，偏离后 AI 接上</option>
+                </select>
+              </div>
+              <div class="field" id="kifuSideField">
+                <label for="kifuSide">我执</label>
+                <select id="kifuSide">
+                  <option value="black" selected>黑</option>
+                  <option value="white">白</option>
+                </select>
+              </div>
+              <div class="controls" style="margin-top: 0.55rem">
+                <button id="btnKifuReveal" class="secondary" type="button">揭示此手</button>
+                <button id="btnKifuReturn" class="secondary" type="button">回到谱上</button>
+              </div>
+              <div class="controls" style="margin-top: 0.55rem">
+                <button id="btnKifuNote" class="secondary" type="button">下一处批注</button>
+                <button id="btnKifuMiss" class="secondary" type="button">再练错过</button>
+              </div>
+              <p id="kifuBlurb" class="drill-note"></p>
+              <p id="kifuNote" class="drill-source"></p>
             </div>
             <div id="aiOptions" class="ai-options">
               <div class="field">
@@ -131,55 +184,6 @@
               </div>
               <p id="drillSource" class="drill-source"></p>
             </div>
-            <div id="kifuOptions" class="ai-options" hidden>
-              <div class="field">
-                <label for="kifuFilter">查找棋谱</label>
-                <input id="kifuFilter" type="search" placeholder="棋手或局名，例如秀策、范西屏" autocomplete="off" />
-              </div>
-              <div class="field">
-                <label for="kifuSelect">棋谱（19路全谱）</label>
-                <select id="kifuSelect"></select>
-              </div>
-              <p id="kifuBlurb" class="drill-note"></p>
-              <div class="field">
-                <label for="kifuStudy">学习方式</label>
-                <select id="kifuStudy">
-                  <option value="replay">打谱 · 逐步看整局</option>
-                  <option value="guess">试下 · 猜下一手</option>
-                  <option value="play">对练 · 我执一方，偏离后 AI 接上</option>
-                </select>
-              </div>
-              <div class="field" id="kifuSideField">
-                <label for="kifuSide">我执</label>
-                <select id="kifuSide">
-                  <option value="black" selected>黑</option>
-                  <option value="white">白</option>
-                </select>
-              </div>
-              <p id="kifuProgress" class="drill-progress"></p>
-              <div class="controls">
-                <button id="btnKifuStart" class="secondary" type="button">开局</button>
-                <button id="btnKifuPrev" class="secondary" type="button">上一手</button>
-                <button id="btnKifuNext" class="secondary" type="button">下一手</button>
-                <button id="btnKifuEnd" class="secondary" type="button">终局</button>
-              </div>
-              <div class="controls" style="margin-top: 0.55rem">
-                <button id="btnKifuReveal" class="secondary" type="button">揭示此手</button>
-                <button id="btnKifuReturn" class="secondary" type="button">回到谱上</button>
-              </div>
-              <div class="controls" style="margin-top: 0.55rem">
-                <button id="btnKifuNote" class="secondary" type="button">下一处批注</button>
-                <button id="btnKifuMiss" class="secondary" type="button">再练错过</button>
-              </div>
-              <div class="field" style="margin-top: 0.55rem">
-                <label for="kifuJump">看到第几手之后</label>
-                <input id="kifuJump" type="number" min="0" step="1" placeholder="例如 127" />
-              </div>
-              <div class="controls">
-                <button id="btnKifuJump" class="secondary" type="button">跳到这一手</button>
-              </div>
-              <p id="kifuNote" class="drill-source"></p>
-            </div>
             <div id="matchFields">
             <div class="field">
               <label for="sizeSelect">棋盘规格</label>
@@ -214,8 +218,8 @@
                 <li>计分采用中国规则：子空皆地，白贴目。</li>
                 <li>AI 按棋力分成十二档。二十五级到一级用本地搜索：低段随手，十级起搜索，三级会读吃子，一级搜索最久。</li>
                 <li>初段到五段改用 KataGo 模型，引擎与 Web KaTrain 相同，在浏览器里计算。段位越高，模型搜索越多。第一次会下载约 4MB 的公开小模型，不是完整的大模型。</li>
-                <li>解题和官子各八级、每级 20 题。开局就说明目标、下一手和下这里的原因。拿不准可以按「提示」，棋盘会标出下一手。需要连续应手时，对方会落子，你再继续。等级可以随时切换，不必解锁。</li>
-                <li>经典棋谱是 19 路全谱：当湖十局、唐宋与清代名局、秀策耳赤之局和御城棋、秀策番棋、道策和秀伯御城棋、丈和名局。可以按棋手或局名查找，跳到某一手，或跳到有批注的地方。猜下一手时，第一次猜错不公布答案；再错就记下来，以后用「再练错过」回到那些局面。</li>
+                <li>解题和官子各八级、每级 20 题。开局只说明目标。拿不准按「提示」，棋盘会标出下一手，并说明原因。需要连续应手时，对方会落子，你再继续。走通后会把过程复盘一遍。等级可以随时切换，不必解锁。</li>
+                <li>经典棋谱是 19 路全谱：当湖十局、唐宋与清代名局、秀策耳赤之局和御城棋、秀策番棋、道策和秀伯御城棋、丈和名局。可以按棋手或局名查找。「跳到第几手」会把这一手落到盘上。批注写在刚下的那一手；耳赤之手是第 127 手。没有古谱批注的局，会标出第一次提子和提得最多的那一手。手数可以关掉。猜下一手时，第一次猜错不公布答案；再错就记下来，以后用「再练错过」回到那些局面。人机对战里悔棋会把你和 AI 的上一手一起拿掉。</li>
               </ul>
             </details>
           </section>

@@ -3,6 +3,7 @@ import {
   PROBLEMS,
   TRACKS,
   DrillSession,
+  drillFaceText,
   isLevelUnlocked,
   levelCleared,
   loadPosition,
@@ -71,6 +72,9 @@ function testExplanationsAndBattles() {
     assert(problem.explain.includes("下一手"), `${problem.id} tells the next move`);
     assert(problem.lesson && problem.lesson.includes("手"), `${problem.id} lesson`);
     assert(problem.prompt === problem.explain, `${problem.id} prompt`);
+    const face = drillFaceText(problem.prompt);
+    assert(face && !face.includes("下一手"), `${problem.id} face hides the next move`);
+    assert(!/下在 [A-T]\d+/.test(face), `${problem.id} face has no coordinate`);
     assert(!/死活|吐血/.test(problem.prompt + problem.lesson), `${problem.id} wording`);
     const line = mainLineOf(problem);
     assert(line.length, `${problem.id} empty line`);

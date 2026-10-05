@@ -293,6 +293,22 @@ button.danger {
   line-height: 1.45;
 }
 
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.7rem 0 0.15rem;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.inline-check input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--accent);
+}
+
 .help {
   margin: 0;
   font-size: 0.88rem;

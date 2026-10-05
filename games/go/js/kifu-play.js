@@ -39,8 +39,43 @@ export function stoneNumbers(game, engine) {
   return numbers;
 }
 
+const studyNotesAttached = new WeakSet();
+
+/** 没有古谱批注的局，标出第一次提子和提得最多的那一手，方便跳着看。 */
+export function attachStudyNotes(game) {
+  if (!game || studyNotesAttached.has(game)) return;
+  studyNotesAttached.add(game);
+  const engine = freshKifu(game);
+  let first = -1;
+  let firstN = 0;
+  let big = -1;
+  let bigN = 0;
+  for (let i = 0; i < game.moves.length; i += 1) {
+    const move = game.moves[i];
+    const res = move.pass ? engine.pass() : engine.play(move.x, move.y);
+    if (!res.ok) break;
+    const captured = res.captured?.length || 0;
+    if (captured > 0 && first < 0) {
+      first = i;
+      firstN = captured;
+    }
+    if (captured > bigN) {
+      big = i;
+      bigN = captured;
+    }
+  }
+  const add = (index, text) => {
+    const move = game.moves[index];
+    if (!move || move.note) return;
+    move.note = text;
+  };
+  if (first >= 0) add(first, `本局第一次提子，这一手提掉 ${firstN} 子。`);
+  if (big >= 0 && big !== first && bigN >= 3) add(big, `本局提得最多的一手，提掉 ${bigN} 子。`);
+}
+
 export class KifuSession {
   constructor(game) {
+    attachStudyNotes(game);
     this.game = game;
     this.cursor = 0;
     this.mode = "replay";
@@ -48,6 +83,11 @@ export class KifuSession {
     this.deviated = false;
     this.misses = [];
     this.guessTries = 0;
+  }
+
+  playedMove() {
+    if (this.cursor <= 0) return null;
+    return this.game.moves[this.cursor - 1] || null;
   }
 
   resetStudy() {

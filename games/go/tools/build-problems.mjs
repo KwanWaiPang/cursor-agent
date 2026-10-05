@@ -1122,9 +1122,10 @@ function annotateProblem(problem) {
   const authored = problem.prompt && !problem.prompt.includes("请走出谱上的主变化")
     ? `${problem.prompt.replace(/。$/, "")}。`
     : `${who}先。`;
-  problem.explain = `${authored}目标是${goal}。${battle}${next}`;
+  const face = `${authored}目标是${goal}。${battle}`.replace(/。+$/u, "。");
+  problem.prompt = face;
+  problem.explain = next ? `${face}${next}` : face;
   problem.lesson = ownMoves.map((move, index) => `第${index + 1}手，${move.why}`).join("");
-  problem.prompt = problem.explain;
   delete problem.check;
 }
 
@@ -1133,7 +1134,7 @@ for (const problem of PROBLEMS) annotateProblem(problem);
 const body = `/**
  * 围棋练习题。入门三级为馆内原创；四级起为公有领域古典解题与官子。
  * 由 games/go/tools/build-problems.mjs 生成。不要手改古典题坐标。
- * 每题的 prompt 写明目标和下一手的原因；连续应手的题按对战一步步下。
+ * 每题的 prompt 只写目标。坐标和原因在每步 why 里，走完后写入 lesson。
  *
  * 来源（u-go.net 汇总的公有领域谱，https://www.u-go.net/classic/）：
  * - 碁经众妙 Gokyo Shumyo（Hayashi Genbi，1812）。u-go.net 的 qjzm-a 带正解，其余分册没有正解，未收录。

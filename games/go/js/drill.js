@@ -48,6 +48,14 @@ export function levelCleared(track, level, progress) {
   return list.length > 0 && list.every((p) => progress?.solved?.[p.id]);
 }
 
+/** 题面只讲目标。坐标和原因留在每步的 why 里，由「提示」显示。 */
+export function drillFaceText(text) {
+  const raw = String(text || "").trim();
+  const cut = raw.search(/下一手[:：]/);
+  const face = (cut >= 0 ? raw.slice(0, cut) : raw).trim().replace(/[。\s]+$/u, "");
+  return face ? `${face}。` : "";
+}
+
 export function loadPosition(problem) {
   const g = new GoEngine(problem.size, 0);
   for (const [x, y] of problem.black) g.board[y][x] = BLACK;

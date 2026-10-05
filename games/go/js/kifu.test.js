@@ -1,5 +1,5 @@
 import { BLACK, WHITE } from "./engine.js";
-import { KIFU, KifuSession, freshKifu, coordName } from "./kifu-play.js";
+import { KIFU, KifuSession, freshKifu, coordName, attachStudyNotes } from "./kifu-play.js";
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -59,11 +59,12 @@ function testMissesAndNotes() {
   assert(session.misses[0] === 20, "second miss is stored once");
   session.recordGuessMiss();
   assert(session.misses.length === 1, "same position is not stored twice");
-  const noteAt = session.nextNoteIndex();
-  assert(noteAt === 126, `ear note is move index 126, got ${noteAt}`);
-  session.jumpTo(noteAt);
-  assert(session.cursor === 126 && session.guessTries === 0, "jump clears the guess count");
-  assert(session.nextMove().note.includes("耳赤"), "landed on the annotated move");
+  const earIndex = session.game.moves.findIndex((move) => move.note && move.note.includes("耳赤"));
+  assert(earIndex === 126, `ear note stays on move 127, index ${earIndex}`);
+  session.jumpTo(earIndex + 1);
+  assert(session.cursor === 127 && session.guessTries === 0, "jump clears the guess count");
+  assert(session.playedMove().note.includes("耳赤"), "the note belongs to the move just played");
+  assert(!session.nextMove()?.note?.includes("耳赤"), "the following move does not keep that note");
   session.jumpTo(9999);
   assert(session.cursor === session.total, "jump cannot pass the end");
   session.cursor = 0;
@@ -85,8 +86,18 @@ function testSideFollow() {
   assert(engine.toPlay === BLACK, "back to the learner");
 }
 
+function testStudyNotes() {
+  let noted = 0;
+  for (const game of KIFU) {
+    attachStudyNotes(game);
+    if (game.moves.some((move) => move.note && move.note.includes("提子"))) noted += 1;
+  }
+  assert(noted >= 80, `expected capture notes on most games, got ${noted}`);
+}
+
 testLibrary();
 testEarNoteAndGuess();
 testMissesAndNotes();
 testSideFollow();
+testStudyNotes();
 console.log(`All kifu tests passed (${KIFU.length} games).`);
