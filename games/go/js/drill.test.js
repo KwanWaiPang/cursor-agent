@@ -44,13 +44,14 @@ function playMain(problem) {
 function testCurriculumShape() {
   assert(TRACKS.length === 2, "two tracks");
   for (const track of TRACKS) {
-    assert(track.levels.length === 8, `${track.id} has ${track.levels.length} levels`);
+    assert(track.levels.length >= 8, `${track.id} has ${track.levels.length} levels`);
     for (const lv of track.levels) {
       const list = problemsOf(track.id, lv.level);
-      assert(list.length >= 20, `${track.id} L${lv.level} has ${list.length}`);
+      assert(list.length >= 6, `${track.id} L${lv.level} has ${list.length}`);
     }
   }
-  assert(PROBLEMS.length >= 320, `expected a larger set, got ${PROBLEMS.length}`);
+  assert(PROBLEMS.length > 320, `expected more problems after adding collections, got ${PROBLEMS.length}`);
+  assert(!PROBLEMS.some((problem) => problem.title.includes("换个角落")), "mirrored copies stay out");
 }
 
 function mainLineOf(problem) {
@@ -71,7 +72,8 @@ function testExplanationsAndBattles() {
     assert(problem.explain && problem.explain.includes("先"), `${problem.id} explain`);
     assert(problem.explain.includes("下一手"), `${problem.id} tells the next move`);
     assert(problem.lesson && problem.lesson.includes("手"), `${problem.id} lesson`);
-    assert(problem.prompt === problem.explain, `${problem.id} prompt`);
+    assert(!problem.prompt.includes("下一手"), `${problem.id} prompt stays a goal`);
+    assert(problem.explain.startsWith(problem.prompt), `${problem.id} explain extends the prompt`);
     const face = drillFaceText(problem.prompt);
     assert(face && !face.includes("下一手"), `${problem.id} face hides the next move`);
     assert(!/下在 [A-T]\d+/.test(face), `${problem.id} face has no coordinate`);
@@ -100,12 +102,12 @@ function testUnlock() {
     assert(track.levels.length >= 8, `${track.id} levels`);
     for (const lv of track.levels) {
       assert(isLevelUnlocked(track.id, lv.level, progress), `${track.id} L${lv.level} is free`);
-      assert(problemsOf(track.id, lv.level).length >= 20, `${track.id} L${lv.level} count`);
+      assert(problemsOf(track.id, lv.level).length >= 6, `${track.id} L${lv.level} count`);
     }
   }
   const session = new DrillSession({ solved: {} });
-  assert(session.setPlace("tactic", 8, 0), "can open the hardest level immediately");
-  assert(session.problem.level === 8, "landed on level 8");
+  assert(session.setPlace("tactic", 11, 0), "can open the last tactic level immediately");
+  assert(session.problem.level === 11, "landed on level 11");
 }
 
 function testRejectsWrongMove() {

@@ -11,7 +11,7 @@
  *
  * Modern copyrighted problem books are not included.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { GoEngine } from "../js/engine.js";
 
@@ -550,7 +550,7 @@ function lineLen(moves) {
   while (cur?.length) {
     n += 1;
     cur = cur[0].replies;
-    if (n > 80) break;
+    if (n > 48) return n;
   }
   return n;
 }
@@ -712,81 +712,78 @@ function classicalPrompt(p, kind) {
   return `${colorName(p.toPlay)}先。${kind}请走出谱上的主变化。解题或官子有时还有别的正着，本题对照这一谱。`;
 }
 
-function mapXY(x, y, size, kind) {
-  if (kind === "mx") return [size - 1 - x, y];
-  if (kind === "my") return [x, size - 1 - y];
-  if (kind === "r180") return [size - 1 - x, size - 1 - y];
+function symPoint(size, x, y, kind) {
+  if (kind === 1) return [size - 1 - x, y];
+  if (kind === 2) return [x, size - 1 - y];
+  if (kind === 3) return [size - 1 - x, size - 1 - y];
+  if (kind === 4) return [y, x];
+  if (kind === 5) return [size - 1 - y, x];
+  if (kind === 6) return [y, size - 1 - x];
+  if (kind === 7) return [size - 1 - y, size - 1 - x];
   return [x, y];
 }
 
-function mapMoves(moves, size, kind) {
-  return (moves || []).map((m) => {
-    const [x, y] = mapXY(m.x, m.y, size, kind);
-    return { ...m, x, y, replies: mapMoves(m.replies, size, kind) };
-  });
+function walkCanon(moves, size, kind) {
+  return (moves || [])
+    .map((move) => {
+      const [x, y] = symPoint(size, move.x, move.y, kind);
+      return `${move.color}:${x},${y}(${walkCanon(move.replies, size, kind)})`;
+    })
+    .join("|");
 }
 
-function transformProblem(src, kind, id, title) {
-  const size = src.size;
-  const mapList = (pts) => pts.map(([x, y]) => mapXY(x, y, size, kind));
-  const check = src.check
-    ? src.check.at
-      ? { ...src.check, at: mapXY(src.check.at[0], src.check.at[1], size, kind) }
-      : { ...src.check }
-    : undefined;
-  return {
-    ...src,
-    id,
-    title,
-    black: mapList(src.black),
-    white: mapList(src.white),
-    moves: mapMoves(src.moves, size, kind),
-    check,
-  };
+/** Same stones and solution after rotation or reflection count as one problem. */
+function canonKey(problem) {
+  const size = problem.size;
+  const keys = [];
+  for (let kind = 0; kind < 8; kind += 1) {
+    const stones = [
+      ...problem.black.map(([x, y]) => `b${symPoint(size, x, y, kind).join(",")}`),
+      ...problem.white.map(([x, y]) => `w${symPoint(size, x, y, kind).join(",")}`),
+    ]
+      .sort()
+      .join(";");
+    keys.push(`${size}|${problem.toPlay}|${stones}|${walkCanon(problem.moves, size, kind)}`);
+  }
+  keys.sort();
+  return keys[0];
 }
 
-function shapeKey(p) {
-  const stones = [
-    ...p.black.map(([x, y]) => `b${x},${y}`),
-    ...p.white.map(([x, y]) => `w${x},${y}`),
-  ].sort();
-  const m = p.moves[0];
-  return `${p.toPlay}|${stones.join(";")}|${m.x},${m.y}`;
-}
-
-function expandOriginals(list, want) {
+function dedupe(list, seen) {
   const out = [];
-  const seen = new Set();
-  for (const kind of ["id", "mx", "my", "r180"]) {
-    for (const src of list) {
-      const title = kind === "id" ? src.title : `${src.title} · 换个角落`;
-      const p = transformProblem(src, kind, `${src.id}-${kind}`, title);
-      const key = shapeKey(p);
-      if (seen.has(key)) continue;
-      try {
-        assertTree(p);
-      } catch {
-        continue;
-      }
-      seen.add(key);
-      out.push(p);
-      if (out.length >= want) return out;
-    }
+  for (const problem of list) {
+    const key = canonKey(problem);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(problem);
   }
   return out;
 }
 
-const PER_LEVEL = 20;
-let originals = [];
+function byLength(items) {
+  return items.slice().sort((a, b) => a.lineLen - b.lineLen || a.stones - b.stones || a.key.localeCompare(b.key));
+}
+
+function splitBands(items, bands) {
+  const sorted = byLength(items);
+  return bands.map((band, index) => {
+    const start = Math.floor((index * sorted.length) / bands.length);
+    const end = Math.floor(((index + 1) * sorted.length) / bands.length);
+    return { ...band, items: sorted.slice(start, end) };
+  });
+}
+
+const seenShape = new Set();
+const originals = [];
 for (const level of [1, 2, 3]) {
-  const batch = expandOriginals(
-    ORIGINALS.filter((p) => p.level === level),
-    PER_LEVEL
+  const batch = dedupe(
+    ORIGINALS.filter((problem) => problem.level === level),
+    seenShape
   );
-  originals = originals.concat(
-    batch.map((p, i) => ({
-      ...p,
-      id: `tactic-${level}-${String(i + 1).padStart(2, "0")}`,
+  originals.push(
+    ...batch.map((problem, index) => ({
+      ...problem,
+      id: `tactic-${level}-${String(index + 1).padStart(2, "0")}`,
     }))
   );
   console.log(`original L${level}: ${batch.length}`);
@@ -794,87 +791,80 @@ for (const level of [1, 2, 3]) {
 ORIGINALS.length = 0;
 ORIGINALS.push(...originals);
 
-const qjzm = loadBook("/tmp/go-sgf/qjzm-a.sgf.gz")
-  .map((t, i) => viable(problemFromTree(t), `qjzm-${i}`))
-  .filter(Boolean)
-  .map((p, i) => ({ ...p, key: `qjzm-${i}`, book: "qjzm", n: i + 1 }));
-const xxqj = loadBook("/tmp/go-sgf/xxqj.sgf.gz")
-  .map((t, i) => viable(problemFromTree(t), `xxqj-${i}`))
-  .filter(Boolean)
-  .map((p, i) => ({ ...p, key: `xxqj-${i}`, book: "xxqj", n: i + 1 }));
-const gzp = ["gzp1", "gzp2", "gzp3"]
-  .flatMap((name) =>
-    loadBook(`/tmp/go-sgf/${name}.sgf.gz`).map((t, i) => viable(problemFromTree(t), `${name}-${i}`))
-  )
-  .filter(Boolean)
-  .map((p, i) => ({ ...p, key: `gzp-${i}`, book: "gzp", n: i + 1 }));
-
-console.log(`viable qjzm ${qjzm.length} xxqj ${xxqj.length} gzp ${gzp.length}`);
-
-const N = PER_LEVEL;
-const usedQ = new Set();
-const t4 = take(qjzm, (p) => p.lineLen <= 3 && p.stones <= 18, N, usedQ);
-const t5 = take(qjzm, (p) => p.lineLen >= 3 && p.lineLen <= 7 && p.stones <= 26, N, usedQ);
-const t6 = take(qjzm, (p) => p.lineLen >= 6 && p.stones <= 42, N, usedQ);
-const usedX = new Set();
-const t7 = take(xxqj, (p) => p.lineLen >= 3 && p.lineLen <= 9 && p.stones <= 30, N, usedX);
-const t8 = take(xxqj, (p) => p.lineLen >= 8 && p.stones <= 46, N, usedX);
-for (const [name, bucket, pool, pred] of [
-  ["t4", t4, qjzm, (p) => p.lineLen <= 8 && p.stones <= 30],
-  ["t5", t5, qjzm, (p) => p.stones <= 40],
-  ["t6", t6, qjzm, () => true],
-  ["t7", t7, xxqj, (p) => p.lineLen <= 12 && p.stones <= 40],
-  ["t8", t8, xxqj, () => true],
-]) {
-  if (bucket.length < N) {
-    const used = name.startsWith("t7") || name.startsWith("t8") ? usedX : usedQ;
-    bucket.push(...take(pool, pred, N - bucket.length, used));
-  }
-  console.log(name, bucket.length);
+function tagPool(games, prefix) {
+  return games
+    .map((tree, index) => viable(problemFromTree(tree), `${prefix}-${index}`))
+    .filter((problem) => problem && problem.lineLen <= 40)
+    .map((problem, index) => ({ ...problem, key: `${prefix}-${index}`, n: index + 1 }));
 }
 
+const qjzm = dedupe(
+  tagPool(loadBook("/tmp/go-sgf/qjzm-a.sgf.gz"), "qjzm"),
+  seenShape
+);
+const xxqj = dedupe(tagPool(loadBook("/tmp/go-sgf/xxqj.sgf.gz"), "xxqj"), seenShape);
+const xuanlanDir = "/tmp/go-sgf/xuanlan";
+const xuanlanGames = readdirSync(xuanlanDir)
+  .filter((name) => name.endsWith(".sgf"))
+  .sort()
+  .flatMap((name) => parseSgf(readFileSync(`${xuanlanDir}/${name}`, "utf8")));
+const xuanlan = dedupe(tagPool(xuanlanGames, "xl"), seenShape);
+const gzp = ["gzp1", "gzp2", "gzp3"]
+  .flatMap((name) =>
+    loadBook(`/tmp/go-sgf/${name}.sgf.gz`).map((tree, index) => viable(problemFromTree(tree), `${name}-${index}`))
+  )
+  .filter(Boolean)
+  .map((problem, index) => ({ ...problem, key: `gzp-${index}`, book: "gzp", n: index + 1 }));
+
+console.log(`unique qjzm ${qjzm.length} xxqj ${xxqj.length} xuanlan ${xuanlan.length} gzp ${gzp.length}`);
+
+const qjzmBands = splitBands(qjzm, [
+  { level: 4, title: "入门", note: "古典棋题，适合从入门往上走。" },
+  { level: 5, title: "进阶", note: "这一级手数更长。" },
+  { level: 6, title: "深入", note: "这一级更接近实战里的复杂棋题。" },
+]);
+const xxqjBands = splitBands(xxqj, [
+  { level: 7, title: "入门", note: "玄玄棋经是高段棋题。" },
+  { level: 8, title: "进阶", note: "这一级手数更长。" },
+  { level: 9, title: "深入", note: "这一级更接近实战里的复杂棋题。" },
+  { level: 10, title: "长谱", note: "手数最长的一批玄玄棋经。" },
+]);
+const QJZM_SOURCE = "碁经众妙（1812，公有领域；正解谱来自 u-go.net / Flygo）";
+const XXQJ_SOURCE = "玄玄棋经（约 1349，公有领域；SGF：Jean-Pierre Vesinet）";
+const XUANLAN_SOURCE = "玄览（公有领域；谱面转录 Flygo / u-go.net）";
+
 const tacticClassical = [
-  ...decorate(
-    t4,
-    "tactic",
-    4,
-    (_p, i) => `碁经众妙 · 入门 ${i + 1}`,
-    (p) => classicalPrompt(p, "古典棋题，适合从入门往上走。"),
-    "碁经众妙（1812，公有领域；正解谱来自 u-go.net / Flygo）"
+  ...qjzmBands.flatMap((band) =>
+    decorate(
+      band.items,
+      "tactic",
+      band.level,
+      (_problem, index) => `碁经众妙 · ${band.title} ${index + 1}`,
+      (problem) => classicalPrompt(problem, band.note),
+      QJZM_SOURCE
+    )
+  ),
+  ...xxqjBands.flatMap((band) =>
+    decorate(
+      band.items,
+      "tactic",
+      band.level,
+      (_problem, index) => `玄玄棋经 · ${band.title} ${index + 1}`,
+      (problem) => classicalPrompt(problem, band.note),
+      XXQJ_SOURCE
+    )
   ),
   ...decorate(
-    t5,
+    xuanlan,
     "tactic",
-    5,
-    (_p, i) => `碁经众妙 · 进阶 ${i + 1}`,
-    (p) => classicalPrompt(p, "这一级手数更长。"),
-    "碁经众妙（1812，公有领域；正解谱来自 u-go.net / Flygo）"
-  ),
-  ...decorate(
-    t6,
-    "tactic",
-    6,
-    (_p, i) => `碁经众妙 · 深入 ${i + 1}`,
-    (p) => classicalPrompt(p, "这一级更接近实战里的复杂棋题。"),
-    "碁经众妙（1812，公有领域；正解谱来自 u-go.net / Flygo）"
-  ),
-  ...decorate(
-    t7,
-    "tactic",
-    7,
-    (_p, i) => `玄玄棋经 · 入门 ${i + 1}`,
-    (p) => classicalPrompt(p, "玄玄棋经是高段棋题。"),
-    "玄玄棋经（约 1349，公有领域；SGF：Jean-Pierre Vesinet）"
-  ),
-  ...decorate(
-    t8,
-    "tactic",
-    8,
-    (_p, i) => `玄玄棋经 · 深入 ${i + 1}`,
-    (p) => classicalPrompt(p, "手数更长的玄玄棋经。"),
-    "玄玄棋经（约 1349，公有领域；SGF：Jean-Pierre Vesinet）"
+    11,
+    (_problem, index) => `玄览 · ${index + 1}`,
+    (problem) => classicalPrompt(problem, "玄览是另一部古典棋题。"),
+    XUANLAN_SOURCE
   ),
 ];
+
+const N = 20;
 
 const usedG = new Set();
 const slices = [
@@ -925,7 +915,7 @@ const TRACKS = [
   {
     id: "tactic",
     name: "解题",
-    intro: "局部解题。每题都会说明下一手该下哪里、为什么。需要连续应手时，对方会落子，你再继续。等级可以随时切换。",
+    intro: "局部解题。同一棋形只收一题，不再把镜像当成新题。开局说明目标，坐标在「提示」里。需要连续应手时，对方会落子，你再继续。等级可以随时切换。",
     levels: [
       { level: 1, name: "一级 · 提子与逃气" },
       { level: 2, name: "二级 · 连接与双打" },
@@ -934,7 +924,10 @@ const TRACKS = [
       { level: 5, name: "五级 · 碁经众妙进阶" },
       { level: 6, name: "六级 · 碁经众妙深入" },
       { level: 7, name: "七级 · 玄玄棋经入门" },
-      { level: 8, name: "八级 · 玄玄棋经深入" },
+      { level: 8, name: "八级 · 玄玄棋经进阶" },
+      { level: 9, name: "九级 · 玄玄棋经深入" },
+      { level: 10, name: "十级 · 玄玄棋经长谱" },
+      { level: 11, name: "十一级 · 玄览" },
     ],
   },
   {
@@ -1140,7 +1133,8 @@ const body = `/**
  * - 碁经众妙 Gokyo Shumyo（Hayashi Genbi，1812）。u-go.net 的 qjzm-a 带正解，其余分册没有正解，未收录。
  * - 玄玄棋经 Xuanxuan Qijing（严德甫、晏天章，约 1349；SGF：Jean-Pierre Vesinet）
  * - 官子谱（公有领域；Flygo 转录，Ulrich Goertz 汇总于 u-go.net）
- * 未收录赵治勋、李昌镐等近代题集。发阳论等只有棋形、没有可核对正解的谱，也未收。
+ * - 玄览（公有领域；Flygo 转录，u-go.net 重排变化）
+ * 旋转或对称后相同的棋形只保留一题。未收录赵治勋、李昌镐等近代题集。发阳论等只有棋形、没有可核对正解的谱，也未收。
  */
 export const TRACKS = ${JSON.stringify(TRACKS, null, 2)};
 
