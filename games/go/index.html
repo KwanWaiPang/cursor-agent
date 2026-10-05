@@ -99,13 +99,12 @@
                   <option value="k10">十级 · 看附近</option>
                   <option value="k6" selected>六级 · 浅搜索</option>
                   <option value="k3">三级 · 吃子阅读</option>
-                  <option value="k1">一级 · 会看空</option>
-                  <option value="d1">初段 · 形势搜索</option>
-                  <option value="d2">二段 · 征子</option>
-                  <option value="d3">三段 · 长阅读</option>
-                  <option value="d4">四段 · 长考</option>
-                  <option value="d5">五段 · 最强</option>
-                  <option value="katago">KataGo · 浏览器模型</option>
+                  <option value="k1">一级 · 搜索最强</option>
+                  <option value="d1">初段 · 模型</option>
+                  <option value="d2">二段 · 模型</option>
+                  <option value="d3">三段 · 模型</option>
+                  <option value="d4">四段 · 模型</option>
+                  <option value="d5">五段 · 模型最强</option>
                 </select>
               </div>
             </div>
@@ -201,8 +200,8 @@
                 <li>禁止同形再现（含劫争）。</li>
                 <li>双方连续停着后进入点目，自动标记死子；也可点击棋子手动改。</li>
                 <li>计分采用中国规则：子空皆地，白贴目。</li>
-                <li>AI 共十二档，从二十五级到五段。低段随手；十级起搜索；三级会读吃子；初段起会估空，并判断征子。五段思考最久。</li>
-                <li>另有 KataGo 一档。它使用公开的小型神经网络，在浏览器里计算，第一次会下载约 4MB。这是 Web KaTrain 同一套浏览器引擎，不是最强的完整大模型。</li>
+                <li>AI 按棋力分成十二档。二十五级到一级用本地搜索：低段随手，十级起搜索，三级会读吃子，一级搜索最久。</li>
+                <li>初段到五段改用 KataGo 模型，引擎与 Web KaTrain 相同，在浏览器里计算。段位越高，模型搜索越多。第一次会下载约 4MB 的公开小模型，不是完整的大模型。</li>
                 <li>解题和官子各八级、每级 20 题。开局就说明目标、下一手和下这里的原因；需要连续应手时，对方会落子，你再继续。等级可以随时切换，不必解锁。</li>
                 <li>经典棋谱是 19 路全谱：当湖十局、唐宋与清代名局、秀策耳赤之局和御城棋、秀策番棋、道策和秀伯御城棋、丈和名局。可以按棋手或局名查找，再打谱、猜下一手，或执一方跟谱；下偏了就改由 AI 接着下。</li>
               </ul>

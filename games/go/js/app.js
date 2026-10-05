@@ -577,15 +577,19 @@ function refresh(msg, info = false) {
 }
 
 function applyDifficulty() {
-  if (els.difficultySelect.value !== "katago") ai.setDifficulty(els.difficultySelect.value || "k6");
+  const id = els.difficultySelect.value;
+  if (id && id !== "d1" && id !== "d2" && id !== "d3" && id !== "d4" && id !== "d5") {
+    ai.setDifficulty(id || "k6");
+  }
 }
 
 async function chooseAiMove() {
-  if (els.difficultySelect.value === "katago") {
+  const id = els.difficultySelect.value;
+  if (id === "d1" || id === "d2" || id === "d3" || id === "d4" || id === "d5") {
     const bridge = await import("./katago-bridge.js");
-    return bridge.kataChooseMove(engine, (text) => showMessage(text, true));
+    return bridge.kataChooseMove(engine, id, (text) => showMessage(text, true));
   }
-  ai.setDifficulty(els.difficultySelect.value || "k6");
+  ai.setDifficulty(id || "k6");
   return ai.chooseMove(engine);
 }
 

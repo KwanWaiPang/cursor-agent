@@ -35,7 +35,10 @@ export function ensureKataGo(): Promise<void> {
   return ready;
 }
 
-export async function chooseMove(position: KataPosition): Promise<{ type: "play"; x: number; y: number } | { type: "pass" }> {
+export async function chooseMove(
+  position: KataPosition,
+  settings: { visits?: number; maxTimeMs?: number; rootPolicyTemperature?: number } = {},
+): Promise<{ type: "play"; x: number; y: number } | { type: "pass" }> {
   await ensureKataGo();
   const analysis = await getKataGoEngineClient().analyze({
     analysisGroup: "interactive",
@@ -46,8 +49,9 @@ export async function chooseMove(position: KataPosition): Promise<{ type: "play"
     moveHistory: position.history,
     komi: position.komi,
     rules: "chinese",
-    visits: 16,
-    maxTimeMs: 8000,
+    visits: settings.visits ?? 16,
+    maxTimeMs: settings.maxTimeMs ?? 8000,
+    rootPolicyTemperature: settings.rootPolicyTemperature ?? 1,
     topK: 8,
     ownershipMode: "none",
     conservativePass: true,
