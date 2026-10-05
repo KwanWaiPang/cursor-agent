@@ -1,124 +1,240 @@
 /**
- * 浏览器端围棋 AI（支持 9 / 13 / 19 路）
- * - 初学 / 入门：启发式，故意留有漏洞
- * - 初级及以上：先验 + 限时 MCTS
- * - 中级及以上：吃子阅读（倒扑、叫吃）
- * - 大师 / 高段：再加征子判定与 RAVE
+ * 浏览器端围棋 AI（9 / 13 / 19 路，十二档）。
+ *
+ * 高档用的是经典围棋程序的几样东西，不是神经网络：
+ * - 形势：棋子向四周扩散的影响（Bouzy 那类稀释），用来估空和避免填自己的空
+ * - 搜索：限时蒙特卡洛 + RAVE（Pachi、Fuego 一类）
+ * - 局部：叫吃、提子、倒扑的短阅读，高档再加征子
+ *
+ * 低档故意少看形势、少搜索。旧档名 novice…dan 会映射到新档，避免旧调用失效。
  */
 
 import { BLACK, WHITE, opponent, GoEngine } from "./engine.js";
 
 /**
- * 难度配置
- * sims: MCTS 基准模拟次数（大棋盘会提高，并由 timeMs 封顶）
- * timeMs: 思考时间预算（毫秒）
- * readDepth: 吃子阅读深度；ladder: 是否判断征子
+ * judge: 形势判断的权重。0 几乎不看空，1 按影响估空。
+ * forceCapture: 局部阅读净赚多少子才强制下，而不把全局候选丢掉。
+ * sims / timeMs: 搜索次数和时间上限。大棋盘在 searchPlan 里再放宽。
  */
 const DIFFICULTY = {
-  novice: {
-    label: "初学",
-    noise: 0.82,
-    topN: 10,
+  k25: {
+    label: "二十五级",
+    noise: 0.85,
+    topN: 12,
     depth: 0,
     sims: 0,
-    priorTop: 16,
-    thinkMs: 60,
-    timeMs: { 9: 80, 13: 100, 19: 120 },
+    priorTop: 14,
+    thinkMs: 50,
+    timeMs: { 9: 70, 13: 90, 19: 120 },
+    readDepth: 0,
+    explore: 1.8,
+    policyDecay: 0.82,
+    judge: 0,
+    forceCapture: 6,
+  },
+  k20: {
+    label: "二十级",
+    noise: 0.48,
+    topN: 8,
+    depth: 0,
+    sims: 0,
+    priorTop: 18,
+    thinkMs: 70,
+    timeMs: { 9: 110, 13: 160, 19: 220 },
     readDepth: 0,
     explore: 1.7,
-    policyDecay: 0.7,
+    policyDecay: 0.72,
+    judge: 0.1,
+    forceCapture: 8,
   },
-  easy: {
-    label: "入门",
-    noise: 0.42,
-    topN: 6,
+  k15: {
+    label: "十五级",
+    noise: 0.22,
+    topN: 4,
     depth: 0,
     sims: 0,
-    priorTop: 24,
-    thinkMs: 100,
-    timeMs: { 9: 140, 13: 180, 19: 220 },
+    priorTop: 22,
+    thinkMs: 90,
+    timeMs: { 9: 180, 13: 260, 19: 400 },
     readDepth: 0,
     explore: 1.6,
-    policyDecay: 0.62,
+    policyDecay: 0.64,
+    judge: 0.28,
+    forceCapture: 8,
   },
-  medium: {
-    label: "初级",
+  k10: {
+    label: "十级",
     noise: 0.08,
     topN: 2,
     depth: 1,
-    sims: 700,
-    priorTop: 28,
+    sims: 250,
+    priorTop: 26,
     thinkMs: 40,
-    timeMs: { 9: 800, 13: 1300, 19: 1800 },
-    readDepth: 0,
+    timeMs: { 9: 450, 13: 650, 19: 900 },
+    readDepth: 2,
+    readNodes: 400,
     explore: 1.5,
-    raveK: 250,
-    policyDecay: 0.5,
+    raveK: 200,
+    policyDecay: 0.55,
+    judge: 0.45,
+    forceCapture: 8,
   },
-  hard: {
-    label: "中级",
-    noise: 0.02,
+  k6: {
+    label: "六级",
+    noise: 0.03,
+    topN: 1,
+    depth: 1,
+    sims: 900,
+    priorTop: 32,
+    thinkMs: 30,
+    timeMs: { 9: 900, 13: 1400, 19: 2000 },
+    readDepth: 3,
+    readNodes: 700,
+    explore: 1.4,
+    raveK: 350,
+    policyDecay: 0.48,
+    judge: 0.62,
+    forceCapture: 10,
+  },
+  k3: {
+    label: "三级",
+    noise: 0,
     topN: 1,
     depth: 1,
     sims: 1800,
-    priorTop: 36,
-    thinkMs: 30,
-    timeMs: { 9: 1600, 13: 2600, 19: 3800 },
-    readDepth: 3,
-    readNodes: 700,
-    explore: 1.35,
-    raveK: 450,
-    policyDecay: 0.42,
+    priorTop: 38,
+    thinkMs: 20,
+    timeMs: { 9: 1500, 13: 2400, 19: 3400 },
+    readDepth: 4,
+    readNodes: 1000,
+    explore: 1.28,
+    raveK: 500,
+    policyDecay: 0.4,
+    judge: 0.78,
+    forceCapture: 12,
   },
-  expert: {
-    label: "高级",
+  k1: {
+    label: "一级",
     noise: 0,
     topN: 1,
     depth: 2,
-    sims: 3600,
+    sims: 3000,
     priorTop: 44,
     thinkMs: 20,
-    timeMs: { 9: 2800, 13: 4500, 19: 6500 },
+    timeMs: { 9: 2200, 13: 3500, 19: 5000 },
     readDepth: 4,
-    readNodes: 1100,
-    explore: 1.2,
+    readNodes: 1300,
+    explore: 1.16,
     raveK: 700,
-    policyDecay: 0.36,
+    policyDecay: 0.34,
+    judge: 0.9,
+    forceCapture: 16,
   },
-  master: {
-    label: "大师",
+  d1: {
+    label: "初段",
     noise: 0,
     topN: 1,
     depth: 2,
-    sims: 5200,
-    priorTop: 52,
+    sims: 4200,
+    priorTop: 50,
     thinkMs: 20,
-    timeMs: { 9: 3800, 13: 5800, 19: 8000 },
+    timeMs: { 9: 2800, 13: 4500, 19: 6500 },
     readDepth: 5,
     readNodes: 1600,
     ladder: true,
-    explore: 1.08,
-    raveK: 950,
-    policyDecay: 0.3,
-    visitRatio: 0.82,
+    explore: 1.05,
+    raveK: 900,
+    policyDecay: 0.28,
+    judge: 1,
+    forceCapture: 20,
+    visitRatio: 0.88,
   },
-  dan: {
-    label: "高段",
+  d2: {
+    label: "二段",
+    noise: 0,
+    topN: 1,
+    depth: 2,
+    sims: 5600,
+    priorTop: 54,
+    thinkMs: 20,
+    timeMs: { 9: 3400, 13: 5400, 19: 8000 },
+    readDepth: 5,
+    readNodes: 1900,
+    ladder: true,
+    explore: 0.98,
+    raveK: 1100,
+    policyDecay: 0.24,
+    judge: 1,
+    forceCapture: 24,
+    visitRatio: 0.84,
+  },
+  d3: {
+    label: "三段",
     noise: 0,
     topN: 1,
     depth: 2,
     sims: 7000,
-    priorTop: 60,
+    priorTop: 58,
     thinkMs: 20,
-    timeMs: { 9: 4800, 13: 7200, 19: 9800 },
+    timeMs: { 9: 4000, 13: 6400, 19: 9500 },
     readDepth: 6,
-    readNodes: 2400,
+    readNodes: 2200,
     ladder: true,
-    explore: 0.95,
+    explore: 0.92,
     raveK: 1300,
-    policyDecay: 0.24,
-    visitRatio: 0.75,
+    policyDecay: 0.2,
+    judge: 1,
+    forceCapture: 28,
+    visitRatio: 0.8,
   },
+  d4: {
+    label: "四段",
+    noise: 0,
+    topN: 1,
+    depth: 2,
+    sims: 8600,
+    priorTop: 62,
+    thinkMs: 20,
+    timeMs: { 9: 4800, 13: 7800, 19: 11500 },
+    readDepth: 6,
+    readNodes: 2600,
+    ladder: true,
+    explore: 0.86,
+    raveK: 1500,
+    policyDecay: 0.16,
+    judge: 1,
+    forceCapture: 32,
+    visitRatio: 0.76,
+  },
+  d5: {
+    label: "五段",
+    noise: 0,
+    topN: 1,
+    depth: 2,
+    sims: 10500,
+    priorTop: 68,
+    thinkMs: 20,
+    timeMs: { 9: 5600, 13: 9000, 19: 14000 },
+    readDepth: 7,
+    readNodes: 3200,
+    ladder: true,
+    explore: 0.8,
+    raveK: 1800,
+    policyDecay: 0.12,
+    judge: 1,
+    forceCapture: 36,
+    visitRatio: 0.7,
+  },
+};
+
+const ALIAS = {
+  novice: "k25",
+  easy: "k20",
+  medium: "k6",
+  hard: "k3",
+  expert: "k1",
+  master: "d2",
+  dan: "d5",
 };
 
 function keyOf(x, y) {
@@ -184,9 +300,73 @@ export class GoAI {
   }
 
   setDifficulty(difficulty) {
-    this.difficulty = DIFFICULTY[difficulty] ? difficulty : "medium";
+    const id = ALIAS[difficulty] || difficulty;
+    this.difficulty = DIFFICULTY[id] ? id : "k6";
     const base = DIFFICULTY[this.difficulty];
     this.cfg = { ...base, timeMs: { ...base.timeMs } };
+  }
+
+  /** 当前局面的影响图。正数偏黑，负数偏白。只对这一盘棋盘有效。 */
+  prepareJudge(engine) {
+    this._inf = null;
+    this._infBoard = null;
+    if ((this.cfg.judge || 0) <= 0) return;
+    this._inf = this.buildInfluence(engine.board, engine.size);
+    this._infBoard = engine.board;
+  }
+
+  buildInfluence(board, size) {
+    const n = size * size;
+    let cur = new Float32Array(n);
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        const c = board[y][x];
+        if (c === BLACK) cur[y * size + x] = 1;
+        else if (c === WHITE) cur[y * size + x] = -1;
+      }
+    }
+    const dirs = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ];
+    for (let step = 0; step < 4; step += 1) {
+      const next = new Float32Array(n);
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          const i = y * size + x;
+          let sum = cur[i] * 2;
+          let deg = 2;
+          for (const [dx, dy] of dirs) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+            sum += cur[ny * size + nx];
+            deg += 1;
+          }
+          next[i] = sum / deg;
+        }
+      }
+      cur = next;
+    }
+    return cur;
+  }
+
+  nearestStone(board, x, y, color, max) {
+    const size = board.length;
+    for (let r = 1; r <= max; r += 1) {
+      for (let dy = -r; dy <= r; dy += 1) {
+        for (let dx = -r; dx <= r; dx += 1) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          if (board[ny][nx] === color) return r;
+        }
+      }
+    }
+    return max + 1;
   }
 
   sizeKey(size) {
@@ -231,7 +411,14 @@ export class GoAI {
     const started = performance.now();
     const color = engine.toPlay;
     const plan = this.searchPlan(engine.size);
+    this.prepareJudge(engine);
     await sleep(0);
+
+    const safe = this.safeCapture(engine, color);
+    if (safe) {
+      await this.ensureThinkTime(started, Math.min(180, plan.timeMs));
+      return safe;
+    }
 
     if (this.cfg.readDepth) {
       const forced = this.tacticalPick(engine, color);
@@ -251,12 +438,12 @@ export class GoAI {
     const urgents = this.findUrgentMoves(engine, color);
     const captures = urgents.filter((u) => u.urgent >= 40);
 
-    // 必提优先；逃气则与全局候选混合（大棋盘尤其需要）
+    // 低档看见叫吃就只顾提子。高档把提子放进全局候选，靠形势决定要不要弃子。
     let seedMoves;
-    if (captures.length) {
+    const global = this.collectCandidates(engine, plan.candLimit);
+    if (captures.length && (this.cfg.judge || 0) < 0.75) {
       seedMoves = captures;
     } else {
-      const global = this.collectCandidates(engine, plan.candLimit);
       seedMoves = [...urgents, ...global];
     }
 
@@ -309,7 +496,8 @@ export class GoAI {
       const trial = engine.tryPlay(x, y, color);
       if (!trial.ok) continue;
       let score = this.evaluateMove(engine, x, y, color, trial);
-      if (this.cfg.depth >= 1) {
+      // 有蒙特卡洛时，应手交给搜索。这里再对每个候选做一遍应手会把时间预算吃掉。
+      if (this.cfg.depth >= 1 && !this.cfg.sims) {
         const oppBest = this.bestOpponentReply(engine, trial, color, x, y);
         score -= (this.cfg.depth >= 2 ? 1.05 : 0.92) * oppBest;
       }
@@ -742,6 +930,24 @@ export class GoAI {
     }
     if (ownN === 4 && trial.captured.length === 0) score -= 30;
 
+    const judge = this.cfg.judge || 0;
+    if (judge > 0 && this._inf && before === this._infBoard) {
+      const raw = this._inf[y * size + x];
+      const ownInf = color === BLACK ? raw : -raw;
+      if (trial.captured.length === 0 && ownInf > 0.2) {
+        score -= (5 + 12 * ownInf) * judge;
+      }
+      if (ownInf < -0.1) {
+        score += (stones < openingHorizon ? 4.4 : 2.6) * Math.min(1.3, -ownInf) * judge;
+      }
+      const edgeDist = Math.min(x, y, size - 1 - x, size - 1 - y);
+      if (edgeDist >= 2 && edgeDist <= 3 && stones < openingHorizon * 1.5) {
+        const dOwn = this.nearestStone(before, x, y, color, 5);
+        const dOpp = this.nearestStone(before, x, y, opp, 5);
+        if (dOwn >= 3 && dOwn <= 4 && dOpp >= 3) score += 3.1 * judge;
+      }
+    }
+
     // 连通己方、贴紧对方（分断/靠压）
     score += ownN * 0.7;
     score += oppN * 0.45;
@@ -897,6 +1103,37 @@ export class GoAI {
     return best;
   }
 
+  /**
+   * 对方只剩一口气，而且提完自己至少还有两气。
+   * 这不是送吃，也不是劫材，直接提掉。
+   */
+  safeCapture(engine, color) {
+    const opp = opponent(color);
+    const seen = new Set();
+    let best = null;
+    let bestN = 0;
+    for (let y = 0; y < engine.size; y += 1) {
+      for (let x = 0; x < engine.size; x += 1) {
+        if (engine.board[y][x] !== opp) continue;
+        const k0 = keyOf(x, y);
+        if (seen.has(k0)) continue;
+        const group = engine.getGroup(x, y);
+        for (const [sx, sy] of group.stones) seen.add(keyOf(sx, sy));
+        if (group.liberties.size !== 1) continue;
+        const [lx, ly] = [...group.liberties][0].split(",").map(Number);
+        const trial = engine.tryPlay(lx, ly, color);
+        if (!trial.ok || trial.captured.length < 1) continue;
+        const libs = engine.getGroup(lx, ly, trial.board).liberties.size;
+        if (libs < 2) continue;
+        if (trial.captured.length > bestN) {
+          bestN = trial.captured.length;
+          best = { type: "play", x: lx, y: ly, score: 80 + trial.captured.length * 8 };
+        }
+      }
+    }
+    return best;
+  }
+
   /** 只在叫吃、提子、逃气里做短阅读，用来发现倒扑和净吃。 */
   tacticalMoves(engine, color) {
     const out = [];
@@ -935,7 +1172,8 @@ export class GoAI {
       }
       if (budget.n > budget.max) break;
     }
-    if (!best || bestVal < 10) return null;
+    const need = this.cfg.forceCapture ?? 10;
+    if (!best || bestVal < need) return null;
     return best;
   }
 
@@ -1045,7 +1283,9 @@ export class GoAI {
       m.prior = Math.exp(((m.prior ?? m.score) - maxP) / 3.5);
     }
 
-    const playoutLen = engine.size >= 19 ? 36 : engine.size >= 13 ? 48 : 64;
+    const strong = (this.cfg.judge || 0) >= 0.85;
+    const playoutLen =
+      engine.size >= 19 ? (strong ? 16 : 36) : engine.size >= 13 ? (strong ? 24 : 48) : strong ? 32 : 64;
     const childPrior = engine.size >= 19 ? 16 : 22;
 
     for (let i = 0; i < sims; i++) {
@@ -1238,32 +1478,54 @@ export class GoAI {
 
   policyMove(engine) {
     const color = engine.toPlay;
-    const urgents = this.findUrgentMoves(engine, color);
-    const captures = urgents.filter((u) => u.urgent >= 40);
-    const pool = captures.length
-      ? captures
-      : urgents.length
-        ? urgents
-        : [
-            ...this.findLibertyTargets(engine, 2),
-            ...this.collectCandidates(engine, engine.size >= 19 ? 24 : 20),
-          ];
-    const legal = [];
+    const opp = opponent(color);
+    const board = engine.board;
+    const pool = [];
     const seen = new Set();
-    for (const m of pool) {
-      const x = m.x ?? m[0];
-      const y = m.y ?? m[1];
+    const add = (x, y, urgent = 0) => {
+      if (!engine.inBounds(x, y) || board[y][x]) return;
       const k = keyOf(x, y);
-      if (seen.has(k)) continue;
+      if (seen.has(k)) return;
       seen.add(k);
+      pool.push({ x, y, urgent });
+    };
+    if (engine.lastMove && !engine.lastMove.pass) {
+      const { x, y } = engine.lastMove;
+      for (let dy = -2; dy <= 2; dy += 1) {
+        for (let dx = -2; dx <= 2; dx += 1) add(x + dx, y + dy);
+      }
+    }
+    for (const u of this.findLibertyTargets(engine, 1)) add(u.x, u.y, 40);
+    if (pool.length < 6) {
+      for (let i = 0; i < 10; i += 1) {
+        add(Math.floor(Math.random() * engine.size), Math.floor(Math.random() * engine.size));
+      }
+    }
+    const legal = [];
+    for (const m of pool) {
+      const x = m.x;
+      const y = m.y;
       const trial = engine.tryPlay(x, y, color);
       if (!trial.ok) continue;
       let s = trial.captured.length * 14 + (m.urgent || 0);
       const self = engine.getGroup(x, y, trial.board);
       s += Math.min(self.liberties.size, 5) * 1.2;
       if (self.liberties.size === 1) s -= 10;
-      // 快速叫吃分
-      const opp = opponent(color);
+      if ((this.cfg.judge || 0) >= 0.6 && trial.captured.length === 0) {
+        let ownR = 0;
+        let oppR = 0;
+        for (let dy = -2; dy <= 2; dy += 1) {
+          for (let dx = -2; dx <= 2; dx += 1) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (!engine.inBounds(nx, ny)) continue;
+            if (engine.board[ny][nx] === color) ownR += 1;
+            else if (engine.board[ny][nx] === opp) oppR += 1;
+          }
+        }
+        if (ownR >= 6 && oppR === 0) s -= 14;
+        else if (oppR >= 2 && ownR <= 2) s += 3;
+      }
       for (const [nx, ny] of engine.neighbors(x, y)) {
         if (trial.board[ny][nx] !== opp) continue;
         const g = engine.getGroup(nx, ny, trial.board);
@@ -1291,49 +1553,69 @@ export class GoAI {
     const size = engine.size;
     let black = engine.captures[BLACK];
     let white = engine.captures[WHITE] + engine.komi;
+    const useInf = (this.cfg.judge || 0) >= 0.45;
 
-    const visited = Array.from({ length: size }, () =>
-      Array(size).fill(false)
-    );
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        if (board[y][x] === BLACK) black += 1;
-        else if (board[y][x] === WHITE) white += 1;
-      }
-    }
-
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        if (board[y][x] !== 0 || visited[y][x]) continue;
-        const q = [[x, y]];
-        const cells = [];
-        const border = new Set();
-        visited[y][x] = true;
-        while (q.length) {
-          const [cx, cy] = q.pop();
-          cells.push([cx, cy]);
-          for (const [nx, ny] of engine.neighbors(cx, cy)) {
-            const v = board[ny][nx];
-            if (v === 0) {
-              if (!visited[ny][nx]) {
-                visited[ny][nx] = true;
-                q.push([nx, ny]);
-              }
-            } else border.add(v);
+    if (useInf) {
+      const inf = this.buildInfluence(board, size);
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          const v = board[y][x];
+          if (v === BLACK) black += 1;
+          else if (v === WHITE) white += 1;
+          else {
+            const influence = inf[y * size + x];
+            const edge = Math.min(x, y, size - 1 - x, size - 1 - y);
+            const edgeWeight = edge <= 1 ? 1 : edge === 2 ? 0.85 : edge === 3 ? 0.6 : edge === 4 ? 0.35 : 0.12;
+            if (influence > 0.08) black += edgeWeight * Math.min(1, (influence - 0.08) / 0.45);
+            else if (influence < -0.08) white += edgeWeight * Math.min(1, (-influence - 0.08) / 0.45);
           }
         }
-        if (border.size === 1) {
-          if ([...border][0] === BLACK) black += cells.length;
-          else white += cells.length;
+      }
+    } else {
+      const visited = Array.from({ length: size }, () => Array(size).fill(false));
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          if (board[y][x] === BLACK) black += 1;
+          else if (board[y][x] === WHITE) white += 1;
+        }
+      }
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          if (board[y][x] !== 0 || visited[y][x]) continue;
+          const q = [[x, y]];
+          const cells = [];
+          const border = new Set();
+          visited[y][x] = true;
+          while (q.length) {
+            const [cx, cy] = q.pop();
+            cells.push([cx, cy]);
+            for (const [nx, ny] of engine.neighbors(cx, cy)) {
+              const v = board[ny][nx];
+              if (v === 0) {
+                if (!visited[ny][nx]) {
+                  visited[ny][nx] = true;
+                  q.push([nx, ny]);
+                }
+              } else border.add(v);
+            }
+          }
+          if (border.size === 1) {
+            if ([...border][0] === BLACK) black += cells.length;
+            else white += cells.length;
+          }
         }
       }
     }
 
     const rootScore = rootColor === BLACK ? black : white;
     const other = rootColor === BLACK ? white : black;
-    if (rootScore > other) return 1;
-    if (rootScore < other) return 0;
-    return 0.5;
+    if (!useInf) {
+      if (rootScore > other) return 1;
+      if (rootScore < other) return 0;
+      return 0.5;
+    }
+    const diff = rootScore - other;
+    return 0.5 + Math.max(-0.48, Math.min(0.48, diff / (size * size * 0.35)));
   }
 }
 

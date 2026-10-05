@@ -5,6 +5,16 @@ function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
 
+async function testOpeningStaysNearTheCorner() {
+  const g = new GoEngine(9, 7.5);
+  const ai = new GoAI("d5");
+  ai.cfg.timeMs = { 9: 180, 13: 180, 19: 180 };
+  ai.cfg.sims = 120;
+  const move = await ai.chooseMove(g);
+  const edge = Math.min(move.x, move.y, 8 - move.x, 8 - move.y);
+  assert(move.type === "play" && edge <= 3, `opening should be near a corner, got ${move.x},${move.y}`);
+}
+
 async function testOpeningMove() {
   for (const size of [9, 13, 19]) {
     const g = new GoEngine(size, 7.5);
@@ -28,7 +38,7 @@ async function testCapturePreference() {
     g.toPlay = BLACK;
     g.positionHistory = [g.serialize()];
 
-    for (const diff of ["medium", "hard", "expert", "master", "dan"]) {
+    for (const diff of ["k10", "k6", "k1", "d1", "d5", "medium", "dan"]) {
       const ai = new GoAI(diff);
       ai.cfg.thinkMs = 0;
       ai.cfg.timeMs = { 9: 50, 13: 50, 19: 50 };
@@ -70,22 +80,56 @@ async function testReplyAfterHuman() {
 }
 
 async function testDifficultiesExist() {
-  for (const id of ["novice", "easy", "medium", "hard", "expert", "master", "dan"]) {
-    assert(AI_DIFFICULTIES.includes(id), id);
-  }
-  const order = ["novice", "easy", "medium", "hard", "expert", "master", "dan"];
+  const order = ["k25", "k20", "k15", "k10", "k6", "k3", "k1", "d1", "d2", "d3", "d4", "d5"];
+  assert(AI_DIFFICULTIES.length === order.length, `expected 12 levels, got ${AI_DIFFICULTIES.length}`);
+  for (const id of order) assert(AI_DIFFICULTIES.includes(id), id);
   for (let i = 1; i < order.length; i += 1) {
     const prev = new GoAI(order[i - 1]);
     const cur = new GoAI(order[i]);
     assert(cur.cfg.sims >= prev.cfg.sims, `${order[i]} sims >= ${order[i - 1]}`);
+    assert(cur.cfg.judge >= prev.cfg.judge, `${order[i]} judges at least as much`);
     assert(
       cur.searchPlan(19).timeMs >= prev.searchPlan(19).timeMs,
       `${order[i]} thinks at least as long on 19`
     );
   }
-  assert(new GoAI("dan").cfg.ladder, "dan reads ladders");
-  assert(new GoAI("hard").cfg.readDepth >= 3, "hard reads captures");
-  assert(!new GoAI("easy").cfg.readDepth, "easy does not deep-read");
+  assert(new GoAI("dan").difficulty === "d5", "old dan maps to 五段");
+  assert(new GoAI("novice").difficulty === "k25", "old novice maps to 二十五级");
+  assert(new GoAI("d5").cfg.ladder, "五段 reads ladders");
+  assert(new GoAI("k3").cfg.readDepth >= 3, "三级 reads captures");
+  assert(!new GoAI("k20").cfg.readDepth, "二十级 does not deep-read");
+  assert(new GoAI("d5").cfg.judge > new GoAI("k25").cfg.judge, "五段 uses influence");
+}
+
+function testInfluenceAvoidsOwnEmpty() {
+  const g = new GoEngine(9, 7.5);
+  for (const [x, y] of [
+    [1, 1],
+    [1, 2],
+    [1, 3],
+    [2, 1],
+    [3, 1],
+    [3, 2],
+    [3, 3],
+    [2, 3],
+  ]) {
+    g.board[y][x] = BLACK;
+  }
+  g.toPlay = BLACK;
+  g.positionHistory = [g.serialize()];
+  const strong = new GoAI("d5");
+  strong.prepareJudge(g);
+  const inside = g.tryPlay(2, 2, BLACK);
+  const outside = g.tryPlay(6, 6, BLACK);
+  assert(inside.ok && outside.ok, "both points legal");
+  const inScore = strong.evaluateMove(g, 2, 2, BLACK, inside);
+  const outScore = strong.evaluateMove(g, 6, 6, BLACK, outside);
+  assert(outScore > inScore + 4, `outside ${outScore} should beat filling ${inScore}`);
+  const weak = new GoAI("k25");
+  weak.prepareJudge(g);
+  const weakIn = weak.evaluateMove(g, 2, 2, BLACK, inside);
+  const weakOut = weak.evaluateMove(g, 6, 6, BLACK, outside);
+  assert(outScore - inScore > weakOut - weakIn, "五段 cares more about empty space than 二十五级");
 }
 
 async function testLadderAndTactics() {
@@ -107,7 +151,7 @@ async function testLadderAndTactics() {
   chase.board[5][5] = BLACK;
   chase.toPlay = BLACK;
   chase.positionHistory = [chase.serialize()];
-  const reader = new GoAI("hard");
+  const reader = new GoAI("k3");
   reader.cfg.timeMs = { 9: 30, 13: 30, 19: 30 };
   reader.cfg.sims = 0;
   const move = await reader.chooseMove(chase);
@@ -115,8 +159,10 @@ async function testLadderAndTactics() {
 }
 
 await testDifficultiesExist();
+testInfluenceAvoidsOwnEmpty();
 await testFusekiSupportsLargeBoards();
 await testOpeningMove();
+await testOpeningStaysNearTheCorner();
 await testCapturePreference();
 await testReplyAfterHuman();
 await testLadderAndTactics();
