@@ -515,27 +515,19 @@ function draw() {
       for (let x = x0; x <= x1; x += 1) {
         if (engine.board[y][x]) continue;
         const value = teachOverlay.territory[y]?.[x] || 0;
-        if (Math.abs(value) < 0.22) continue;
+        if (Math.abs(value) < 0.62) continue;
         const p = pointToXY(x, y, m);
-        const alpha = 0.1 + Math.min(0.28, Math.abs(value) * 0.3);
+        const alpha = 0.035 + Math.min(0.06, Math.abs(value) * 0.04);
         ctx.fillStyle = value > 0 ? `rgba(42, 32, 24, ${alpha})` : `rgba(70, 118, 150, ${alpha})`;
-        const half = grid * 0.34;
+        const half = grid * 0.2;
         ctx.fillRect(p.sx - half, p.sy - half, half * 2, half * 2);
       }
     }
   }
-  if (teachOverlay?.candidates) {
-    for (const cand of teachOverlay.candidates) {
-        if (!cand || (teachOverlay.best && cand.x === teachOverlay.best.x && cand.y === teachOverlay.best.y)) continue;
-      if (engine.board[cand.y]?.[cand.x]) continue;
-      const p = pointToXY(cand.x, cand.y, m);
-      ctx.beginPath();
-      ctx.fillStyle = "rgba(156, 92, 42, 0.85)";
-      ctx.arc(p.sx, p.sy, Math.max(3, r * 0.16), 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ring(teachOverlay?.best, "#c45c26");
+  const recordNext = isKifu() && kifu?.mode === "replay" && !kifu.deviated ? kifu.nextMove() : null;
+  const hinted = teachOverlay?.best;
+  const sameAsRecord = recordNext && hinted && !recordNext.pass && recordNext.x === hinted.x && recordNext.y === hinted.y;
+  if (!sameAsRecord) ring(hinted, "#c45c26");
 
   ring(drillHint, "#0f5c4c");
   ring(drillFlash, "#8b2e2e");
@@ -639,8 +631,18 @@ function refresh(msg, info = false) {
   if (msg !== undefined) showMessage(msg, info);
 }
 
+function danSelected() {
+  return /^d[1-5]$/.test(els.difficultySelect?.value || "");
+}
+
+function clearTeachDisplay() {
+  teachOverlay = null;
+  teachArmed = null;
+  if (els.teachNote) els.teachNote.textContent = "";
+}
+
 function teachOn() {
-  return Boolean(els.teachToggle?.checked) && !isDrill();
+  return Boolean(els.teachToggle?.checked) && danSelected() && !isDrill();
 }
 
 function teachKey() {
@@ -1154,8 +1156,7 @@ function syncKifuStudyNote() {
 
 function stepKifu(dir) {
   if (!kifu || kifuAiThinking) return;
-  teachOverlay = null;
-  if (els.teachNote) els.teachNote.textContent = "";
+  clearTeachDisplay();
   kifuToken += 1;
   if (kifu.deviated) {
     if (dir < 0 && engine.undo().ok) {
@@ -1456,7 +1457,7 @@ els.btnResign.addEventListener("click", () => {
 });
 
 els.btnUndo.addEventListener("click", () => {
-  teachOverlay = null;
+  clearTeachDisplay();
   if (isKifu()) {
     stepKifu(-1);
     return;
@@ -1676,6 +1677,10 @@ for (const el of [
   els.difficultySelect,
 ]) {
   el.addEventListener("change", () => {
+    if (el === els.difficultySelect) {
+      if (!danSelected()) teachArmed = null;
+      else armTeach();
+    }
     if (isDrill() || isKifu()) {
       if (el === els.difficultySelect) {
         applyDifficulty();
@@ -1756,10 +1761,13 @@ els.teachToggle?.addEventListener("change", () => {
     /* private mode */
   }
   if (!els.teachToggle.checked) {
-    teachOverlay = null;
-    teachArmed = null;
-    if (els.teachNote) els.teachNote.textContent = "";
+    clearTeachDisplay();
     draw();
+    return;
+  }
+  if (!danSelected()) {
+    teachArmed = null;
+    if (els.teachNote) els.teachNote.textContent = "自动讲解从初段开始。低段对局请用棋谱里的「模型看上一手」。";
     return;
   }
   armTeach();

@@ -76,28 +76,22 @@ export function teachVerdict(review, played, size) {
   const lead = leadSentence(Number(review?.rootScoreLead) || 0);
   const bestName = best ? teachCoord(best.x, best.y, size) : "";
   const territory = Array.isArray(review?.territory) ? review.territory : [];
-  const alternatives = moves.filter((move) => !move.pass).slice(0, 3);
-  const overlay = { territory, best: null, candidates: [] };
+  const overlay = { territory: [], best: null, candidates: [] };
   const pointed = { best: best ? { x: best.x, y: best.y } : null, overlay };
   if (!moves.length) {
-    return { ...pointed, kind: "empty", loss: null, playedMatchesBest: false, text: `模型没有给出可下的点。${lead}` };
+    return { ...pointed, kind: "empty", loss: null, playedMatchesBest: false, text: "模型没有给出可下的点。" };
   }
   if (!hit) {
-    if (best) overlay.best = { x: best.x, y: best.y };
-    overlay.candidates = alternatives;
-    const priorIndex = played.pass ? size * size : played.y * size + played.x;
-    const prior = Number(review?.policy?.[priorIndex]);
-    const priorText = Number.isFinite(prior) && prior >= 0.02
-      ? `搜索没细看这手，它一开始大约有 ${Math.round(prior * 100)}% 的可能。`
-      : "这手不在模型看过的几手里。";
     return {
       ...pointed,
+      best: null,
       kind: "unseen",
       loss: null,
       playedMatchesBest: false,
-      text: `${priorText}${bestName ? `算过的点里更想下在 ${bestName}。` : ""}${lead}`,
+      text: "这次搜索没算到这手，先不下结论。",
     };
   }
+  overlay.territory = territory;
   const loss = Math.max(0, Number(hit.relativePointsLost) || 0);
   const samePoint = !played.pass && best && hit.x === best.x && hit.y === best.y;
   if (samePoint || loss < 0.5) {
@@ -112,7 +106,6 @@ export function teachVerdict(review, played, size) {
     };
   }
   if (best) overlay.best = { x: best.x, y: best.y };
-  overlay.candidates = alternatives;
   const action = played.pass ? "停着" : "这手";
   return {
     ...pointed,
