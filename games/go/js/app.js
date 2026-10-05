@@ -576,6 +576,19 @@ function refresh(msg, info = false) {
   if (msg !== undefined) showMessage(msg, info);
 }
 
+function applyDifficulty() {
+  if (els.difficultySelect.value !== "katago") ai.setDifficulty(els.difficultySelect.value || "k6");
+}
+
+async function chooseAiMove() {
+  if (els.difficultySelect.value === "katago") {
+    const bridge = await import("./katago-bridge.js");
+    return bridge.kataChooseMove(engine, (text) => showMessage(text, true));
+  }
+  ai.setDifficulty(els.difficultySelect.value || "k6");
+  return ai.chooseMove(engine);
+}
+
 async function maybeAiMove() {
   if (isDrill() || isKifu() || !isAiMode() || engine.phase !== "playing") return;
   if (engine.toPlay !== aiColor()) return;
@@ -586,8 +599,7 @@ async function maybeAiMove() {
   refresh("AI 思考中…", true);
 
   try {
-    ai.setDifficulty(els.difficultySelect.value);
-    const move = await ai.chooseMove(engine);
+    const move = await chooseAiMove();
     if (token !== aiToken) return;
     if (engine.phase !== "playing" || engine.toPlay !== aiColor()) return;
 
@@ -620,7 +632,8 @@ async function maybeAiMove() {
     refresh(cap ? `AI 落子，提子 ${cap}` : "AI 已落子", true);
   } catch (err) {
     console.error(err);
-    refresh("AI 出错，请悔棋或新开一局");
+    const detail = err instanceof Error ? err.message : "";
+    refresh(detail ? `AI 出错：${detail}` : "AI 出错，请悔棋或新开一局");
   } finally {
     if (token === aiToken) {
       aiThinking = false;
@@ -1066,8 +1079,7 @@ async function maybeKifuAi() {
   kifuAiThinking = true;
   refresh("AI 正在应你离开棋谱的那一手…", true);
   try {
-    ai.setDifficulty(els.difficultySelect.value);
-    const move = await ai.chooseMove(engine);
+    const move = await chooseAiMove();
     if (token !== kifuToken || !kifu?.deviated) return;
     if (move.type === "pass") engine.pass();
     else {
@@ -1122,7 +1134,7 @@ function newGame() {
   const size = Number(els.sizeSelect.value);
   const komi = Number(els.komiSelect.value);
   engine = new GoEngine(size, komi);
-  ai.setDifficulty(els.difficultySelect.value);
+  applyDifficulty();
   hover = null;
   syncAiOptionVisibility();
 
@@ -1392,7 +1404,7 @@ for (const el of [
   el.addEventListener("change", () => {
     if (isDrill() || isKifu()) {
       if (el === els.difficultySelect) {
-        ai.setDifficulty(els.difficultySelect.value);
+        applyDifficulty();
         showMessage("AI 强度已记下。棋谱对练里，只有离开谱之后才会用到。", true);
       }
       return;
@@ -1406,7 +1418,7 @@ for (const el of [
       Number(els.sizeSelect.value),
       Number(els.komiSelect.value)
     );
-    ai.setDifficulty(els.difficultySelect.value);
+    applyDifficulty();
     hover = null;
     refresh("设置已同步。人机对战请点击「开始新对局」。", true);
     resizeCanvas();

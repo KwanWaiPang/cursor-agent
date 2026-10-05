@@ -1,0 +1,316 @@
+import type { LegacyGameEncoding } from './utils/gameRecordImport';
+
+export type BoardSize = 9 | 13 | 19;
+export const DEFAULT_BOARD_SIZE: BoardSize = 19;
+export const KOMI = 6.5;
+
+export type Player = 'black' | 'white';
+export type Intersection = Player | null;
+export type BoardState = Intersection[][];
+export type GameRules =
+  | 'japanese'
+  | 'chinese'
+  | 'korean'
+  | 'aga'
+  | 'new-zealand'
+  | 'tromp-taylor'
+  | 'stone-scoring';
+export type KataGoBackendPreference = 'wasm' | 'webgpu' | 'cpu';
+export type FloatArray = Float32Array | number[];
+
+export interface Move {
+    x: number;
+    y: number;
+    player: Player;
+}
+
+export interface GameState {
+  board: BoardState;
+  currentPlayer: Player;
+  moveHistory: Move[]; // Path from root to this state
+  capturedBlack: number;
+  capturedWhite: number;
+  komi: number;
+}
+
+export interface CandidateMove {
+  x: number;
+  y: number;
+  winRate: number; // 0-1
+  winRateLost?: number; // positive = worse for side to play
+  scoreLead: number;
+  scoreSelfplay?: number;
+  scoreStdev?: number;
+  visits: number;
+  edgeVisits?: number; // KataGo edgeVisits: what the root paid for this move
+  noResultValue?: number; // KataGo noResultValue for this move's subtree
+  weight?: number; // total weight behind the child
+  edgeWeight?: number; // the share of it this edge bought
+  pointsLost: number; // relative to root eval (KaTrain-like)
+  relativePointsLost?: number; // relative to top move (KaTrain-like)
+  order: number; // 0 for best move
+  prior?: number; // policy prior probability (0..1)
+  pv?: string[]; // principal variation, GTP coords (e.g. ["D4","Q16",...])
+  pvVisits?: number[]; // visits behind each move of the pv (KataGo includePVVisits)
+  pvEdgeVisits?: number[]; // visits this line paid for; never rises along the pv
+  lcb?: number; // winrate-scale lower confidence bound, black perspective
+  utilityLcb?: number; // utility-scale lower confidence bound, black perspective
+  playSelectionValue?: number; // KataGo play selection weight, LCB adjusted
+  utility?: number; // KataGo utilityAvg for this child, black perspective
+  humanPrior?: number; // human SL policy for this move, when that net is loaded
+  ownership?: FloatArray; // optional per-move ownership (KaTrain includeMovesOwnership)
+}
+
+export interface AnalysisResult {
+  rootWinRate: number;
+  rootScoreLead: number;
+  rootScoreSelfplay?: number;
+  rootScoreStdev?: number;
+  rootVisits?: number;
+  // KataGo rootInfo's raw* fields: what the network said before any search.
+  rawWinRate?: number;
+  rawScoreLead?: number;
+  rawScoreSelfplay?: number;
+  rawScoreSelfplayStdev?: number;
+  rawNoResultProb?: number;
+  rawStWrError?: number;
+  rawStScoreError?: number;
+  rawVarTimeLeft?: number;
+  moves: CandidateMove[];
+  territory: number[][]; // boardSize x boardSize grid, values -1 (white) to 1 (black)
+  policy?: FloatArray; // len boardSize*boardSize + 1, illegal = -1, pass at last index
+  humanPolicy?: FloatArray; // same shape, from the human SL net (illegal = -1)
+  ownershipStdev?: FloatArray; // len boardSize*boardSize
+  ownershipMode?: 'none' | 'root' | 'tree';
+}
+
+export type RegionOfInterest = { xMin: number; xMax: number; yMin: number; yMax: number };
+
+export type EditTool =
+  | 'setup-black'
+  | 'setup-white'
+  | 'setup-alternate'
+  | 'setup-erase'
+  | 'marker-triangle'
+  | 'marker-square'
+  | 'marker-circle'
+  | 'marker-cross'
+  | 'label-alpha'
+  | 'label-number'
+  | 'marker-erase'
+  | 'markup-arrow'
+  | 'markup-line'
+  | 'draw-pen'
+  | 'draw-highlight'
+  | 'region-count'
+  | 'region-score';
+
+// Freehand strokes drawn over the board. Points are internal board units
+// (fractional intersections) so strokes survive resize and rotation.
+// Session-only: never serialized to SGF.
+export type BoardDrawingKind = 'pen' | 'highlight';
+export interface BoardDrawing {
+  kind: BoardDrawingKind;
+  points: Array<{ x: number; y: number }>;
+}
+
+export interface GameNode {
+  id: string;
+  parent: GameNode | null;
+  children: GameNode[];
+  move: Move | null;
+  gameState: GameState;
+  endState?: string | null; // KaTrain-like: e.g. "B+R" for resignation, applied at this node.
+  timeUsedSeconds?: number; // KaTrain-like: time used on this move (for timer/byo-yomi).
+  analysis?: AnalysisResult | null;
+  analysisVisitsRequested?: number; // KaTrain-like: requested visits for this node analysis.
+  autoUndo?: boolean | null; // Teach-mode auto-undo (KaTrain-like). null = not decided yet.
+  undoThreshold?: number; // Random [0,1) used for fractional auto-undos.
+  aiThoughts?: string;
+  note?: string; // User-editable note (SGF C), KaTrain-style.
+  properties?: Record<string, string[]>;
+  drawings?: BoardDrawing[]; // Freehand pen/highlight strokes, session-only.
+  collapsed?: boolean; // Move-tree branch collapsed at this node; view state, never saved to SGF.
+}
+
+export type BoardThemeId =
+  | 'bamboo'
+  | 'flat'
+  | 'dark'
+  | 'hikaru'
+  | 'shell-slate'
+  | 'yunzi'
+  | 'happy-stones'
+  | 'kifu'
+  | 'baduktv';
+
+export type ResolvedUiThemeId = 'noir' | 'kaya' | 'studio' | 'light';
+export type UiThemeId = ResolvedUiThemeId | 'system';
+export type UiDensityId = 'compact' | 'comfortable' | 'large';
+export type AnalysisExperience = 'coach' | 'pro';
+export type AppLocaleId = 'en' | 'zh' | 'zh-TW' | 'ko' | 'ja' | 'fr' | 'de' | 'es' | 'it' | 'uk' | 'ru' | 'pt' | 'vi';
+
+export interface GameSettings {
+  appLocale: AppLocaleId;
+  soundEnabled: boolean;
+  showCoordinates: boolean;
+  showMoveNumbers: boolean;
+  showBoardControls: boolean;
+  showAnalysisBar: boolean;
+  noteFontScale: number; // Font-size multiplier for the notes panel preview/editor (A- / A+).
+  fuzzyStonePlacement: boolean;
+  showNextMovePreview: boolean;
+  boardTheme: BoardThemeId;
+  uiTheme: UiThemeId;
+  uiDensity: UiDensityId;
+  analysisExperience: AnalysisExperience; // Coach explains decisions; Pro exposes full engine detail.
+  gamepadNavigation: boolean;
+  hapticFeedback: boolean;
+  defaultBoardSize: BoardSize;
+  defaultHandicap: number;
+  tsumegoFrameMargin: number; // KaTrain tsumego frame wall distance
+  tsumegoFrameKoAllowed: boolean; // KaTrain tsumego frame "ko allowed?"
+  setupPositionMove: number; // KaTrain game/setup_move
+  setupPositionAdvantage: number; // KaTrain game/setup_advantage (points, Black-positive)
+  timerSound: boolean; // KaTrain timer/sound
+  timerMainTimeMinutes: number; // KaTrain timer/main_time (minutes)
+  timerByoLengthSeconds: number; // KaTrain timer/byo_length (seconds)
+  timerByoPeriods: number; // KaTrain timer/byo_periods
+  timerMinimalUseSeconds: number; // KaTrain timer/minimal_use (seconds)
+  showLastNMistakes: number; // KaTrain-like eval dots: 0 disables, else show last N moves
+  mistakeThreshold: number; // Points lost to consider a mistake for navigation/highlights.
+  legacyGameEncoding: LegacyGameEncoding; // Character encoding for GIB / NGF imports.
+  loadSgfRewind: boolean; // KaTrain general/load_sgf_rewind
+  loadSgfFastAnalysis: boolean; // KaTrain general/load_fast_analysis
+  animPvTimeSeconds: number; // KaTrain general/anim_pv_time
+  animPvMoves: number; // KaTrain general/anim_pv_moves (0 shows the whole sequence at once)
+  gameRules: GameRules; // KataGo rules preset (KaTrain default: japanese)
+  trainerLowVisits: number; // KaTrain trainer/low_visits
+  trainerTheme: 'theme:normal' | 'theme:red-green-colourblind'; // KaTrain trainer/theme
+  trainerEvalThresholds: number[]; // KaTrain trainer/eval_thresholds
+  trainerShowDots: boolean[]; // KaTrain trainer/show_dots
+  trainerSaveFeedback: boolean[]; // KaTrain trainer/save_feedback
+  trainerEvalShowAi: boolean; // KaTrain trainer/eval_show_ai
+  trainerTopMovesShow:
+    | 'top_move_score'
+    | 'top_move_delta_score'
+    | 'top_move_winrate'
+    | 'top_move_delta_winrate'
+    | 'top_move_visits'
+    | 'top_move_nothing'; // KaTrain trainer/top_moves_show
+  trainerTopMovesShowSecondary:
+    | 'top_move_score'
+    | 'top_move_delta_score'
+    | 'top_move_winrate'
+    | 'top_move_delta_winrate'
+    | 'top_move_visits'
+    | 'top_move_nothing'; // KaTrain trainer/top_moves_show_secondary
+  trainerExtraPrecision: boolean; // KaTrain trainer/extra_precision
+  trainerSaveAnalysis: boolean; // KaTrain trainer/save_analysis
+  trainerSaveMarks: boolean; // KaTrain trainer/save_marks
+  trainerLockAi: boolean; // KaTrain trainer/lock_ai
+  analysisShowChildren: boolean; // Q
+  analysisShowEval: boolean; // W
+  analysisShowHints: boolean; // E
+  analysisShowPolicy: boolean; // R
+  analysisPolicyMetric: 'policy' | 'delta_score' | 'delta_winrate';
+  analysisShowOwnership: boolean; // T
+  /** Paint what the played move changed instead of who owns what. */
+  analysisShowSwing: boolean;
+  /**
+   * What the swing map holds the current position against: the move before it,
+   * or the engine's own move played out as a variation.
+   */
+  analysisSwingCompare: 'previous' | 'best';
+  katagoModelUrl: string;
+  katagoBackend: KataGoBackendPreference;
+  katagoVisits: number;
+  katagoFastVisits: number; // KaTrain fast_visits (used for initial/quick analysis)
+  katagoMaxTimeMs: number;
+  katagoBatchSize: number;
+  katagoMaxChildren: number;
+  katagoTopK: number;
+  katagoReuseTree: boolean;
+  katagoOwnershipMode: 'root' | 'tree';
+  katagoWideRootNoise: number; // KataGo/KaTrain wideRootNoise
+  katagoRootPolicyTemperature: number; // KataGo rootPolicyTemperature; > 1 widens the search
+  katagoAnalysisPvLen: number; // KataGo analysisPVLen (moves after the first)
+  katagoNnRandomize: boolean; // KataGo nnRandomize (random symmetries)
+  katagoConservativePass: boolean; // KataGo conservativePass (KaTrain default: true)
+  katagoFillDameBeforePass: boolean; // KataGo fillDameBeforePass, territory scoring only
+  // KataGo human SL net: predicts how a human of a given rank would play.
+  humanSlEnabled: boolean;
+  humanSlModelUrl: string;
+  humanSlProfile: string; // KataGo humanSLProfile, e.g. rank_5k / preaz_1d / proyear_1950
+  // Which of KataGo's two human-bot configs ai:human follows: 'imitate' plays the
+  // rank as it is (gtp_human5k_example.cfg), 'search' backs it with the search
+  // (gtp_human9d_search_example.cfg).
+  humanSlBotStyle: 'imitate' | 'search';
+  analysisPolicySource: 'engine' | 'human'; // which policy the R overlay draws
+  teachNumUndoPrompts: number[]; // KaTrain trainer/num_undo_prompts
+
+  aiStrategy:
+    | 'default'
+    | 'human' // KataGo human SL net: plays like the configured rank
+    | 'handicap'
+    | 'antimirror'
+    | 'rank'
+    | 'scoreloss'
+    | 'policy'
+    | 'weighted'
+    | 'pick'
+    | 'local'
+    | 'tenuki'
+    | 'territory'
+    | 'influence'
+    | 'jigo'
+    | 'simple'
+    | 'settle';
+  aiHandicapAutomatic: boolean; // KaTrain ai:handicap/automatic
+  aiHandicapPda: number; // KaTrain ai:handicap/pda (manual playoutDoublingAdvantage)
+  aiRankKyu: number; // KaTrain ai:p:rank/kyu_rank
+  aiScoreLossStrength: number; // KaTrain ai:scoreloss/strength
+  aiPolicyOpeningMoves: number; // KaTrain ai:policy/opening_moves
+  aiWeightedPickOverride: number; // KaTrain ai:p:weighted/pick_override
+  aiWeightedWeakenFac: number; // KaTrain ai:p:weighted/weaken_fac
+  aiWeightedLowerBound: number; // KaTrain ai:p:weighted/lower_bound
+
+  aiPickPickOverride: number; // KaTrain ai:p:pick/pick_override
+  aiPickPickN: number; // KaTrain ai:p:pick/pick_n
+  aiPickPickFrac: number; // KaTrain ai:p:pick/pick_frac
+
+  aiLocalPickOverride: number; // KaTrain ai:p:local/pick_override
+  aiLocalStddev: number; // KaTrain ai:p:local/stddev
+  aiLocalPickN: number; // KaTrain ai:p:local/pick_n
+  aiLocalPickFrac: number; // KaTrain ai:p:local/pick_frac
+  aiLocalEndgame: number; // KaTrain ai:p:local/endgame
+
+  aiTenukiPickOverride: number; // KaTrain ai:p:tenuki/pick_override
+  aiTenukiStddev: number; // KaTrain ai:p:tenuki/stddev
+  aiTenukiPickN: number; // KaTrain ai:p:tenuki/pick_n
+  aiTenukiPickFrac: number; // KaTrain ai:p:tenuki/pick_frac
+  aiTenukiEndgame: number; // KaTrain ai:p:tenuki/endgame
+
+  aiInfluencePickOverride: number; // KaTrain ai:p:influence/pick_override
+  aiInfluencePickN: number; // KaTrain ai:p:influence/pick_n
+  aiInfluencePickFrac: number; // KaTrain ai:p:influence/pick_frac
+  aiInfluenceThreshold: number; // KaTrain ai:p:influence/threshold
+  aiInfluenceLineWeight: number; // KaTrain ai:p:influence/line_weight
+  aiInfluenceEndgame: number; // KaTrain ai:p:influence/endgame
+
+  aiTerritoryPickOverride: number; // KaTrain ai:p:territory/pick_override
+  aiTerritoryPickN: number; // KaTrain ai:p:territory/pick_n
+  aiTerritoryPickFrac: number; // KaTrain ai:p:territory/pick_frac
+  aiTerritoryThreshold: number; // KaTrain ai:p:territory/threshold
+  aiTerritoryLineWeight: number; // KaTrain ai:p:territory/line_weight
+  aiTerritoryEndgame: number; // KaTrain ai:p:territory/endgame
+
+  aiJigoTargetScore: number; // KaTrain ai:jigo/target_score
+
+  aiOwnershipMaxPointsLost: number; // KaTrain ai:simple/max_points_lost
+  aiOwnershipSettledWeight: number; // KaTrain ai:simple/settled_weight
+  aiOwnershipOpponentFac: number; // KaTrain ai:simple/opponent_fac
+  aiOwnershipMinVisits: number; // KaTrain ai:simple/min_visits
+  aiOwnershipAttachPenalty: number; // KaTrain ai:simple/attach_penalty
+  aiOwnershipTenukiPenalty: number; // KaTrain ai:simple/tenuki_penalty
+}

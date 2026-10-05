@@ -19,7 +19,10 @@ The Game Hub aggregates several open-source games under a shared UI shell.
 
 ## 围棋 · Go（`games/go/`）
 
-- 对局引擎与 AI：本仓库原创 / Engine and AI: original to this repository
+- 对局引擎与分级 AI：本仓库原创 / Graded engine and AI: original to this repository
+- KataGo 浏览器档 / In-browser KataGo level:
+  - 引擎移植自 [Web KaTrain](https://github.com/Sir-Teo/web-katrain)（MIT），其中的神经网络前向与搜索来自 [KataGo](https://github.com/lightvector/KataGo)（MIT）
+  - 模型 `g170-b6c96-s175395328-d26788732`，KataGo 仓库公开的测试用小网络 / small public test network from the KataGo repository
 - 练习题一到三级：馆内原创 / Beginner drills: original
 - 古典解题与官子（公有领域）/ Classical problems, public domain:
   - 碁经众妙 Gokyo Shumyo（Hayashi Genbi，1812）。正解谱转录见 [u-go.net classical problems](https://www.u-go.net/classic/)（Ulrich Goertz；底稿来自 Flygo，经许可再分发）

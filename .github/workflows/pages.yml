@@ -44,6 +44,7 @@ jobs:
           node --experimental-default-type=module games/go/js/ai.test.js
           node --experimental-default-type=module games/go/js/drill.test.js
           node --experimental-default-type=module games/go/js/kifu.test.js
+          node --experimental-default-type=module games/go/js/katago-bridge.test.js
           node --experimental-default-type=module --test games/junqi/js/engine.test.js
           node --experimental-default-type=module --test games/redcap/js/fit.test.js
           node --experimental-default-type=module --test games/street-duty/src/core/quality.test.js
@@ -88,6 +89,10 @@ jobs:
           test -f models/pokemon/regular/25.glb
           test "$(ls models/pokemon/regular/*.glb | wc -l)" -ge 151
 
+      - name: Build Go KataGo bundle
+        working-directory: games/go/katago-engine
+        run: npm ci && npm run build
+
       - name: Prepare site
         run: |
           mkdir -p _site
@@ -127,6 +132,7 @@ jobs:
           # GLBs are published from synced models/ (built from public/)
           test -f _site/games/pocket/models/pokemon/regular/1.glb
           # 不部署测试文件与超大源文件
+          rm -rf _site/games/go/katago-engine
           find _site -name '*.test.js' -delete
           find _site -name '*.blend' -delete
           find _site -name '*.map' -delete
