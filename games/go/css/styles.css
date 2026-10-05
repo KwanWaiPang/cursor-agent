@@ -167,8 +167,11 @@ body.game-page {
 
 .message {
   min-height: 1.4em;
+  max-height: 12rem;
+  overflow: auto;
   margin-top: 0.7rem;
   font-size: 0.92rem;
+  line-height: 1.55;
   color: var(--danger);
 }
 
@@ -183,7 +186,8 @@ body.game-page {
 }
 
 button,
-select {
+select,
+input {
   font-family: inherit;
 }
 
@@ -240,7 +244,8 @@ button.danger {
   letter-spacing: 0.04em;
 }
 
-.field select {
+.field select,
+.field input {
   border: 1px solid rgba(61, 47, 38, 0.25);
   border-radius: 10px;
   padding: 0.55rem 0.7rem;

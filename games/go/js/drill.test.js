@@ -46,10 +46,48 @@ function testCurriculumShape() {
     assert(track.levels.length === 8, `${track.id} has ${track.levels.length} levels`);
     for (const lv of track.levels) {
       const list = problemsOf(track.id, lv.level);
-      assert(list.length >= 12, `${track.id} L${lv.level} has ${list.length}`);
+      assert(list.length >= 20, `${track.id} L${lv.level} has ${list.length}`);
     }
   }
-  assert(PROBLEMS.length >= 180, `expected a larger set, got ${PROBLEMS.length}`);
+  assert(PROBLEMS.length >= 320, `expected a larger set, got ${PROBLEMS.length}`);
+}
+
+function mainLineOf(problem) {
+  const line = [];
+  let cur = problem.moves;
+  let guard = 0;
+  while (cur?.length && guard < 80) {
+    line.push(cur[0]);
+    cur = cur[0].replies;
+    guard += 1;
+  }
+  return line;
+}
+
+function testExplanationsAndBattles() {
+  let fights = 0;
+  for (const problem of PROBLEMS) {
+    assert(problem.explain && problem.explain.includes("先"), `${problem.id} explain`);
+    assert(problem.explain.includes("下一手"), `${problem.id} tells the next move`);
+    assert(problem.lesson && problem.lesson.includes("手"), `${problem.id} lesson`);
+    assert(problem.prompt === problem.explain, `${problem.id} prompt`);
+    assert(!/死活|吐血/.test(problem.prompt + problem.lesson), `${problem.id} wording`);
+    const line = mainLineOf(problem);
+    assert(line.length, `${problem.id} empty line`);
+    for (const move of line) {
+      assert(move.why && move.why.length > 4, `${problem.id} move missing why`);
+    }
+    const own = line.filter((move) => move.color === problem.toPlay);
+    if (own.length > 1) {
+      fights += 1;
+      assert(
+        line.some((move) => move.color !== problem.toPlay),
+        `${problem.id} multi-move problem has no opponent reply`
+      );
+      assert(problem.explain.includes("对战"), `${problem.id} should say it is a fight`);
+    }
+  }
+  assert(fights >= 40, `expected many interactive fights, got ${fights}`);
 }
 
 function testUnlock() {
@@ -58,7 +96,7 @@ function testUnlock() {
     assert(track.levels.length >= 8, `${track.id} levels`);
     for (const lv of track.levels) {
       assert(isLevelUnlocked(track.id, lv.level, progress), `${track.id} L${lv.level} is free`);
-      assert(problemsOf(track.id, lv.level).length >= 12, `${track.id} L${lv.level} count`);
+      assert(problemsOf(track.id, lv.level).length >= 20, `${track.id} L${lv.level} count`);
     }
   }
   const session = new DrillSession({ solved: {} });
@@ -101,6 +139,7 @@ function testUndo() {
 testCurriculumShape();
 testUnlock();
 testRejectsWrongMove();
+testExplanationsAndBattles();
 testUndo();
 for (const problem of PROBLEMS) playMain(problem);
 console.log(`All drill tests passed (${PROBLEMS.length} problems).`);

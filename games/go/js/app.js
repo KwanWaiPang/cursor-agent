@@ -48,6 +48,7 @@ const els = {
   btnDrillSolve: document.getElementById("btnDrillSolve"),
   difficultyField: document.getElementById("difficultyField"),
   kifuOptions: document.getElementById("kifuOptions"),
+  kifuFilter: document.getElementById("kifuFilter"),
   kifuSelect: document.getElementById("kifuSelect"),
   kifuBlurb: document.getElementById("kifuBlurb"),
   kifuStudy: document.getElementById("kifuStudy"),
@@ -687,6 +688,12 @@ function cropNote() {
   return " 虚线那边棋盘还在延续，不是边线。";
 }
 
+function nextDrillCue() {
+  const node = drill?.options()?.[0];
+  if (!node?.why) return "";
+  return `接着下这一手：${node.why}`;
+}
+
 function updateDrillMeta() {
   if (!drill) return;
   const p = drill.problem;
@@ -781,11 +788,14 @@ function onDrillMove(coord) {
     }
     const after = drill.commitDefense(step.defense);
     if (after.solved) finishDrillSolve();
-    else refresh(d.captured?.length ? "对方应了一手，轮到你。" : "对方应了一手。", true);
+    else {
+      const reply = step.defense.why || "对方应了一手。";
+      refresh(`${reply} ${nextDrillCue()}`, true);
+    }
     return;
   }
   if (step.solved) finishDrillSolve();
-  else refresh("继续。", true);
+  else refresh(`${hit.node.why || "这一手是对的。"} ${nextDrillCue()}`, true);
 }
 
 function finishDrillSolve() {
@@ -794,7 +804,8 @@ function finishDrillSolve() {
   updateDrillMeta();
   fillLevelSelect();
   els.levelSelect.value = String(drill.level);
-  refresh("走通了。", true);
+  const review = drill.problem.lesson ? `走通了。${drill.problem.lesson}` : "走通了。";
+  refresh(review, true);
 }
 
 function flashWrong(coord) {
@@ -820,8 +831,9 @@ async function showDrillSolution() {
   for (const m of drill.mainLine()) {
     if (token !== drillToken) return;
     drillHint = { x: m.x, y: m.y };
+    refresh(m.why || "谱上的下一手。", true);
     draw();
-    await sleep(420);
+    await sleep(700);
     if (token !== drillToken) return;
     const res = engine.play(m.x, m.y);
     drillHint = null;
@@ -851,10 +863,26 @@ function shiftDrill(delta) {
 }
 
 function fillKifuSelect() {
-  if (!els.kifuSelect || els.kifuSelect.options.length) return;
+  if (!els.kifuSelect) return;
+  const query = (els.kifuFilter?.value || "").trim();
+  const current = els.kifuSelect.value;
+  const games = KIFU.filter((game) => {
+    if (!query) return true;
+    const hay = `${game.group} ${game.title} ${game.blackName} ${game.whiteName} ${game.date} ${game.result}`;
+    return hay.includes(query);
+  });
   uiLock += 1;
+  els.kifuSelect.innerHTML = "";
+  if (!games.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "没有对上的棋谱";
+    els.kifuSelect.appendChild(opt);
+    uiLock -= 1;
+    return;
+  }
   let group = "";
-  for (const game of KIFU) {
+  for (const game of games) {
     if (game.group !== group) {
       const optg = document.createElement("optgroup");
       optg.label = game.group;
@@ -863,9 +891,12 @@ function fillKifuSelect() {
     }
     const opt = document.createElement("option");
     opt.value = game.id;
-    opt.textContent = `${game.title} · ${game.result}`;
+    const named = game.title.includes(game.blackName) || game.title.includes("对");
+    const players = named ? "" : ` · ${game.blackName} 对 ${game.whiteName}`;
+    opt.textContent = `${game.title}${players} · ${game.result}`;
     els.kifuSelect.lastElementChild.appendChild(opt);
   }
+  if (games.some((game) => game.id === current)) els.kifuSelect.value = current;
   uiLock -= 1;
 }
 
@@ -875,6 +906,10 @@ function kifuHeadline(game) {
 }
 
 function startKifu() {
+  if (els.kifuSelect && !els.kifuSelect.value) {
+    showMessage("没有对上的棋谱");
+    return;
+  }
   const id = els.kifuSelect?.value || KIFU[0].id;
   const game = gameById(id);
   if (!kifu || kifu.game.id !== game.id) kifu = new KifuSession(game);
@@ -1236,6 +1271,9 @@ els.btnKifuEnd?.addEventListener("click", () => jumpKifuEnd());
 els.btnKifuReveal?.addEventListener("click", () => revealKifuMove());
 els.btnKifuReturn?.addEventListener("click", () => returnToRecord());
 
+els.kifuFilter?.addEventListener("input", () => {
+  fillKifuSelect();
+});
 els.kifuSelect?.addEventListener("change", () => {
   if (uiLock || !kifuSelected()) return;
   kifu = null;

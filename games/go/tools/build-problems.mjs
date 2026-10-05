@@ -90,6 +90,34 @@ const ORIGINALS = [
     check: { type: "capture" },
   },
   {
+    id: "tactic-1-07",
+    track: "tactic",
+    level: 1,
+    title: "上边提子",
+    prompt: "黑先。上边这颗白子四周都被挡住了，只剩下面一口气。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[4, 0], [3, 1], [5, 1]],
+    white: [[4, 1]],
+    moves: [{ x: 4, y: 2, color: BLACK, replies: [] }],
+    check: { type: "capture" },
+  },
+  {
+    id: "tactic-1-08",
+    track: "tactic",
+    level: 1,
+    title: "边上的单子",
+    prompt: "黑先。边上一颗白子只剩一口气，把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[0, 1], [1, 2]],
+    white: [[0, 2]],
+    moves: [{ x: 0, y: 3, color: BLACK, replies: [] }],
+    check: { type: "capture" },
+  },
+  {
     id: "tactic-1-06",
     track: "tactic",
     level: 1,
@@ -748,7 +776,7 @@ function expandOriginals(list, want) {
   return out;
 }
 
-const PER_LEVEL = 12;
+const PER_LEVEL = 20;
 let originals = [];
 for (const level of [1, 2, 3]) {
   const batch = expandOriginals(
@@ -897,7 +925,7 @@ const TRACKS = [
   {
     id: "tactic",
     name: "解题",
-    intro: "局部解题。等级可以随时切换，不必解锁。一到三级是入门形，后面是古典棋题。",
+    intro: "局部解题。每题都会说明下一手该下哪里、为什么。需要连续应手时，对方会落子，你再继续。等级可以随时切换。",
     levels: [
       { level: 1, name: "一级 · 提子与逃气" },
       { level: 2, name: "二级 · 连接与双打" },
@@ -912,7 +940,7 @@ const TRACKS = [
   {
     id: "yose",
     name: "官子",
-    intro: "局部官子，不是整盘棋谱。等级可以随时切换。手数从短到长。",
+    intro: "局部官子，不是整盘棋谱。每题说明下一手和原因；有应手就按对战继续下。等级可以随时切换，手数从短到长。",
     levels: [
       { level: 1, name: "一级 · 一手官子" },
       { level: 2, name: "二级 · 两手收官" },
@@ -926,15 +954,192 @@ const TRACKS = [
   },
 ];
 
+const FILES19 = "ABCDEFGHJKLMNOPQRST";
+function coordLabel(x, y, size) {
+  return `${FILES19[x] || "?"}${size - y}`;
+}
+
+function neighborGroups(engine, x, y, color) {
+  const seen = new Set();
+  const groups = [];
+  for (const [nx, ny] of engine.neighbors(x, y)) {
+    if (engine.board[ny][nx] !== color) continue;
+    const group = engine.getGroup(nx, ny);
+    const key = group.stones.map(([sx, sy]) => `${sx},${sy}`).sort().join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    groups.push(group);
+  }
+  return groups;
+}
+
+function describeMove(before, after, move, res, attacker, track) {
+  const who = move.color === BLACK ? "黑" : "白";
+  const opp = move.color === BLACK ? WHITE : BLACK;
+  const name = coordLabel(move.x, move.y, before.size);
+  const defending = Boolean(attacker) && move.color !== attacker;
+  if (!res?.ok) return `${who}下在 ${name}。`;
+  if (res.captured?.length) {
+    const reason = defending
+      ? "这是对方的应手，先把能提的子提掉。"
+      : "这一口就是对方最后的气，补上之后它没气了。";
+    return `${who}下在 ${name}，提掉 ${res.captured.length} 子。原因：${reason}`;
+  }
+  const afterOpp = neighborGroups(after, move.x, move.y, opp);
+  const atari = afterOpp.find((group) => group.liberties.size === 1);
+  if (atari) {
+    const reason = defending
+      ? "对方反叫吃，下一手要应，不然这块棋会被提掉。"
+      : "它只剩一口气，不应的话下一手就被提掉。";
+    return `${who}下在 ${name}，把对方叫吃。原因：${reason}`;
+  }
+  const beforeOwn = neighborGroups(before, move.x, move.y, move.color);
+  const self = after.getGroup(move.x, move.y);
+  const fleeing = beforeOwn.find(
+    (group) => group.liberties.size === 1 && group.liberties.has(`${move.x},${move.y}`)
+  );
+  if (fleeing) {
+    const stillChased = self.liberties.size <= 1;
+    const reason = defending
+      ? stillChased
+        ? "被叫吃后只能往这口气里长，长完还是被追，下一手要接着应。"
+        : "被叫吃的棋只有一口气，对方把它长出去了，所以还要继续。"
+      : "原来只剩一口气，先长到这里，不然会被提掉。";
+    return `${who}下在 ${name}，把被叫吃的棋长出去。原因：${reason}`;
+  }
+  const saved = beforeOwn.some((group) => group.liberties.size <= 1 && self.liberties.size >= 2);
+  if (saved) {
+    const reason = defending
+      ? "被叫吃的棋只有一口气，对方把它长出或连上，所以还要继续。"
+      : "原来只剩一口气，不走就会被提掉。";
+    return `${who}下在 ${name}，把被叫吃的棋连出或长气。原因：${reason}`;
+  }
+  if (beforeOwn.length >= 2) {
+    return defending
+      ? `${who}下在 ${name}，把己方的棋连上。原因：这是被追时的应手，连上以后你还要继续。`
+      : `${who}下在 ${name}，把分开的棋连在一起。原因：连上之后这块棋的气就多了，后面的变化才成立。`;
+  }
+  const squeezed = afterOpp
+    .map((group) => {
+      const key = group.stones.map(([sx, sy]) => `${sx},${sy}`).sort().join("|");
+      const prev = neighborGroups(before, move.x, move.y, opp).find(
+        (item) => item.stones.map(([sx, sy]) => `${sx},${sy}`).sort().join("|") === key
+      );
+      if (!prev || prev.liberties.size <= group.liberties.size) return null;
+      return { from: prev.liberties.size, to: group.liberties.size };
+    })
+    .find(Boolean);
+  if (squeezed) {
+    return defending
+      ? `${who}下在 ${name}，紧对方的气。原因：气从 ${squeezed.from} 口减到 ${squeezed.to} 口，这是谱上的应手。`
+      : `${who}下在 ${name}，紧对方的气。原因：这块棋的气从 ${squeezed.from} 口减到 ${squeezed.to} 口，所以要先占这个点。`;
+  }
+  if (self.liberties.size <= 1) {
+    return defending
+      ? `${who}下在 ${name}，走到只剩一口气的地方。原因：这是被追着走的应手，下一手可以反提。`
+      : `${who}下在 ${name}。这手看着紧，但是后面能反提，所以不是送吃。`;
+  }
+  const edgeX = move.x === 0 || move.x === before.size - 1;
+  const edgeY = move.y === 0 || move.y === before.size - 1;
+  const nearEdge = move.x <= 1 || move.y <= 1 || move.x >= before.size - 2 || move.y >= before.size - 2;
+  const where = edgeX && edgeY ? "角上" : edgeX || edgeY ? "边上" : nearEdge ? "靠近边角" : "中腹";
+  let diagOwn = 0;
+  let diagOpp = 0;
+  for (const [dx, dy] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+    const nx = move.x + dx;
+    const ny = move.y + dy;
+    if (!before.inBounds(nx, ny)) continue;
+    if (before.board[ny][nx] === move.color) diagOwn += 1;
+    else if (before.board[ny][nx]) diagOpp += 1;
+  }
+  const bits = [];
+  if (afterOpp.length) bits.push("贴着对方");
+  if (beforeOwn.length) bits.push("挨着自己的棋");
+  if (!afterOpp.length && diagOpp) bits.push("斜向对着对方");
+  if (!beforeOwn.length && diagOwn) bits.push("斜向靠着自己");
+  const contact = bits.join("，") || "周围暂时没有直接相连的棋";
+  const job = track === "yose" ? "先把这个官子点占住" : "先把这个要点占住";
+  return defending
+    ? `${who}下在 ${name}。原因：对方应在${where}，${contact}，守住谱上要守的点。`
+    : `${who}下在 ${name}。原因：${job}。这一手在${where}，${contact}。`;
+}
+
+function annotateTree(engine, moves, attacker, track) {
+  for (const move of moves || []) {
+    const copy = engine.clone();
+    const res = copy.play(move.x, move.y);
+    move.why = describeMove(engine, copy, move, res, attacker, track);
+    if (move.replies?.length && res.ok) annotateTree(copy, move.replies, attacker, track);
+  }
+}
+
+function mainLineNodes(moves) {
+  const line = [];
+  let cur = moves;
+  let guard = 0;
+  while (cur?.length && guard < 80) {
+    line.push(cur[0]);
+    cur = cur[0].replies;
+    guard += 1;
+  }
+  return line;
+}
+
+function annotateProblem(problem) {
+  const engine = loadEngine({ ...problem, id: problem.id || "annotate" });
+  annotateTree(engine, problem.moves, problem.toPlay, problem.track);
+  const line = mainLineNodes(problem.moves);
+  const who = problem.toPlay === BLACK ? "黑" : "白";
+  const ownMoves = line.filter((move) => move.color === problem.toPlay);
+  const fight = ownMoves.length > 1;
+  const first = ownMoves[0];
+  const solverText = ownMoves.map((move) => move.why || "").join(" ");
+  const hasCap = /提掉 \d+ 子/.test(solverText);
+  const hasSave = /长气|长出去|连出|连在一起/.test(solverText);
+  const hasAtari = solverText.includes("把对方叫吃");
+  const goal = hasSave && hasCap
+    ? "先把危险的棋连回，再把对方吃掉"
+    : hasCap
+      ? fight
+        ? "把这段对战里该吃的棋提掉"
+        : "把该吃的棋提掉"
+      : hasSave
+        ? "先把危险的棋连回"
+        : hasAtari
+          ? fight
+            ? "先叫吃，再把对方的应手下完"
+            : "把对方叫吃"
+          : fight
+            ? "按谱上的次序和对方下完这段变化"
+            : "占住这一手的要点";
+  const branches = first?.replies?.length || 0;
+  const battle = fight
+    ? `这题要下完一段对战，不是只摆一子。你走正着后，对方会应手，你再继续。${
+        branches > 1 ? "对方有几种应手，这里先走谱上的第一种。" : ""
+      }`
+    : "这题只要下一子就能结束，谱上没有后续应手。";
+  const next = first?.why ? `下一手：${first.why}` : "";
+  const authored = problem.prompt && !problem.prompt.includes("请走出谱上的主变化")
+    ? `${problem.prompt.replace(/。$/, "")}。`
+    : `${who}先。`;
+  problem.explain = `${authored}目标是${goal}。${battle}${next}`;
+  problem.lesson = ownMoves.map((move, index) => `第${index + 1}手，${move.why}`).join("");
+  problem.prompt = problem.explain;
+  delete problem.check;
+}
+
+for (const problem of PROBLEMS) annotateProblem(problem);
+
 const body = `/**
  * 围棋练习题。入门三级为馆内原创；四级起为公有领域古典解题与官子。
  * 由 games/go/tools/build-problems.mjs 生成。不要手改古典题坐标。
+ * 每题的 prompt 写明目标和下一手的原因；连续应手的题按对战一步步下。
  *
- * 来源：
- * - 碁经众妙 Gokyo Shumyo（Hayashi Genbi，1812）
+ * 来源（u-go.net 汇总的公有领域谱，https://www.u-go.net/classic/）：
+ * - 碁经众妙 Gokyo Shumyo（Hayashi Genbi，1812）。u-go.net 的 qjzm-a 带正解，其余分册没有正解，未收录。
  * - 玄玄棋经 Xuanxuan Qijing（严德甫、晏天章，约 1349；SGF：Jean-Pierre Vesinet）
  * - 官子谱（公有领域；Flygo 转录，Ulrich Goertz 汇总于 u-go.net）
- * 未收录近代受版权保护的题集。
+ * 未收录赵治勋、李昌镐等近代题集。发阳论等只有棋形、没有可核对正解的谱，也未收。
  */
 export const TRACKS = ${JSON.stringify(TRACKS, null, 2)};
 

@@ -27,8 +27,9 @@ The Game Hub aggregates several open-source games under a shared UI shell.
   - 官子谱 Guan Zi Pu。谱面转录 Flygo → u-go.net
 - 未收录赵治勋、李昌镐等近代题集 / Modern copyrighted problem books are not included
 - 19 路经典全谱 / Full-board classical games, public domain, collected by Andries Brouwer (CWI), who states he claims no rights and that the games are in the public domain: <https://homepages.cwi.nl/~aeb/go/games/>
-  - 当湖十局（范西屏、施襄夏，1739）、施襄夏对程兰如、徐星友对程兰如、烂柯
-  - 秀策耳赤之局（1846）与御城棋；本因坊道策御城棋（1667）
+  - 当湖十局（范西屏、施襄夏，1739）、施襄夏对程兰如、徐星友对程兰如、烂柯，以及唐宋对局
+  - 秀策耳赤之局（1846）与御城棋；对太田雄藏、对海老泽健造、对村濑秀甫
+  - 本因坊道策御城棋、本因坊秀伯御城棋、本因坊丈和名局（1835，对赤星因彻）
 
 ## 大富翁 · 世界之旅 · World Tour Monopoly（`games/monopoly/`）
 
