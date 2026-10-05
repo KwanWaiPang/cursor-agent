@@ -46,6 +46,45 @@ export class KifuSession {
     this.mode = "replay";
     this.userSide = BLACK;
     this.deviated = false;
+    this.misses = [];
+    this.guessTries = 0;
+  }
+
+  resetStudy() {
+    this.cursor = 0;
+    this.deviated = false;
+    this.misses = [];
+    this.guessTries = 0;
+  }
+
+  /** 猜错一次先不公布答案；再错才记入错过，方便回头再练。 */
+  recordGuessMiss() {
+    this.guessTries += 1;
+    if (this.guessTries >= 2 && !this.misses.includes(this.cursor)) this.misses.push(this.cursor);
+    return this.guessTries;
+  }
+
+  jumpTo(index) {
+    const next = Math.max(0, Math.min(Math.round(index) || 0, this.total));
+    this.cursor = next;
+    this.deviated = false;
+    this.guessTries = 0;
+    return next;
+  }
+
+  /** 下一处带批注的手数下标；没有就从头找。 */
+  nextNoteIndex() {
+    const moves = this.game.moves;
+    const later = moves.findIndex((move, i) => i >= this.cursor && move.note);
+    if (later >= 0) return later;
+    return moves.findIndex((move) => move.note);
+  }
+
+  /** 下一处错过的位置。 */
+  nextMissIndex() {
+    const later = this.misses.find((i) => i > this.cursor);
+    if (later != null) return later;
+    return this.misses.length ? this.misses[0] : -1;
   }
 
   get total() {
@@ -79,6 +118,7 @@ export class KifuSession {
     const res = this._playRecorded(engine, move);
     if (!res.ok) return res;
     this.cursor += 1;
+    this.guessTries = 0;
     return { ok: true, move, captured: res.captured || [] };
   }
 

@@ -49,6 +49,27 @@ function testEarNoteAndGuess() {
   assert(seated.toPlay === WHITE, "white first");
 }
 
+function testMissesAndNotes() {
+  const ear = KIFU.find((g) => g.title.includes("耳赤"));
+  const session = new KifuSession(ear);
+  session.cursor = 20;
+  assert(session.recordGuessMiss() === 1, "first miss stays private");
+  assert(session.misses.length === 0, "first miss is not stored");
+  assert(session.recordGuessMiss() === 2, "second miss");
+  assert(session.misses[0] === 20, "second miss is stored once");
+  session.recordGuessMiss();
+  assert(session.misses.length === 1, "same position is not stored twice");
+  const noteAt = session.nextNoteIndex();
+  assert(noteAt === 126, `ear note is move index 126, got ${noteAt}`);
+  session.jumpTo(noteAt);
+  assert(session.cursor === 126 && session.guessTries === 0, "jump clears the guess count");
+  assert(session.nextMove().note.includes("耳赤"), "landed on the annotated move");
+  session.jumpTo(9999);
+  assert(session.cursor === session.total, "jump cannot pass the end");
+  session.cursor = 0;
+  assert(session.nextMissIndex() === 20, "the stored miss is still waiting");
+}
+
 function testSideFollow() {
   const game = KIFU.find((g) => !g.seat);
   const session = new KifuSession(game);
@@ -66,5 +87,6 @@ function testSideFollow() {
 
 testLibrary();
 testEarNoteAndGuess();
+testMissesAndNotes();
 testSideFollow();
 console.log(`All kifu tests passed (${KIFU.length} games).`);

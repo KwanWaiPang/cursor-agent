@@ -126,6 +126,7 @@
                 <button id="btnDrillPrev" class="secondary" type="button">上一题</button>
                 <button id="btnDrillNext" class="secondary" type="button">下一题</button>
                 <button id="btnDrillRetry" class="secondary" type="button">重试</button>
+                <button id="btnDrillHint" class="secondary" type="button">提示</button>
                 <button id="btnDrillSolve" class="secondary" type="button">看答案</button>
               </div>
               <p id="drillSource" class="drill-source"></p>
@@ -166,6 +167,17 @@
                 <button id="btnKifuReveal" class="secondary" type="button">揭示此手</button>
                 <button id="btnKifuReturn" class="secondary" type="button">回到谱上</button>
               </div>
+              <div class="controls" style="margin-top: 0.55rem">
+                <button id="btnKifuNote" class="secondary" type="button">下一处批注</button>
+                <button id="btnKifuMiss" class="secondary" type="button">再练错过</button>
+              </div>
+              <div class="field" style="margin-top: 0.55rem">
+                <label for="kifuJump">看到第几手之后</label>
+                <input id="kifuJump" type="number" min="0" step="1" placeholder="例如 127" />
+              </div>
+              <div class="controls">
+                <button id="btnKifuJump" class="secondary" type="button">跳到这一手</button>
+              </div>
               <p id="kifuNote" class="drill-source"></p>
             </div>
             <div id="matchFields">
@@ -202,8 +214,8 @@
                 <li>计分采用中国规则：子空皆地，白贴目。</li>
                 <li>AI 按棋力分成十二档。二十五级到一级用本地搜索：低段随手，十级起搜索，三级会读吃子，一级搜索最久。</li>
                 <li>初段到五段改用 KataGo 模型，引擎与 Web KaTrain 相同，在浏览器里计算。段位越高，模型搜索越多。第一次会下载约 4MB 的公开小模型，不是完整的大模型。</li>
-                <li>解题和官子各八级、每级 20 题。开局就说明目标、下一手和下这里的原因；需要连续应手时，对方会落子，你再继续。等级可以随时切换，不必解锁。</li>
-                <li>经典棋谱是 19 路全谱：当湖十局、唐宋与清代名局、秀策耳赤之局和御城棋、秀策番棋、道策和秀伯御城棋、丈和名局。可以按棋手或局名查找，再打谱、猜下一手，或执一方跟谱；下偏了就改由 AI 接着下。</li>
+                <li>解题和官子各八级、每级 20 题。开局就说明目标、下一手和下这里的原因。拿不准可以按「提示」，棋盘会标出下一手。需要连续应手时，对方会落子，你再继续。等级可以随时切换，不必解锁。</li>
+                <li>经典棋谱是 19 路全谱：当湖十局、唐宋与清代名局、秀策耳赤之局和御城棋、秀策番棋、道策和秀伯御城棋、丈和名局。可以按棋手或局名查找，跳到某一手，或跳到有批注的地方。猜下一手时，第一次猜错不公布答案；再错就记下来，以后用「再练错过」回到那些局面。</li>
               </ul>
             </details>
           </section>

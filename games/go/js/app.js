@@ -45,6 +45,7 @@ const els = {
   btnDrillPrev: document.getElementById("btnDrillPrev"),
   btnDrillNext: document.getElementById("btnDrillNext"),
   btnDrillRetry: document.getElementById("btnDrillRetry"),
+  btnDrillHint: document.getElementById("btnDrillHint"),
   btnDrillSolve: document.getElementById("btnDrillSolve"),
   difficultyField: document.getElementById("difficultyField"),
   kifuOptions: document.getElementById("kifuOptions"),
@@ -62,6 +63,10 @@ const els = {
   btnKifuEnd: document.getElementById("btnKifuEnd"),
   btnKifuReveal: document.getElementById("btnKifuReveal"),
   btnKifuReturn: document.getElementById("btnKifuReturn"),
+  btnKifuNote: document.getElementById("btnKifuNote"),
+  btnKifuMiss: document.getElementById("btnKifuMiss"),
+  btnKifuJump: document.getElementById("btnKifuJump"),
+  kifuJump: document.getElementById("kifuJump"),
   btnPass: document.getElementById("btnPass"),
   btnResign: document.getElementById("btnResign"),
   btnUndo: document.getElementById("btnUndo"),
@@ -256,6 +261,7 @@ function updatePanel() {
     els.btnDrillPrev.disabled = drill.busy || drill.index <= 0;
     els.btnDrillNext.disabled = drill.busy || drill.index >= total - 1;
     els.btnDrillRetry.disabled = drill.busy;
+    if (els.btnDrillHint) els.btnDrillHint.disabled = drill.busy || drill.solvedFlag;
     els.btnDrillSolve.disabled = drill.busy;
   }
   if (isKifu()) {
@@ -265,6 +271,9 @@ function updatePanel() {
     els.btnKifuEnd.disabled = kifuAiThinking || kifu.deviated || atEnd;
     els.btnKifuReveal.disabled = kifuAiThinking || kifu.deviated || atEnd || kifu.mode === "replay";
     els.btnKifuReturn.disabled = kifuAiThinking || !kifu.deviated;
+    if (els.btnKifuNote) els.btnKifuNote.disabled = kifuAiThinking || !kifu.game.moves.some((move) => move.note);
+    if (els.btnKifuMiss) els.btnKifuMiss.disabled = kifuAiThinking || kifu.misses.length === 0;
+    if (els.btnKifuJump) els.btnKifuJump.disabled = kifuAiThinking;
     els.kifuSideField.hidden = kifu.mode !== "play";
   }
   canvas.style.cursor = aiThinking || kifuAiThinking ? "wait" : "crosshair";
@@ -933,8 +942,7 @@ function startKifu() {
   kifu.game = game;
   kifu.mode = els.kifuStudy?.value || "replay";
   kifu.userSide = els.kifuSide?.value === "white" ? 2 : 1;
-  kifu.deviated = false;
-  kifu.cursor = 0;
+  kifu.resetStudy();
   engine = kifu.mount();
   if (kifu.mode === "play") kifu.autoOpponent(engine);
   aiToken += 1;
@@ -983,6 +991,57 @@ function stepKifu(dir) {
     kifu.cursor -= 1;
   }
   refresh(kifuStatusLine(), true);
+}
+
+function remountKifu(message) {
+  kifuToken += 1;
+  kifuAiThinking = false;
+  engine = kifu.mount();
+  if (kifu.mode === "play") kifu.autoOpponent(engine);
+  refresh(message, true);
+}
+
+function jumpKifuNote() {
+  if (!kifu || kifuAiThinking) return;
+  const index = kifu.nextNoteIndex();
+  if (index < 0) {
+    showMessage("这局没有批注");
+    return;
+  }
+  kifu.jumpTo(index);
+  const note = kifu.nextMove()?.note || "";
+  remountKifu(`停在第 ${index + 1} 手之前。${note}`);
+}
+
+function practiceKifuMiss() {
+  if (!kifu || kifuAiThinking) return;
+  const index = kifu.nextMissIndex();
+  if (index < 0) {
+    showMessage("还没有记错过的手。猜错两次才会记下来。");
+    return;
+  }
+  kifu.jumpTo(index);
+  remountKifu(`回到第 ${index + 1} 手之前，再猜这一手。错过 ${kifu.misses.length} 处。`);
+}
+
+function jumpKifuNumber() {
+  if (!kifu || kifuAiThinking || !els.kifuJump) return;
+  const raw = Number(els.kifuJump.value);
+  if (!Number.isFinite(raw)) {
+    showMessage("请填写手数");
+    return;
+  }
+  const index = kifu.jumpTo(raw);
+  remountKifu(`已看到第 ${index} 手。${kifuStatusLine()}`);
+}
+
+function hintDrill() {
+  if (!drill || drill.busy || drill.solvedFlag) return;
+  const node = drill.options()[0];
+  if (!node) return;
+  drillHint = { x: node.x, y: node.y };
+  draw();
+  showMessage(node.why ? `提示：${node.why}` : "棋盘上标出的就是下一手。", true);
 }
 
 function revealKifuMove() {
@@ -1050,8 +1109,13 @@ function onKifuMove(coord) {
   if (!kifu.matches(coord.x, coord.y)) {
     if (kifu.mode === "guess") {
       flashWrong(coord);
+      const tries = kifu.recordGuessMiss();
       const where = expect.pass ? "停着" : coordName(expect.x, expect.y, kifu.game.size);
-      showMessage(`不是这一手。谱上是 ${where}。`);
+      if (tries < 2) {
+        showMessage("不是谱上这一手。再试一次，或按「揭示此手」。");
+      } else {
+        showMessage(`谱上是 ${where}。这一手已记入错过，可以用「再练错过」回来。`);
+      }
       return;
     }
     const res = engine.play(coord.x, coord.y);
@@ -1286,6 +1350,10 @@ els.btnKifuNext?.addEventListener("click", () => stepKifu(1));
 els.btnKifuEnd?.addEventListener("click", () => jumpKifuEnd());
 els.btnKifuReveal?.addEventListener("click", () => revealKifuMove());
 els.btnKifuReturn?.addEventListener("click", () => returnToRecord());
+els.btnKifuNote?.addEventListener("click", () => jumpKifuNote());
+els.btnKifuMiss?.addEventListener("click", () => practiceKifuMiss());
+els.btnKifuJump?.addEventListener("click", () => jumpKifuNumber());
+els.btnDrillHint?.addEventListener("click", () => hintDrill());
 
 els.kifuFilter?.addEventListener("input", () => {
   fillKifuSelect();
