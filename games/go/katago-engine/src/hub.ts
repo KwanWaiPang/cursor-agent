@@ -65,3 +65,75 @@ export async function chooseMove(
   }
   return { type: "play", x: best.x, y: best.y };
 }
+
+export type KataReviewMove = {
+  x: number;
+  y: number;
+  pass: boolean;
+  visits: number;
+  pointsLost: number;
+  relativePointsLost: number;
+  winRate: number;
+  scoreLead: number;
+  order: number;
+};
+
+/** Plain analysis for teaching: point loss, candidate moves, and ownership. */
+export type KataReview = {
+  rootScoreLead: number;
+  rootWinRate: number;
+  territory: number[][];
+  /** Policy prior, length size*size + 1. Pass is the last entry. Illegal points are -1. */
+  policy: number[];
+  moves: KataReviewMove[];
+};
+
+export async function reviewPosition(
+  position: KataPosition,
+  settings: { visits?: number; maxTimeMs?: number; rootPolicyTemperature?: number; topK?: number } = {},
+): Promise<KataReview> {
+  await ensureKataGo();
+  const analysis = await getKataGoEngineClient().analyze({
+    analysisGroup: "background",
+    modelUrl: MODEL_URL,
+    backend: "webgpu",
+    board: position.board,
+    currentPlayer: position.toPlay,
+    moveHistory: position.history,
+    komi: position.komi,
+    rules: "chinese",
+    visits: settings.visits ?? 16,
+    maxTimeMs: settings.maxTimeMs ?? 2500,
+    rootPolicyTemperature: settings.rootPolicyTemperature ?? 1,
+    topK: settings.topK ?? 12,
+    ownershipMode: "root",
+    conservativePass: true,
+  });
+  const flatOwnership = analysis.ownership;
+  const territory: number[][] = [];
+  for (let y = 0; y < position.size; y += 1) {
+    const row: number[] = [];
+    for (let x = 0; x < position.size; x += 1) {
+      row.push(Number(flatOwnership?.[y * position.size + x]) || 0);
+    }
+    territory.push(row);
+  }
+  const moves = (analysis.moves ?? []).map((move) => ({
+    x: move.x,
+    y: move.y,
+    pass: move.x < 0 || move.y < 0,
+    visits: move.visits || 0,
+    pointsLost: Number(move.pointsLost) || 0,
+    relativePointsLost: Number(move.relativePointsLost) || 0,
+    winRate: Number(move.winRate) || 0,
+    scoreLead: Number(move.scoreLead) || 0,
+    order: move.order || 0,
+  }));
+  return {
+    rootScoreLead: Number(analysis.rootScoreLead) || 0,
+    rootWinRate: Number(analysis.rootWinRate) || 0,
+    territory,
+    policy: Array.from(analysis.policy ?? [], (value) => Number(value) || 0),
+    moves,
+  };
+}

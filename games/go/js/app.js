@@ -78,6 +78,10 @@ const els = {
   btnScore: document.getElementById("btnScore"),
   btnNew: document.getElementById("btnNew"),
   actionCard: document.getElementById("actionCard"),
+  teachToggle: document.getElementById("teachToggle"),
+  teachField: document.getElementById("teachField"),
+  teachNote: document.getElementById("teachNote"),
+  btnKifuTeach: document.getElementById("btnKifuTeach"),
 };
 
 let engine = new GoEngine(
@@ -100,6 +104,9 @@ let kifu = null;
 let kifuToken = 0;
 let kifuNumbers = null;
 let kifuAiThinking = false;
+let teachOverlay = null;
+let teachArmed = null;
+let teachBusy = false;
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -202,6 +209,7 @@ function syncAiOptionVisibility() {
   els.btnNew.textContent = drillOn ? "进入本题" : kifuOn ? "打开这局" : "开始新对局";
   if (els.setupHeading) els.setupHeading.textContent = kifuOn ? "棋谱" : drillOn ? "练习" : "新对局";
   if (els.difficultyLabel) els.difficultyLabel.textContent = kifuOn ? "偏离棋谱后的 AI" : "AI 强度";
+  if (els.teachField) els.teachField.hidden = drillOn;
   if (drillOn) fillLevelSelect();
   if (kifuOn) fillKifuSelect();
 }
@@ -502,6 +510,33 @@ function draw() {
     }
   }
 
+  if (teachOverlay?.territory?.length === engine.size) {
+    for (let y = y0; y <= y1; y += 1) {
+      for (let x = x0; x <= x1; x += 1) {
+        if (engine.board[y][x]) continue;
+        const value = teachOverlay.territory[y]?.[x] || 0;
+        if (Math.abs(value) < 0.22) continue;
+        const p = pointToXY(x, y, m);
+        const alpha = 0.1 + Math.min(0.28, Math.abs(value) * 0.3);
+        ctx.fillStyle = value > 0 ? `rgba(42, 32, 24, ${alpha})` : `rgba(70, 118, 150, ${alpha})`;
+        const half = grid * 0.34;
+        ctx.fillRect(p.sx - half, p.sy - half, half * 2, half * 2);
+      }
+    }
+  }
+  if (teachOverlay?.candidates) {
+    for (const cand of teachOverlay.candidates) {
+        if (!cand || (teachOverlay.best && cand.x === teachOverlay.best.x && cand.y === teachOverlay.best.y)) continue;
+      if (engine.board[cand.y]?.[cand.x]) continue;
+      const p = pointToXY(cand.x, cand.y, m);
+      ctx.beginPath();
+      ctx.fillStyle = "rgba(156, 92, 42, 0.85)";
+      ctx.arc(p.sx, p.sy, Math.max(3, r * 0.16), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ring(teachOverlay?.best, "#c45c26");
+
   ring(drillHint, "#0f5c4c");
   ring(drillFlash, "#8b2e2e");
   if (isKifu() && kifu.mode === "replay" && !kifu.deviated) {
@@ -604,6 +639,102 @@ function refresh(msg, info = false) {
   if (msg !== undefined) showMessage(msg, info);
 }
 
+function teachOn() {
+  return Boolean(els.teachToggle?.checked) && !isDrill();
+}
+
+function teachKey() {
+  return `${engine.size}|${engine.toPlay}|${engine.moveHistory.length}|${engine.serialize()}`;
+}
+
+function humanToReceiveTeach() {
+  if (!teachOn() || teachBusy || aiThinking || kifuAiThinking || engine.phase !== "playing") return false;
+  if (isKifu()) {
+    if (!kifu || kifu.mode === "replay") return false;
+    if (kifu.deviated) return engine.toPlay === kifu.userSide;
+    if (kifu.mode === "guess") return true;
+    return engine.toPlay === kifu.userSide;
+  }
+  if (isAiMode()) return engine.toPlay === humanColor();
+  return true;
+}
+
+function armTeach() {
+  if (!humanToReceiveTeach()) return;
+  const key = teachKey();
+  if (teachArmed?.key === key) return;
+  const snap = engine.clone();
+  const promise = import("./katago-bridge.js").then((bridge) =>
+    bridge.kataReview(snap, (text) => {
+      if (teachArmed?.key !== key || !teachOn()) return;
+      if (els.teachNote && !teachBusy) els.teachNote.textContent = text;
+    }),
+  );
+  teachArmed = { key, promise };
+}
+
+async function explainPlayed(played, beforeKey, beforeSnap) {
+  if (!teachOn() || !beforeSnap) return;
+  teachBusy = true;
+  if (els.teachNote) els.teachNote.textContent = "模型在看这一手…";
+  try {
+    const bridge = await import("./katago-bridge.js");
+    const review = teachArmed?.key === beforeKey ? await teachArmed.promise : await bridge.kataReview(beforeSnap);
+    if (!teachOn()) return;
+    const verdict = bridge.teachVerdict(review, played, beforeSnap.size);
+    teachOverlay = verdict.overlay;
+    if (els.teachNote) els.teachNote.textContent = verdict.text;
+    draw();
+  } catch (err) {
+    console.error(err);
+    if (els.teachNote) els.teachNote.textContent = "模型这次没看完，这手先照常走。";
+  } finally {
+    teachBusy = false;
+  }
+}
+
+async function afterUserMove(played, beforeKey, beforeSnap) {
+  await explainPlayed(played, beforeKey, beforeSnap);
+  if (isKifu()) await maybeKifuAi();
+  else await maybeAiMove();
+  armTeach();
+}
+
+function captureTeachPoint() {
+  if (!teachOn()) return null;
+  return { key: teachKey(), snap: engine.clone() };
+}
+
+async function reviewPreviousMove() {
+  if (teachBusy || aiThinking || kifuAiThinking) return;
+  if (!engine.moveHistory.length) {
+    if (els.teachNote) els.teachNote.textContent = "还没有可以看的一手。";
+    return;
+  }
+  const snap = engine.clone();
+  const last = snap.moveHistory[snap.moveHistory.length - 1];
+  if (!snap.undo().ok) return;
+  const played = last.type === "pass" ? { pass: true } : { pass: false, x: last.x, y: last.y };
+  teachBusy = true;
+  if (els.teachNote) els.teachNote.textContent = "模型在看上一手…";
+  try {
+    const bridge = await import("./katago-bridge.js");
+    const review = await bridge.kataReview(snap, (text) => {
+      if (els.teachNote) els.teachNote.textContent = text;
+    });
+    const verdict = bridge.teachVerdict(review, played, snap.size);
+    teachOverlay = verdict.overlay;
+    if (els.teachNote) els.teachNote.textContent = verdict.text;
+    draw();
+  } catch (err) {
+    console.error(err);
+    if (els.teachNote) els.teachNote.textContent = "模型这次没看完。";
+  } finally {
+    teachBusy = false;
+    armTeach();
+  }
+}
+
 function applyDifficulty() {
   const id = els.difficultySelect.value;
   if (id && id !== "d1" && id !== "d2" && id !== "d3" && id !== "d4" && id !== "d5") {
@@ -671,13 +802,14 @@ async function maybeAiMove() {
       aiThinking = false;
       updatePanel();
       draw();
+      armTeach();
     }
   }
 }
 
-function onBoardClick(evt) {
+async function onBoardClick(evt) {
   evt.preventDefault();
-  if (aiThinking) return;
+  if (aiThinking || teachBusy || kifuAiThinking) return;
   const coord = eventToCoord(evt);
   if (!coord) return;
 
@@ -704,6 +836,7 @@ function onBoardClick(evt) {
     return;
   }
 
+  const taught = captureTeachPoint();
   const res = engine.play(coord.x, coord.y);
   if (!res.ok) {
     showMessage(res.reason);
@@ -713,7 +846,7 @@ function onBoardClick(evt) {
   playSound("clickAudio");
   const cap = res.captured?.length || 0;
   refresh(cap ? `提子 ${cap}` : "", true);
-  maybeAiMove();
+  await afterUserMove({ pass: false, x: coord.x, y: coord.y }, taught?.key, taught?.snap);
 }
 
 function onMove(evt) {
@@ -975,7 +1108,11 @@ function startKifu() {
   drillHint = null;
   drillFlash = null;
   els.kifuBlurb.textContent = kifuHeadline(game);
+  teachOverlay = null;
+  teachArmed = null;
+  if (els.teachNote) els.teachNote.textContent = "";
   refresh(kifuStatusLine(), true);
+  armTeach();
 }
 
 function kifuStatusLine() {
@@ -1017,6 +1154,8 @@ function syncKifuStudyNote() {
 
 function stepKifu(dir) {
   if (!kifu || kifuAiThinking) return;
+  teachOverlay = null;
+  if (els.teachNote) els.teachNote.textContent = "";
   kifuToken += 1;
   if (kifu.deviated) {
     if (dir < 0 && engine.undo().ok) {
@@ -1041,6 +1180,8 @@ function stepKifu(dir) {
 function remountKifu(message) {
   kifuToken += 1;
   kifuAiThinking = false;
+  teachOverlay = null;
+  if (els.teachNote) els.teachNote.textContent = "";
   engine = kifu.mount();
   if (kifu.mode === "play") kifu.autoOpponent(engine);
   refresh(message, true);
@@ -1122,7 +1263,7 @@ function jumpKifuEnd() {
   refresh(kifuStatusLine(), true);
 }
 
-function onKifuMove(coord) {
+async function onKifuMove(coord) {
   if (!kifu || kifuAiThinking) return;
   if (kifu.mode === "replay") {
     showMessage("打谱请用「下一手」。想自己下，把学习方式换成「试下」或「对练」。", true);
@@ -1134,6 +1275,7 @@ function onKifuMove(coord) {
   }
   if (kifu.deviated) {
     if (engine.toPlay !== kifu.userSide) return;
+    const taught = captureTeachPoint();
     const res = engine.play(coord.x, coord.y);
     if (!res.ok) {
       showMessage(res.reason || "这里不能下");
@@ -1141,7 +1283,7 @@ function onKifuMove(coord) {
     }
     playSound("clickAudio");
     refresh("已离开棋谱。", true);
-    maybeKifuAi();
+    await afterUserMove({ pass: false, x: coord.x, y: coord.y }, taught?.key, taught?.snap);
     return;
   }
   const expect = kifu.nextMove();
@@ -1162,6 +1304,7 @@ function onKifuMove(coord) {
       }
       return;
     }
+    const taught = captureTeachPoint();
     const res = engine.play(coord.x, coord.y);
     if (!res.ok) {
       showMessage(res.reason || "这里不能下");
@@ -1170,9 +1313,10 @@ function onKifuMove(coord) {
     kifu.deviated = true;
     playSound("clickAudio");
     refresh("这手不在谱上，接下来由 AI 应。", true);
-    maybeKifuAi();
+    await afterUserMove({ pass: false, x: coord.x, y: coord.y }, taught?.key, taught?.snap);
     return;
   }
+  const taught = captureTeachPoint();
   const res = kifu.advance(engine);
   if (!res.ok) {
     showMessage(res.reason || "不能落子");
@@ -1181,6 +1325,9 @@ function onKifuMove(coord) {
   playSound("clickAudio");
   if (kifu.mode === "play") kifu.autoOpponent(engine);
   refresh(expect.note ? expect.note : "对了。", true);
+  if (taught && !expect.pass) await explainPlayed({ pass: false, x: expect.x, y: expect.y }, taught.key, taught.snap);
+  else if (taught && expect.pass) await explainPlayed({ pass: true }, taught.key, taught.snap);
+  armTeach();
 }
 
 async function maybeKifuAi() {
@@ -1211,6 +1358,7 @@ async function maybeKifuAi() {
       kifuAiThinking = false;
       updatePanel();
       draw();
+      armTeach();
     }
   }
 }
@@ -1255,18 +1403,22 @@ function newGame() {
     const you = colorName(humanColor());
     tip = `人机对战开始：你执${you}，AI 执${colorName(aiColor())}（${els.difficultySelect.selectedOptions[0].text} · ${size}路）。大棋盘 AI 思考会稍久。`;
   }
+  teachOverlay = null;
+  if (els.teachNote) els.teachNote.textContent = "";
+  teachArmed = null;
   refresh(tip, true);
-  maybeAiMove();
+  void maybeAiMove().finally(() => armTeach());
 }
 
-els.btnPass.addEventListener("click", () => {
+els.btnPass.addEventListener("click", async () => {
   if (isKifu() && kifu.mode === "guess" && !kifu.deviated && kifu.nextMove()?.pass) {
     const res = kifu.advance(engine);
     if (!res.ok) showMessage(res.reason || "不能停着");
     else refresh("对了，谱上是停着。", true);
     return;
   }
-  if (aiThinking || !isHumanTurn()) return;
+  if (aiThinking || teachBusy || !isHumanTurn()) return;
+  const taught = captureTeachPoint();
   const res = engine.pass();
   if (!res.ok) {
     showMessage(res.reason);
@@ -1278,9 +1430,10 @@ els.btnPass.addEventListener("click", () => {
       `双方停着，进入点目：已自动标记 ${n} 个死子，可点击棋子修改，或按「自动标死子」重算。`,
       true
     );
+    if (taught) await explainPlayed({ pass: true }, taught.key, taught.snap);
   } else {
     refresh(`${colorName(opponent(engine.toPlay))}方停着`, true);
-    maybeAiMove();
+    await afterUserMove({ pass: true }, taught?.key, taught?.snap);
   }
 });
 
@@ -1303,6 +1456,7 @@ els.btnResign.addEventListener("click", () => {
 });
 
 els.btnUndo.addEventListener("click", () => {
+  teachOverlay = null;
   if (isKifu()) {
     stepKifu(-1);
     return;
@@ -1330,18 +1484,20 @@ els.btnUndo.addEventListener("click", () => {
       undos += 1;
       if (engine.phase === "playing" && engine.toPlay === aiColor() && engine.undo().ok) undos += 1;
       refresh(undos >= 2 ? "已悔棋，你和 AI 的上一手都拿掉了。" : "已悔棋", true);
-      maybeAiMove();
+      void maybeAiMove();
+      armTeach();
       return;
     }
     if (engine.toPlay === aiColor()) {
       // AI 尚未落下时：优先撤销你的上一手；否则让 AI 重走
       if (engine.undo().ok) {
         refresh("已悔棋", true);
-        if (engine.toPlay === aiColor()) maybeAiMove();
+        if (engine.toPlay === aiColor()) void maybeAiMove();
       } else {
         refresh("AI 重新思考…", true);
-        maybeAiMove();
+        void maybeAiMove();
       }
+      armTeach();
       return;
     }
 
@@ -1355,13 +1511,15 @@ els.btnUndo.addEventListener("click", () => {
     }
     // 若仍轮到 AI（例如你执白、撤销了开局），让 AI 重新走
     refresh(undos >= 2 ? "已悔棋，你和 AI 的上一手都拿掉了。" : "已悔棋", true);
-    maybeAiMove();
+    void maybeAiMove();
+    armTeach();
     return;
   }
 
   const res = engine.undo();
   if (!res.ok) showMessage(res.reason);
   else refresh("已悔棋", true);
+  armTeach();
 });
 
 els.btnScore.addEventListener("click", () => {
@@ -1580,6 +1738,34 @@ els.kifuNumbersToggle?.addEventListener("change", () => {
     /* private mode */
   }
   if (isKifu()) refresh();
+});
+
+try {
+  const savedTeach = localStorage.getItem("go-hub-teach");
+  if (els.teachToggle) {
+    const dan = /^d[1-5]$/.test(els.difficultySelect.value);
+    els.teachToggle.checked = savedTeach === "1" || (savedTeach !== "0" && dan);
+  }
+} catch {
+  /* private mode */
+}
+els.teachToggle?.addEventListener("change", () => {
+  try {
+    localStorage.setItem("go-hub-teach", els.teachToggle.checked ? "1" : "0");
+  } catch {
+    /* private mode */
+  }
+  if (!els.teachToggle.checked) {
+    teachOverlay = null;
+    teachArmed = null;
+    if (els.teachNote) els.teachNote.textContent = "";
+    draw();
+    return;
+  }
+  armTeach();
+});
+els.btnKifuTeach?.addEventListener("click", () => {
+  void reviewPreviousMove();
 });
 
 syncAiOptionVisibility();

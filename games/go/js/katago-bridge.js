@@ -48,6 +48,110 @@ export function positionForKata(engine) {
   };
 }
 
+/** 讲解用的短搜索。比高段对弈少看几手，避免每步都等很久。 */
+export const TEACH_SETTINGS = { visits: 16, maxTimeMs: 2500, rootPolicyTemperature: 1, topK: 12 };
+
+const FILES = "ABCDEFGHJKLMNOPQRST";
+
+export function teachCoord(x, y, size) {
+  return `${FILES[x] || "?"}${size - y}`;
+}
+
+function leadSentence(scoreLead) {
+  const n = Math.abs(scoreLead).toFixed(1);
+  if (Math.abs(scoreLead) < 0.35) return "落子前它看着双方差不多。";
+  return scoreLead > 0 ? `落子前它估计黑棋领先 ${n} 目。` : `落子前它估计白棋领先 ${n} 目。`;
+}
+
+/**
+ * Turn one KataGo review of the position *before* the move into a short comment.
+ * `relativePointsLost` is already from the side that played, matching KaTrain.
+ */
+export function teachVerdict(review, played, size) {
+  const moves = review?.moves || [];
+  const best = moves.find((move) => !move.pass) || null;
+  const hit = moves.find((move) =>
+    played.pass ? move.pass : !move.pass && move.x === played.x && move.y === played.y,
+  );
+  const lead = leadSentence(Number(review?.rootScoreLead) || 0);
+  const bestName = best ? teachCoord(best.x, best.y, size) : "";
+  const territory = Array.isArray(review?.territory) ? review.territory : [];
+  const alternatives = moves.filter((move) => !move.pass).slice(0, 3);
+  const overlay = { territory, best: null, candidates: [] };
+  const pointed = { best: best ? { x: best.x, y: best.y } : null, overlay };
+  if (!moves.length) {
+    return { ...pointed, kind: "empty", loss: null, playedMatchesBest: false, text: `模型没有给出可下的点。${lead}` };
+  }
+  if (!hit) {
+    if (best) overlay.best = { x: best.x, y: best.y };
+    overlay.candidates = alternatives;
+    const priorIndex = played.pass ? size * size : played.y * size + played.x;
+    const prior = Number(review?.policy?.[priorIndex]);
+    const priorText = Number.isFinite(prior) && prior >= 0.02
+      ? `搜索没细看这手，它一开始大约有 ${Math.round(prior * 100)}% 的可能。`
+      : "这手不在模型看过的几手里。";
+    return {
+      ...pointed,
+      kind: "unseen",
+      loss: null,
+      playedMatchesBest: false,
+      text: `${priorText}${bestName ? `算过的点里更想下在 ${bestName}。` : ""}${lead}`,
+    };
+  }
+  const loss = Math.max(0, Number(hit.relativePointsLost) || 0);
+  const samePoint = !played.pass && best && hit.x === best.x && hit.y === best.y;
+  if (samePoint || loss < 0.5) {
+    return {
+      ...pointed,
+      kind: samePoint ? "best" : "close",
+      loss,
+      playedMatchesBest: Boolean(samePoint),
+      text: samePoint
+        ? `这手就是模型最想下的。${lead}`
+        : `这手和模型最想下的差不多。${bestName ? `它最想下在 ${bestName}。` : ""}${lead}`,
+    };
+  }
+  if (best) overlay.best = { x: best.x, y: best.y };
+  overlay.candidates = alternatives;
+  const action = played.pass ? "停着" : "这手";
+  return {
+    ...pointed,
+    kind: "loss",
+    loss,
+    playedMatchesBest: false,
+    text: `${action}大约亏 ${loss.toFixed(1)} 目。${bestName ? `模型更想下在 ${bestName}。` : ""}${lead}`,
+  };
+}
+
+function orientReview(engine, review) {
+  const probe = (review.moves || []).find((move) => !move.pass);
+  if (!probe || engine.isLegal(probe.x, probe.y)) return review;
+  const flippedY = engine.size - 1 - probe.y;
+  if (!engine.isLegal(probe.x, flippedY)) return review;
+  const territory = review.territory.map((_, y) => review.territory[engine.size - 1 - y] || []);
+  const policy = [];
+  for (let y = 0; y < engine.size; y += 1) {
+    for (let x = 0; x < engine.size; x += 1) {
+      policy.push(review.policy?.[(engine.size - 1 - y) * engine.size + x] ?? 0);
+    }
+  }
+  if (review.policy?.length) policy.push(review.policy[review.policy.length - 1] || 0);
+  return {
+    ...review,
+    territory,
+    policy,
+    moves: review.moves.map((move) => (move.pass ? move : { ...move, y: engine.size - 1 - move.y })),
+  };
+}
+
+export async function kataReview(engine, onStatus) {
+  if (!modelReady) onStatus?.("正在加载 KataGo 模型，第一次大约 4MB…");
+  const hub = await import("../katago/hub.js");
+  const review = await hub.reviewPosition(positionForKata(engine), TEACH_SETTINGS);
+  modelReady = true;
+  return orientReview(engine, review);
+}
+
 export async function kataChooseMove(engine, level, onStatus) {
   const settings = KATA_LEVELS[level] || KATA_LEVELS.d3;
   if (!modelReady) onStatus?.("正在加载 KataGo 模型，第一次大约 4MB…");
