@@ -53,6 +53,9 @@ const els = {
   difficultyField: document.getElementById("difficultyField"),
   kifuOptions: document.getElementById("kifuOptions"),
   kifuFilter: document.getElementById("kifuFilter"),
+  kifuLevel: document.getElementById("kifuLevel"),
+  kifuEra: document.getElementById("kifuEra"),
+  kifuSelectLabel: document.querySelector("label[for='kifuSelect']"),
   kifuSelect: document.getElementById("kifuSelect"),
   kifuBlurb: document.getElementById("kifuBlurb"),
   kifuStudy: document.getElementById("kifuStudy"),
@@ -1064,12 +1067,17 @@ function shiftDrill(delta) {
 function fillKifuSelect() {
   if (!els.kifuSelect) return;
   const query = (els.kifuFilter?.value || "").trim();
+  const level = els.kifuLevel?.value || "";
+  const era = els.kifuEra?.value || "";
   const current = els.kifuSelect.value;
   const games = KIFU.filter((game) => {
+    if (level && game.level !== level) return false;
+    if (era && game.era !== era) return false;
     if (!query) return true;
-    const hay = `${game.group} ${game.title} ${game.blackName} ${game.whiteName} ${game.date} ${game.result}`;
+    const hay = `${game.group} ${game.title} ${game.blackName} ${game.whiteName} ${game.date} ${game.result} ${game.level || ""} ${game.era || ""} ${game.rankText || ""}`;
     return hay.includes(query);
   });
+  if (els.kifuSelectLabel) els.kifuSelectLabel.textContent = `棋谱（${games.length} 局）`;
   uiLock += 1;
   els.kifuSelect.innerHTML = "";
   if (!games.length) {
@@ -1092,7 +1100,7 @@ function fillKifuSelect() {
     opt.value = game.id;
     const named = game.title.includes(game.blackName) || game.title.includes("对");
     const players = named ? "" : ` · ${game.blackName} 对 ${game.whiteName}`;
-    opt.textContent = `${game.title}${players} · ${game.result}`;
+    opt.textContent = `${game.level || "未分级"} · ${game.title}${players} · ${game.result}`;
     els.kifuSelect.lastElementChild.appendChild(opt);
   }
   if (games.some((game) => game.id === current)) els.kifuSelect.value = current;
@@ -1101,7 +1109,10 @@ function fillKifuSelect() {
 
 function kifuHeadline(game) {
   const seat = game.seat ? "座子局，白先。" : "空枰黑先。";
-  return `${game.blackName} 执黑 · ${game.whiteName} 执白 · ${game.date || "年代不详"} · ${game.result}。${seat}${game.summary}`;
+  const rank = game.rankText ? `${game.rankText}。` : "";
+  const level = game.level ? `${game.level}打谱。` : "";
+  const era = game.era ? `${game.era}。` : "";
+  return `${level}${era}${rank}${game.blackName} 执黑 · ${game.whiteName} 执白 · ${game.date || "年代不详"} · ${game.result}。${seat}${game.summary}`;
 }
 
 function startKifu() {
@@ -1693,6 +1704,8 @@ els.btnDrillUndo?.addEventListener("click", () => els.btnUndo.click());
 els.kifuFilter?.addEventListener("input", () => {
   fillKifuSelect();
 });
+els.kifuLevel?.addEventListener("change", () => fillKifuSelect());
+els.kifuEra?.addEventListener("change", () => fillKifuSelect());
 els.kifuSelect?.addEventListener("change", () => {
   if (uiLock || !kifuSelected()) return;
   kifu = null;

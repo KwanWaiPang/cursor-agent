@@ -6,12 +6,17 @@ function assert(cond, msg) {
 }
 
 function testLibrary() {
-  assert(KIFU.length >= 300, `expected a shelf of full games, got ${KIFU.length}`);
+  assert(KIFU.length >= 1800, `expected the ancient shelf, got ${KIFU.length}`);
   const groups = new Set(KIFU.map((g) => g.group));
   assert(groups.has("当湖十局"), "danghu");
   assert(groups.has("秀策名局"), "shusaku");
   assert(groups.has("聂卫平") && groups.has("柯洁") && groups.has("陈祖德"), "chinese masters");
+  assert(groups.has("本因坊秀和") && groups.has("御城棋") && groups.has("道策御城棋"), "ancient houses");
   assert(KIFU.filter((g) => g.group === "聂卫平").length >= 8, "nie games");
+  assert(KIFU.every((g) => g.level === "初级" || g.level === "中级" || g.level === "高级"), "every game has a study level");
+  const danghuLevel = KIFU.find((g) => g.group === "当湖十局");
+  assert(danghuLevel.level === "高级" && danghuLevel.era === "古代中国", "danghu stays a hard classical game");
+  assert(KIFU.some((g) => g.level === "初级" && g.era === "江户后期"), "easy castle or edo games");
   for (const game of KIFU) {
     assert(game.size === 19, `${game.id} not 19`);
     assert(game.moves.length >= 40, `${game.id} short`);
