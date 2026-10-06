@@ -18,7 +18,7 @@ function testLibrary() {
   assert(danghuLevel.level === "高级" && danghuLevel.era === "清", "danghu is a Qing game");
   const eras = new Set(KIFU.map((g) => g.era));
   for (const era of ["唐", "宋", "明", "清", "近代"]) assert(eras.has(era), era);
-  assert([...eras].every((era) => ["唐", "宋", "元", "明", "清", "近代"].includes(era)), `unexpected era ${[...eras]}`);
+  assert([...eras].every((era) => ["唐", "宋", "明", "清", "近代"].includes(era)), `unexpected era ${[...eras]}`);
   assert(KIFU.some((g) => g.level === "初级" && g.era === "清"), "easy Qing games");
   assert(KIFU.find((g) => g.group === "唐代名局").era === "唐", "Tang games");
   assert(KIFU.find((g) => g.group === "宋代名局").era === "宋", "Song games");

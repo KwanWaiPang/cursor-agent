@@ -1065,7 +1065,7 @@ function shiftDrill(delta) {
   startDrill();
 }
 
-const KIFU_ERAS = ["唐", "宋", "元", "明", "清", "近代"];
+const KIFU_ERAS = ["唐", "宋", "明", "清", "近代"];
 const KIFU_LEVELS = ["初级", "中级", "高级"];
 let kifuPlayersReady = false;
 

@@ -553,8 +553,7 @@ function yearOf(date) {
 
 function eraFromYear(year) {
   if (year < 960) return "唐";
-  if (year < 1279) return "宋";
-  if (year < 1368) return "元";
+  if (year < 1368) return "宋";
   if (year < 1644) return "明";
   if (year < 1912) return "清";
   return "近代";
@@ -1302,7 +1301,7 @@ const body = `/**
  * 古代谱尽量收全本因坊家、御城棋和清代以前的中国全谱。
  * level 是打谱等级：有段位时按双方较低的一段，四段及以下为初级，五六段为中级，七段及以上为高级。
  * 没有段位时，让子和不足 100 手为初级，100 到 199 手为中级，200 手及以上为高级。
- * era 按年份归入唐、宋、元、明、清、近代。1912 年起为近代。唐以前的传说谱归在唐。
+ * era 按年份归入唐、宋、明、清、近代。1912 年起为近代。唐以前的传说谱归在唐。
  */
 export const KIFU_GROUPS = ${JSON.stringify([...new Set(unique.map((g) => g.group))], null, 2)};
 
