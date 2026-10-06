@@ -746,6 +746,58 @@ function canonKey(problem) {
   return keys[0];
 }
 
+function edgeMark(margin) {
+  return margin <= 0 ? "0" : "F";
+}
+
+/** Same stones and side to play, including slides along an edge. The board edge stays part of the shape; empty space beyond it does not. */
+function diagramKey(problem) {
+  const size = problem.size;
+  let best = null;
+  for (let kind = 0; kind < 8; kind += 1) {
+    const stones = [
+      ...problem.black.map(([x, y]) => ["b", ...symPoint(size, x, y, kind)]),
+      ...problem.white.map(([x, y]) => ["w", ...symPoint(size, x, y, kind)]),
+    ];
+    if (!stones.length) continue;
+    const xs = stones.map((stone) => stone[1]);
+    const ys = stones.map((stone) => stone[2]);
+    const minx = Math.min(...xs);
+    const maxx = Math.max(...xs);
+    const miny = Math.min(...ys);
+    const maxy = Math.max(...ys);
+    const margins = [
+      edgeMark(minx),
+      edgeMark(size - 1 - maxx),
+      edgeMark(miny),
+      edgeMark(size - 1 - maxy),
+    ].join("");
+    const body = stones.map((stone) => `${stone[0]}${stone[1] - minx},${stone[2] - miny}`).sort().join(";");
+    const key = `${problem.toPlay}|${margins}|${body}`;
+    if (!best || key < best) best = key;
+  }
+  return best;
+}
+
+function claimDiagrams(list, seen) {
+  const out = [];
+  let dropped = 0;
+  for (const problem of list) {
+    const key = diagramKey(problem);
+    if (seen.has(key)) {
+      dropped += 1;
+      if (dropped <= 6 && String(problem.key || "").startsWith("gzp")) {
+        console.log(`gzp dup ${problem.key} stones ${problem.stones} line ${problem.lineLen} same as ${seen.get(key)}`);
+      }
+      continue;
+    }
+    seen.set(key, problem.key || problem.id);
+    out.push(problem);
+  }
+  if (dropped) console.log(`dropped ${dropped} duplicate diagrams`);
+  return out;
+}
+
 function dedupe(list, seen) {
   const out = [];
   for (const problem of list) {
@@ -785,6 +837,23 @@ for (const level of [1, 2, 3]) {
   );
   console.log(`original L${level}: ${batch.length}`);
 }
+const seenDiagram = new Map();
+const uniqueOriginals = [];
+for (const level of [1, 2, 3]) {
+  const batch = claimDiagrams(
+    originals.filter((problem) => problem.level === level),
+    seenDiagram
+  );
+  uniqueOriginals.push(
+    ...batch.map((problem, index) => ({
+      ...problem,
+      id: `tactic-${level}-${String(index + 1).padStart(2, "0")}`,
+    }))
+  );
+  console.log(`original kept L${level}: ${batch.length}`);
+}
+originals.length = 0;
+originals.push(...uniqueOriginals);
 ORIGINALS.length = 0;
 ORIGINALS.push(...originals);
 
@@ -908,23 +977,24 @@ function tagPool(games, prefix) {
 }
 
 const weeklyRoot = "/tmp/ggg/weekly-go-problems";
-const weeklyEasy = dedupe(loadWeekly(`${weeklyRoot}/easy`, "easy"), seenShape);
-const weeklyMid = dedupe(loadWeekly(`${weeklyRoot}/intermediate`, "mid"), seenShape);
-const weeklyHard = dedupe(loadWeekly(`${weeklyRoot}/hard`, "hard"), seenShape);
-const qjzm = dedupe(tagPool(loadBook("/tmp/go-sgf/qjzm-a.sgf.gz"), "qjzm"), seenShape);
-const xxqj = dedupe(tagPool(loadBook("/tmp/go-sgf/xxqj.sgf.gz"), "xxqj"), seenShape);
+const weeklyEasy = claimDiagrams(dedupe(loadWeekly(`${weeklyRoot}/easy`, "easy"), seenShape), seenDiagram);
+const weeklyMid = claimDiagrams(dedupe(loadWeekly(`${weeklyRoot}/intermediate`, "mid"), seenShape), seenDiagram);
+const weeklyHard = claimDiagrams(dedupe(loadWeekly(`${weeklyRoot}/hard`, "hard"), seenShape), seenDiagram);
+const qjzm = claimDiagrams(dedupe(tagPool(loadBook("/tmp/go-sgf/qjzm-a.sgf.gz"), "qjzm"), seenShape), seenDiagram);
+const xxqj = claimDiagrams(dedupe(tagPool(loadBook("/tmp/go-sgf/xxqj.sgf.gz"), "xxqj"), seenShape), seenDiagram);
 const xuanlanDir = "/tmp/go-sgf/xuanlan";
 const xuanlanGames = readdirSync(xuanlanDir)
   .filter((name) => name.endsWith(".sgf"))
   .sort()
   .flatMap((name) => parseSgf(readFileSync(`${xuanlanDir}/${name}`, "utf8")));
-const xuanlan = dedupe(tagPool(xuanlanGames, "xl"), seenShape);
+const xuanlan = claimDiagrams(dedupe(tagPool(xuanlanGames, "xl"), seenShape), seenDiagram);
 const gzp = ["gzp1", "gzp2", "gzp3"]
   .flatMap((name) =>
     loadBook(`/tmp/go-sgf/${name}.sgf.gz`).map((tree, index) => viable(problemFromTree(tree), `${name}-${index}`))
   )
   .filter(Boolean)
   .map((problem, index) => ({ ...problem, key: `gzp-${index}`, book: "gzp", n: index + 1 }));
+const gzpUnique = claimDiagrams(gzp, seenDiagram);
 
 console.log(
   `weekly easy ${weeklyEasy.length} mid ${weeklyMid.length} hard ${weeklyHard.length} qjzm ${qjzm.length} xxqj ${xxqj.length} xuanlan ${xuanlan.length} gzp ${gzp.length}`
@@ -1010,10 +1080,10 @@ const slices = [
 ];
 let yose = [];
 for (const [pred, level, name] of slices) {
-  let picked = take(gzp, pred, N, usedG);
+  let picked = take(gzpUnique, pred, N, usedG);
   if (picked.length < N) {
     picked = picked.concat(
-      take(gzp, (p) => p.lineLen <= 6 + level * 4 && p.stones <= 24 + level * 6, N - picked.length, usedG)
+      take(gzpUnique, (p) => p.lineLen <= 6 + level * 4 && p.stones <= 24 + level * 6, N - picked.length, usedG)
     );
   }
   console.log(`yose L${level} ${name}: ${picked.length}`);

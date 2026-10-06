@@ -47,7 +47,7 @@ function testCurriculumShape() {
     assert(track.levels.length >= 8, `${track.id} has ${track.levels.length} levels`);
     for (const lv of track.levels) {
       const list = problemsOf(track.id, lv.level);
-      assert(list.length >= 6, `${track.id} L${lv.level} has ${list.length}`);
+      assert(list.length >= 5, `${track.id} L${lv.level} has ${list.length}`);
     }
   }
   assert(PROBLEMS.length > 320, `expected more problems after adding collections, got ${PROBLEMS.length}`);
@@ -102,7 +102,7 @@ function testUnlock() {
     assert(track.levels.length >= 8, `${track.id} levels`);
     for (const lv of track.levels) {
       assert(isLevelUnlocked(track.id, lv.level, progress), `${track.id} L${lv.level} is free`);
-      assert(problemsOf(track.id, lv.level).length >= 6, `${track.id} L${lv.level} count`);
+      assert(problemsOf(track.id, lv.level).length >= 5, `${track.id} L${lv.level} count`);
     }
   }
   const session = new DrillSession({ solved: {} });
