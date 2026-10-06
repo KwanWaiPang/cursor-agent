@@ -48,6 +48,7 @@ const els = {
   btnDrillNext: document.getElementById("btnDrillNext"),
   btnDrillRetry: document.getElementById("btnDrillRetry"),
   btnDrillHint: document.getElementById("btnDrillHint"),
+  btnDrillUndo: document.getElementById("btnDrillUndo"),
   btnDrillSolve: document.getElementById("btnDrillSolve"),
   difficultyField: document.getElementById("difficultyField"),
   kifuOptions: document.getElementById("kifuOptions"),
@@ -268,7 +269,7 @@ function updatePanel() {
     !kifu.deviated &&
     kifu.nextMove()?.pass;
   els.btnPass.disabled = !humanCanAct && !kifuPass;
-  if (els.actionCard) els.actionCard.hidden = isKifu();
+  if (els.actionCard) els.actionCard.hidden = isKifu() || isDrill();
   els.btnPass.hidden = isDrill() || (isKifu() && !kifuPass);
   els.btnResign.hidden = isDrill() || isKifu();
   els.btnAutoDead.hidden = isDrill() || isKifu();
@@ -289,6 +290,7 @@ function updatePanel() {
     els.btnDrillNext.disabled = drill.busy || drill.index >= total - 1;
     els.btnDrillRetry.disabled = drill.busy;
     if (els.btnDrillHint) els.btnDrillHint.disabled = drill.busy || drill.solvedFlag;
+    if (els.btnDrillUndo) els.btnDrillUndo.disabled = drill.busy || drill.log.length === 0;
     els.btnDrillSolve.disabled = drill.busy;
   }
   if (isKifu()) {
@@ -942,10 +944,7 @@ function startDrill() {
   const p = drill.problem;
   const total = problemsOf(p.track, p.level).length;
   const face = drillFaceText(p.prompt);
-  refresh(
-    `${p.title}（${drill.index + 1}/${total}）。${face} 拿不准按「提示」，棋盘会标出下一手，并说明原因。${cropNote()}`,
-    true
-  );
+  refresh(`${p.title}（${drill.index + 1}/${total}）。${face} 拿不准按「提示」。${cropNote()}`, true);
 }
 
 function replayDrillLog() {
@@ -1410,6 +1409,7 @@ async function onKifuMove(coord) {
       } else {
         showMessage(`谱上是 ${where}。这一手已记入错过，可以用「再练错过」回来。`);
       }
+      updatePanel();
       return;
     }
     const taught = captureTeachPoint();
@@ -1510,7 +1510,8 @@ function newGame() {
   let tip = "新对局开始，黑先。";
   if (isAiMode()) {
     const you = colorName(humanColor());
-    tip = `人机对战开始：你执${you}，AI 执${colorName(aiColor())}（${els.difficultySelect.selectedOptions[0].text} · ${size}路）。大棋盘 AI 思考会稍久。`;
+    const pace = size >= 19 ? "19 路思考会稍久。" : "";
+    tip = `人机对战开始：你执${you}，AI 执${colorName(aiColor())}（${els.difficultySelect.selectedOptions[0].text} · ${size}路）。${pace}`;
   }
   teachOverlay = null;
   if (els.teachNote) els.teachNote.textContent = "";
@@ -1687,6 +1688,7 @@ els.kifuSlider?.addEventListener("input", () => {
   seekKifu(Number(els.kifuSlider.value));
 });
 els.btnDrillHint?.addEventListener("click", () => hintDrill());
+els.btnDrillUndo?.addEventListener("click", () => els.btnUndo.click());
 
 els.kifuFilter?.addEventListener("input", () => {
   fillKifuSelect();

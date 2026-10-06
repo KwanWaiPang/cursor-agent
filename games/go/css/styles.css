@@ -179,10 +179,29 @@ body.game-page {
   color: var(--accent-soft);
 }
 
+.panel,
+.card,
+.field,
+.controls,
+.ai-options,
+.kifu-playbar {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.game-page .panel {
+  overflow-x: hidden;
+}
+
 .controls {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.55rem;
+}
+
+.controls > *,
+.kifu-playbar > * {
+  min-width: 0;
 }
 
 button,
@@ -200,6 +219,9 @@ button {
   color: #f7fff9;
   font-size: 0.95rem;
   letter-spacing: 0.04em;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
   cursor: pointer;
   transition: transform 160ms ease, background 160ms ease, opacity 160ms ease;
 }
@@ -246,6 +268,9 @@ button.danger {
 
 .field select,
 .field input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid rgba(61, 47, 38, 0.25);
   border-radius: 10px;
   padding: 0.55rem 0.7rem;
@@ -285,6 +310,7 @@ button.danger {
 
 .drill-progress {
   color: var(--ink);
+  overflow-wrap: anywhere;
 }
 
 .drill-source {
@@ -301,6 +327,11 @@ button.danger {
   font-size: 0.92rem;
   color: var(--ink-soft);
   cursor: pointer;
+}
+
+.inline-check[hidden],
+.card[hidden] {
+  display: none !important;
 }
 
 .inline-check input {
@@ -334,7 +365,9 @@ button.danger {
 }
 
 .kifu-playbar select {
-  min-width: 4.2rem;
+  width: auto;
+  min-width: 0;
+  max-width: 5.2rem;
 }
 
 .teach-note {
@@ -404,6 +437,12 @@ button.danger {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@media (max-height: 860px) and (min-width: 901px) {
+  .game-page .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
   }
 }
 

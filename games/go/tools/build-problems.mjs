@@ -1308,29 +1308,47 @@ function annotateProblem(problem) {
   const first = ownMoves[0];
   const solverText = ownMoves.map((move) => move.why || "").join(" ");
   const hasCap = /提掉 \d+ 子/.test(solverText);
-  const hasSave = /长气|长出去|连出|连在一起/.test(solverText);
+  const hasSave = /长气|长出去|连出|连在一起|连上/.test(solverText);
   const hasAtari = solverText.includes("把对方叫吃");
-  const goal = hasSave && hasCap
-    ? "先把危险的棋连回，再把对方吃掉"
-    : hasCap
-      ? fight
-        ? "把这段对战里该吃的棋提掉"
-        : "把该吃的棋提掉"
-      : hasSave
-        ? "先把危险的棋连回"
-        : hasAtari
-          ? fight
-            ? "先叫吃，再把对方的应手下完"
-            : "把对方叫吃"
-          : fight
-            ? "按谱上的次序和对方下完这段变化"
-            : "占住这一手的要点";
+  const hasSqueeze = solverText.includes("紧对方的气");
+  const yose = problem.track === "yose";
+  const goal = /征子/.test(solverText)
+    ? "一路叫吃，把征子走完"
+    : /对杀/.test(solverText)
+      ? "在对杀里抢先收气"
+      : /双活/.test(solverText)
+        ? "把这块棋走成双活"
+        : /见合/.test(solverText)
+          ? "占住见合的要点"
+          : /劫/.test(solverText)
+            ? "把这手走成劫"
+            : hasSave && hasCap
+              ? "先把危险的棋连回，再把对方吃掉"
+              : hasCap
+                ? fight
+                  ? "把这段对战里该吃的棋提掉"
+                  : "把该吃的棋提掉"
+                : hasSave
+                  ? "先把危险的棋连回"
+                  : hasAtari
+                    ? fight
+                      ? "先叫吃，再把对方的应手下完"
+                      : "把对方叫吃"
+                    : hasSqueeze
+                      ? yose
+                        ? "把对方的官子气收紧"
+                        : "把对方的气收紧"
+                      : yose
+                        ? fight
+                          ? "把这个官子收完"
+                          : "把这个官子占住"
+                        : fight
+                          ? "占住这边的要点，再应完对方"
+                          : "占住这一手的要点";
   const branches = first?.replies?.length || 0;
   const battle = fight
-    ? `这题要下完一段对战，不是只摆一子。你走正着后，对方会应手，你再继续。${
-        branches > 1 ? "对方有几种应手，这里先走谱上的第一种。" : ""
-      }`
-    : "这题只要下一子就能结束，谱上没有后续应手。";
+    ? `这是对战，对方应一手，你再继续。${branches > 1 ? "对方有几种应手，这里先走谱上的第一种。" : ""}`
+    : "";
   const next = first?.why ? `下一手：${first.why}` : "";
   const hasOwnGoal = problem.prompt && !problem.prompt.includes("请走出谱上的主变化");
   const genericWeekly = /按标出的正解下完/.test(problem.prompt || "");

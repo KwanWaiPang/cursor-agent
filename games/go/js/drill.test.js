@@ -73,6 +73,7 @@ function testExplanationsAndBattles() {
     assert(problem.explain.includes("下一手"), `${problem.id} tells the next move`);
     assert(problem.lesson && problem.lesson.includes("手"), `${problem.id} lesson`);
     assert(!problem.prompt.includes("下一手"), `${problem.id} prompt stays a goal`);
+    assert(!problem.prompt.includes("按谱上的次序"), `${problem.id} states a go goal`);
     assert(problem.explain.startsWith(problem.prompt), `${problem.id} explain extends the prompt`);
     const face = drillFaceText(problem.prompt);
     assert(face && !face.includes("下一手"), `${problem.id} face hides the next move`);
