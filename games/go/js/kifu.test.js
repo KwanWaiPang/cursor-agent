@@ -15,8 +15,14 @@ function testLibrary() {
   assert(KIFU.filter((g) => g.group === "聂卫平").length >= 8, "nie games");
   assert(KIFU.every((g) => g.level === "初级" || g.level === "中级" || g.level === "高级"), "every game has a study level");
   const danghuLevel = KIFU.find((g) => g.group === "当湖十局");
-  assert(danghuLevel.level === "高级" && danghuLevel.era === "古代中国", "danghu stays a hard classical game");
-  assert(KIFU.some((g) => g.level === "初级" && g.era === "江户后期"), "easy castle or edo games");
+  assert(danghuLevel.level === "高级" && danghuLevel.era === "清", "danghu is a Qing game");
+  const eras = new Set(KIFU.map((g) => g.era));
+  for (const era of ["唐", "宋", "明", "清", "近代"]) assert(eras.has(era), era);
+  assert([...eras].every((era) => ["唐", "宋", "元", "明", "清", "近代"].includes(era)), `unexpected era ${[...eras]}`);
+  assert(KIFU.some((g) => g.level === "初级" && g.era === "清"), "easy Qing games");
+  assert(KIFU.find((g) => g.group === "唐代名局").era === "唐", "Tang games");
+  assert(KIFU.find((g) => g.group === "宋代名局").era === "宋", "Song games");
+  assert(KIFU.find((g) => g.group === "柯洁").era === "近代", "modern Chinese games");
   for (const game of KIFU) {
     assert(game.size === 19, `${game.id} not 19`);
     assert(game.moves.length >= 40, `${game.id} short`);

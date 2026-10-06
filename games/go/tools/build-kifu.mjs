@@ -534,31 +534,39 @@ function studyLevel(moves, black, white, meta) {
   return "高级";
 }
 
-const CLASSIC_ERA = {
-  当湖十局: "古代中国",
-  清代名局: "古代中国",
-  早期传说: "古代中国",
-  唐代名局: "古代中国",
-  宋代名局: "古代中国",
+const UNDATED_ERA = {
+  当湖十局: "清",
+  清代名局: "清",
+  早期传说: "唐",
+  唐代名局: "唐",
+  宋代名局: "宋",
+  古代中国: "清",
+  本因坊算砂: "明",
 };
 
+function yearOf(date) {
+  const found = String(date || "").match(/(\d{3,4})/);
+  if (!found) return 0;
+  const year = Number(found[1]);
+  return year >= 100 && year <= 2100 ? year : 0;
+}
+
 function eraFromYear(year) {
-  if (year < 1603) return "明代及以前";
-  if (year < 1716) return "江户前期";
-  if (year < 1789) return "江户中期";
-  if (year < 1868) return "江户后期";
-  if (year < 1912) return "明治";
-  if (year < 1945) return "近代";
-  return "现代中国";
+  if (year < 960) return "唐";
+  if (year < 1279) return "宋";
+  if (year < 1368) return "元";
+  if (year < 1644) return "明";
+  if (year < 1912) return "清";
+  return "近代";
 }
 
 function eraOf(spec, meta) {
-  if (spec.era) return spec.era;
-  if (CLASSIC_ERA[spec.group]) return CLASSIC_ERA[spec.group];
-  const year = Number(String(meta.DT || "").slice(0, 4));
-  if (year >= 600 && year <= 2100) return eraFromYear(year);
-  if (spec.eraFallback) return spec.eraFallback;
-  return "其他";
+  const year = yearOf(meta.DT);
+  if (year) return eraFromYear(year);
+  if (UNDATED_ERA[spec.group]) return UNDATED_ERA[spec.group];
+  if (CHINESE_MASTERS.some((row) => row[1] === spec.group)) return "近代";
+  if (spec.eraFallback === "安土桃山" || spec.group === "本因坊算砂") return "明";
+  return "清";
 }
 
 const CHINESE_MASTERS = [
@@ -705,7 +713,7 @@ function chineseMasterSpecs() {
       specs.push({
         file: row.path,
         group: zh,
-        era: "现代中国",
+        era: "",
         blurb: `${year && year !== "0000" ? `${year} 年。` : ""}${cup || "公开对局"}。19 路全谱，可以打谱或猜下一手。`,
         titleExtra: [cup, year && year !== "0000" ? year : ""].filter(Boolean).join(" · "),
       });
@@ -1179,7 +1187,7 @@ function ancientSpecs() {
       specs.push({
         file: path,
         group: folder === "old_chinese" ? "古代中国" : group,
-        era: folder === "old_chinese" ? "古代中国" : "",
+        era: "",
         eraFallback,
         ancient: true,
         blurb: "古代全谱。段位按谱上所记；没有段位的，让子和短谱算初级，分先长谱算高级。",
@@ -1294,6 +1302,7 @@ const body = `/**
  * 古代谱尽量收全本因坊家、御城棋和清代以前的中国全谱。
  * level 是打谱等级：有段位时按双方较低的一段，四段及以下为初级，五六段为中级，七段及以上为高级。
  * 没有段位时，让子和不足 100 手为初级，100 到 199 手为中级，200 手及以上为高级。
+ * era 按年份归入唐、宋、元、明、清、近代。1912 年起为近代。唐以前的传说谱归在唐。
  */
 export const KIFU_GROUPS = ${JSON.stringify([...new Set(unique.map((g) => g.group))], null, 2)};
 

@@ -53,6 +53,7 @@ const els = {
   difficultyField: document.getElementById("difficultyField"),
   kifuOptions: document.getElementById("kifuOptions"),
   kifuFilter: document.getElementById("kifuFilter"),
+  kifuPlayer: document.getElementById("kifuPlayer"),
   kifuLevel: document.getElementById("kifuLevel"),
   kifuEra: document.getElementById("kifuEra"),
   kifuSelectLabel: document.querySelector("label[for='kifuSelect']"),
@@ -1064,18 +1065,55 @@ function shiftDrill(delta) {
   startDrill();
 }
 
+const KIFU_ERAS = ["唐", "宋", "元", "明", "清", "近代"];
+const KIFU_LEVELS = ["初级", "中级", "高级"];
+let kifuPlayersReady = false;
+
+function fillKifuPlayers() {
+  if (!els.kifuPlayer || kifuPlayersReady) return;
+  const counts = new Map();
+  for (const game of KIFU) {
+    counts.set(game.blackName, (counts.get(game.blackName) || 0) + 1);
+    counts.set(game.whiteName, (counts.get(game.whiteName) || 0) + 1);
+  }
+  const names = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh"));
+  for (const [name, count] of names) {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = `${name}（${count}）`;
+    els.kifuPlayer.appendChild(opt);
+  }
+  kifuPlayersReady = true;
+}
+
+function kifuBucket(game, player) {
+  if (player) return game.level || "未分级";
+  return game.era || "其他";
+}
+
 function fillKifuSelect() {
   if (!els.kifuSelect) return;
+  fillKifuPlayers();
   const query = (els.kifuFilter?.value || "").trim();
+  const player = els.kifuPlayer?.value || "";
   const level = els.kifuLevel?.value || "";
   const era = els.kifuEra?.value || "";
   const current = els.kifuSelect.value;
   const games = KIFU.filter((game) => {
+    if (player && game.blackName !== player && game.whiteName !== player) return false;
     if (level && game.level !== level) return false;
     if (era && game.era !== era) return false;
     if (!query) return true;
     const hay = `${game.group} ${game.title} ${game.blackName} ${game.whiteName} ${game.date} ${game.result} ${game.level || ""} ${game.era || ""} ${game.rankText || ""}`;
     return hay.includes(query);
+  });
+  const order = player ? KIFU_LEVELS : KIFU_ERAS;
+  games.sort((a, b) => {
+    const ia = order.indexOf(kifuBucket(a, player));
+    const ib = order.indexOf(kifuBucket(b, player));
+    const oa = ia < 0 ? order.length : ia;
+    const ob = ib < 0 ? order.length : ib;
+    return oa - ob || String(a.date).localeCompare(String(b.date)) || a.title.localeCompare(b.title, "zh");
   });
   if (els.kifuSelectLabel) els.kifuSelectLabel.textContent = `棋谱（${games.length} 局）`;
   uiLock += 1;
@@ -1088,19 +1126,21 @@ function fillKifuSelect() {
     uiLock -= 1;
     return;
   }
-  let group = "";
+  let bucket = "";
   for (const game of games) {
-    if (game.group !== group) {
+    const nextBucket = kifuBucket(game, player);
+    if (nextBucket !== bucket) {
       const optg = document.createElement("optgroup");
-      optg.label = game.group;
+      optg.label = nextBucket;
       els.kifuSelect.appendChild(optg);
-      group = game.group;
+      bucket = nextBucket;
     }
     const opt = document.createElement("option");
     opt.value = game.id;
     const named = game.title.includes(game.blackName) || game.title.includes("对");
     const players = named ? "" : ` · ${game.blackName} 对 ${game.whiteName}`;
-    opt.textContent = `${game.level || "未分级"} · ${game.title}${players} · ${game.result}`;
+    const mark = player ? game.era : game.level;
+    opt.textContent = `${mark || ""} · ${game.title}${players} · ${game.result}`.replace(/^ · /, "");
     els.kifuSelect.lastElementChild.appendChild(opt);
   }
   if (games.some((game) => game.id === current)) els.kifuSelect.value = current;
@@ -1704,6 +1744,7 @@ els.btnDrillUndo?.addEventListener("click", () => els.btnUndo.click());
 els.kifuFilter?.addEventListener("input", () => {
   fillKifuSelect();
 });
+els.kifuPlayer?.addEventListener("change", () => fillKifuSelect());
 els.kifuLevel?.addEventListener("change", () => fillKifuSelect());
 els.kifuEra?.addEventListener("change", () => fillKifuSelect());
 els.kifuSelect?.addEventListener("change", () => {
