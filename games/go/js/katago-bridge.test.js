@@ -16,9 +16,18 @@ assert(pos.board[2][2] === "black", "black stone");
 assert(pos.board[6][6] === "white", "white stone");
 assert(pos.history.length === 2, "history");
 assert(pos.history[1].player === "white" && pos.history[1].x === 6, "second move");
-assert(!isModelLevel("k1") && isModelLevel("d1") && isModelLevel("d5"), "only dan levels use the model");
-assert(KATA_LEVELS.d1.visits < KATA_LEVELS.d3.visits && KATA_LEVELS.d3.visits < KATA_LEVELS.d5.visits, "higher dan searches more");
-assert(KATA_LEVELS.d1.maxTimeMs < KATA_LEVELS.d5.maxTimeMs, "higher dan may think longer");
+assert(!isModelLevel("k1") && isModelLevel("d1") && isModelLevel("d9"), "only dan levels use the model");
+assert(Object.keys(KATA_LEVELS).length === 9, "nine model ranks");
+assert(KATA_LEVELS.d1.visits >= 16, "first dan is at the engine visit floor");
+const modelIds = Object.keys(KATA_LEVELS);
+for (let i = 1; i < modelIds.length; i += 1) {
+  const prev = KATA_LEVELS[modelIds[i - 1]];
+  const next = KATA_LEVELS[modelIds[i]];
+  assert(next.visits > prev.visits, `${modelIds[i]} searches more`);
+  assert(next.maxTimeMs > prev.maxTimeMs, `${modelIds[i]} may think longer`);
+  assert(next.rootPolicyTemperature <= prev.rootPolicyTemperature, `${modelIds[i]} plays more steadily`);
+}
+assert(KATA_LEVELS.d9.visits >= 512, "nine dan is much stronger than the old five dan");
 assert(teachCoord(2, 2, 9) === "C7", "coord from the top");
 
 const review = {

@@ -5,13 +5,20 @@
 
 const BLACK = 1;
 
-/** 初段到五段共用一个模型。段位越高，搜索手数和时间越多，着手越稳。 */
+/**
+ * 初段到九段共用一个小模型。引擎少于 16 次搜索会自动抬到 16，所以初段从 16 次起。
+ * 段位越高，搜索越多、着手越稳。九段会把这一小模型用到比较满，一手可能要几十秒。
+ */
 export const KATA_LEVELS = {
-  d1: { visits: 2, maxTimeMs: 1800, rootPolicyTemperature: 1.35 },
-  d2: { visits: 4, maxTimeMs: 2800, rootPolicyTemperature: 1.15 },
-  d3: { visits: 8, maxTimeMs: 4500, rootPolicyTemperature: 1 },
-  d4: { visits: 16, maxTimeMs: 8000, rootPolicyTemperature: 1 },
-  d5: { visits: 32, maxTimeMs: 12000, rootPolicyTemperature: 0.9 },
+  d1: { visits: 16, maxTimeMs: 4000, rootPolicyTemperature: 1.2 },
+  d2: { visits: 32, maxTimeMs: 7000, rootPolicyTemperature: 1.05 },
+  d3: { visits: 48, maxTimeMs: 10000, rootPolicyTemperature: 1 },
+  d4: { visits: 80, maxTimeMs: 14000, rootPolicyTemperature: 0.95 },
+  d5: { visits: 128, maxTimeMs: 20000, rootPolicyTemperature: 0.9 },
+  d6: { visits: 192, maxTimeMs: 28000, rootPolicyTemperature: 0.85 },
+  d7: { visits: 256, maxTimeMs: 36000, rootPolicyTemperature: 0.8 },
+  d8: { visits: 384, maxTimeMs: 48000, rootPolicyTemperature: 0.75 },
+  d9: { visits: 512, maxTimeMs: 60000, rootPolicyTemperature: 0.7 },
 };
 
 export function isModelLevel(id) {

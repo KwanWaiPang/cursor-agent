@@ -653,7 +653,7 @@ function refresh(msg, info = false) {
 }
 
 function danSelected() {
-  return /^d[1-5]$/.test(els.difficultySelect?.value || "");
+  return /^d[1-9]$/.test(els.difficultySelect?.value || "");
 }
 
 function clearTeachDisplay() {
@@ -761,14 +761,12 @@ async function reviewPreviousMove() {
 
 function applyDifficulty() {
   const id = els.difficultySelect.value;
-  if (id && id !== "d1" && id !== "d2" && id !== "d3" && id !== "d4" && id !== "d5") {
-    ai.setDifficulty(id || "k6");
-  }
+  if (!danSelected()) ai.setDifficulty(id || "k6");
 }
 
 async function chooseAiMove() {
   const id = els.difficultySelect.value;
-  if (id === "d1" || id === "d2" || id === "d3" || id === "d4" || id === "d5") {
+  if (danSelected()) {
     const bridge = await import("./katago-bridge.js");
     return bridge.kataChooseMove(engine, id, (text) => showMessage(text, true));
   }
@@ -1952,7 +1950,7 @@ els.kifuNumbersToggle?.addEventListener("change", () => {
 try {
   const savedTeach = localStorage.getItem("go-hub-teach");
   if (els.teachToggle) {
-    const dan = /^d[1-5]$/.test(els.difficultySelect.value);
+    const dan = /^d[1-9]$/.test(els.difficultySelect.value);
     els.teachToggle.checked = savedTeach === "1" || (savedTeach !== "0" && dan);
   }
 } catch {
