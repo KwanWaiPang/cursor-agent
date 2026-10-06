@@ -10,7 +10,8 @@
  *
  * Only 19×19 games whose main line replays legally on this engine are kept.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { GoEngine } from "../js/engine.js";
 
 const BLACK = 1;
@@ -157,12 +158,150 @@ const NAMES = [
   [/Ito Naoki/i, "伊藤难西"],
 ];
 
+const EXACT_NAMES = new Map([
+  ["Guo Tisheng", "过惕生"],
+  ["Chen Zude", "陈祖德"],
+  ["Wu Songsheng", "吴淞笙"],
+  ["Chen Ximing", "陈锡明"],
+  ["Nie Weiping", "聂卫平"],
+  ["Ma Xiaochun", "马晓春"],
+  ["Cao Dayuan", "曹大元"],
+  ["Liu Xiaoguang", "刘小光"],
+  ["Yu Bin", "俞斌"],
+  ["Shao Weigang", "邵炜刚"],
+  ["Shao Zhenzhong", "邵震中"],
+  ["Wang Runan", "王汝南"],
+  ["Hua Xueming", "华学明"],
+  ["Jiang Zhujiu", "江铸久"],
+  ["Rui Naiwei", "芮乃伟"],
+  ["Chang Hao", "常昊"],
+  ["Gu Li", "古力"],
+  ["Kong Jie", "孔杰"],
+  ["Luo Xihe", "罗洗河"],
+  ["Wang Lei", "王磊"],
+  ["Qiu Jun", "邱峻"],
+  ["Zhou Heyang", "周鹤洋"],
+  ["Chen Yaoye", "陈耀烨"],
+  ["Zhou Ruiyang", "周睿羊"],
+  ["Tuo Jiaxi", "柁嘉熹"],
+  ["Piao Wenyao", "朴文垚"],
+  ["Jiang Weijie", "江维杰"],
+  ["Shi Yue", "时越"],
+  ["Tang Weixing", "唐韦星"],
+  ["Mi Yuting", "芈昱廷"],
+  ["Fan Tingyu", "范廷钰"],
+  ["Lian Xiao", "连笑"],
+  ["Yang Dingxin", "杨鼎新"],
+  ["Gu Zihao", "辜梓豪"],
+  ["Ke Jie", "柯洁"],
+  ["Xie Ke", "谢科"],
+  ["Xie Erhao", "谢尔豪"],
+  ["Dang Yifei", "党毅飞"],
+  ["Li Xuanhao", "李轩豪"],
+  ["Yu Zhiying", "於之莹"],
+  ["Ding Hao", "丁浩"],
+  ["Zhang Wendong", "张文东"],
+  ["Hu Yaoyu", "胡耀宇"],
+  ["Peng Quan", "彭荃"],
+  ["Liu Xing", "刘星"],
+  ["Lee Changho", "李昌镐"],
+  ["Lee Sedol", "李世石"],
+  ["Park Yeonghun", "朴永训"],
+  ["Park Junghwan", "朴廷桓"],
+  ["Cho Hunhyun", "曹薰铉"],
+  ["Cho Chikun", "赵治勋"],
+  ["Cho U", "张栩"],
+  ["Cho Hanseung", "赵汉乘"],
+  ["Yoda Norimoto", "依田纪基"],
+  ["Kobayashi Koichi", "小林光一"],
+  ["Kobayashi Satoru", "小林觉"],
+  ["Rin Kaiho", "林海峰"],
+  ["Lin Haifeng", "林海峰"],
+  ["O Rissei", "王立诚"],
+  ["O Meien", "王铭琬"],
+  ["Kato Masao", "加藤正夫"],
+  ["Iyama Yuta", "井山裕太"],
+  ["Yamashita Keigo", "山下敬吾"],
+  ["Takemiya Masaki", "武宫正树"],
+  ["Otake Hideo", "大竹英雄"],
+  ["Ishida Yoshio", "石田芳夫"],
+  ["Hane Naoki", "羽根直树"],
+  ["Yuki Satoshi", "结城聪"],
+  ["Ichiriki Ryo", "一力辽"],
+  ["Shin Jinseo", "申真谞"],
+  ["Shin Minjun", "申旻埈"],
+  ["Byun Sangil", "卞相壹"],
+  ["Kim Jiseok", "金志锡"],
+  ["Choi Cheolhan", "崔哲瀚"],
+  ["Kang Dongyun", "姜东润"],
+  ["Yoo Changhyuk", "刘昌赫"],
+  ["Seo Bongsoo", "徐奉洙"],
+  ["Won Seongjin", "元晟溱"],
+  ["Mok Jinseok", "睦镇硕"],
+  ["Choi Jeong", "崔精"],
+  ["Na Hyun", "罗玄"],
+  ["Wang Yuanjun", "王元均"],
+  ["Lin Junyan", "林君谚"],
+  ["Zhou Junxun", "周俊勋"],
+  ["Xiao Zhenghao", "萧正浩"],
+  ["Chen Shiyuan", "陈诗渊"],
+  ["Fujisawa Hideyuki", "藤泽秀行"],
+  ["Fujisawa Shuko", "藤泽秀行"],
+  ["Sakata Eio", "坂田荣男"],
+  ["Go Seigen", "吴清源"],
+  ["Wu Qingyuan", "吴清源"],
+  ["Hashimoto Utaro", "桥本宇太郎"],
+  ["Hashimoto Shoji", "桥本昌二"],
+  ["Kitani Minoru", "木谷实"],
+  ["Takao Shinji", "高尾绅路"],
+  ["Yamashiro Hiroshi", "山城宏"],
+  ["Imamura Toshiya", "今村俊也"],
+  ["Kudo Norio", "工藤纪夫"],
+  ["Awaji Shuzo", "淡路修三"],
+  ["Sugiuchi Masao", "杉内雅男"],
+  ["Ohira Shuzo", "大平修三"],
+  ["Miyazawa Goro", "宫泽吾朗"],
+  ["Kajiwara Takeo", "梶原武雄"],
+  ["Fujisawa Hosai", "藤泽朋斋"],
+  ["Takagawa Shukaku", "高川秀格"],
+  ["Takagawa Kaku", "高川格"],
+  ["Maeda Nobuaki", "前田陈尔"],
+  ["Ishii Kunio", "石井邦生"],
+  ["Honda Kunihisa", "本田邦久"],
+  ["Hane Yasumasa", "羽根泰正"],
+  ["Sonoda Yuichi", "园田泰一"],
+  ["Komatsu Hideki", "小松英树"],
+  ["Yamada Kimio", "山田规三生"],
+  ["Kono Rin", "河野临"],
+  ["Shibano Toramaru", "芝野虎丸"],
+  ["Ryu Shikun", "柳时熏"],
+  ["Heo Yeongho", "许映皓"],
+  ["Kim Myeonghoon", "金明训"],
+  ["An Sungjun", "安成浚"],
+  ["Tong Mengcheng", "童梦成"],
+  ["Tan Xiao", "檀啸"],
+  ["Xu Jiayang", "许嘉阳"],
+  ["Li Qincheng", "李钦诚"],
+]);
+
+function knownName(raw) {
+  const text = String(raw || "")
+    .replace(/\s+\d+[dp]\b/i, "")
+    .replace(/\s+Meijin\b/i, "")
+    .trim();
+  if (!text) return "";
+  if (EXACT_NAMES.has(text)) return EXACT_NAMES.get(text);
+  for (const [re, zh] of NAMES) if (re.test(text)) return zh;
+  return "";
+}
+
 function personName(raw) {
   const text = String(raw || "")
     .replace(/\s+\d+[dp]\b/i, "")
     .replace(/\s+Meijin\b/i, "")
     .trim();
   if (!text) return "未知";
+  if (EXACT_NAMES.has(text)) return EXACT_NAMES.get(text);
   if (text.includes("&")) return text.split("&").map((part) => personName(part.trim())).join("、");
   for (const [re, zh] of NAMES) {
     if (re.test(text)) return zh;
@@ -322,9 +461,16 @@ function loadGame(spec) {
         ? "19路全谱。四角（或星位）已有座子，通常白先。打谱时看双方如何从全局拆边、攻逼。"
         : "19路全谱，空枰黑先。可以逐步打谱，猜下一手，或执一方跟谱；下偏后由 AI 接上。";
   let title = spec.title || `${blackName} 对 ${whiteName}`;
+  if (spec.titleExtra) title = `${title} · ${spec.titleExtra}`;
   title = title.replace(/吐血/g, "");
   return {
-    id: spec.file.split("/").pop().replace(".sgf", "").toLowerCase() + "-" + spec.group.length,
+    id: (spec.file.includes("/cn-kifu/")
+      ? spec.file.replace(/^\/tmp\/cn-kifu\/games\//, "").replace(/\.sgf$/i, "")
+      : `${spec.file.split("/").pop().replace(/\.sgf$/i, "")}-${spec.group.length}`
+    )
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase(),
     group: spec.group,
     title,
     blackName,
@@ -343,6 +489,162 @@ function loadGame(spec) {
     moves,
   };
 }
+
+const CHINESE_MASTERS = [
+  ["Guo Tisheng", "过惕生", 8],
+  ["Chen Zude", "陈祖德", 8],
+  ["Wu Songsheng", "吴淞笙", 8],
+  ["Chen Ximing", "陈锡明", 4],
+  ["Wang Runan", "王汝南", 4],
+  ["Nie Weiping", "聂卫平", 10],
+  ["Ma Xiaochun", "马晓春", 10],
+  ["Cao Dayuan", "曹大元", 6],
+  ["Liu Xiaoguang", "刘小光", 6],
+  ["Yu Bin", "俞斌", 6],
+  ["Shao Weigang", "邵炜刚", 6],
+  ["Shao Zhenzhong", "邵震中", 4],
+  ["Hua Xueming", "华学明", 4],
+  ["Jiang Zhujiu", "江铸久", 4],
+  ["Rui Naiwei", "芮乃伟", 6],
+  ["Zhang Wendong", "张文东", 4],
+  ["Hu Yaoyu", "胡耀宇", 4],
+  ["Chang Hao", "常昊", 8],
+  ["Gu Li", "古力", 8],
+  ["Kong Jie", "孔杰", 6],
+  ["Luo Xihe", "罗洗河", 6],
+  ["Wang Lei", "王磊", 4],
+  ["Qiu Jun", "邱峻", 6],
+  ["Zhou Heyang", "周鹤洋", 6],
+  ["Peng Quan", "彭荃", 4],
+  ["Liu Xing", "刘星", 4],
+  ["Chen Yaoye", "陈耀烨", 8],
+  ["Zhou Ruiyang", "周睿羊", 6],
+  ["Tuo Jiaxi", "柁嘉熹", 6],
+  ["Piao Wenyao", "朴文垚", 6],
+  ["Jiang Weijie", "江维杰", 6],
+  ["Shi Yue", "时越", 6],
+  ["Tang Weixing", "唐韦星", 6],
+  ["Mi Yuting", "芈昱廷", 6],
+  ["Fan Tingyu", "范廷钰", 6],
+  ["Lian Xiao", "连笑", 6],
+  ["Yang Dingxin", "杨鼎新", 6],
+  ["Gu Zihao", "辜梓豪", 6],
+  ["Dang Yifei", "党毅飞", 4],
+  ["Ke Jie", "柯洁", 8],
+  ["Xie Erhao", "谢尔豪", 4],
+  ["Xie Ke", "谢科", 4],
+  ["Li Xuanhao", "李轩豪", 6],
+  ["Ding Hao", "丁浩", 4],
+  ["Yu Zhiying", "於之莹", 4],
+];
+
+function eventLabel(ev) {
+  const text = String(ev || "");
+  const cups = [
+    [/Super\s*Go/i, "中日超级对抗"],
+    [/Go Exchange|Japan-China/i, "中日交流"],
+    [/Fujitsu/i, "富士通杯"],
+    [/Ing/i, "应氏杯"],
+    [/Samsung/i, "三星杯"],
+    [/\bLG\b/i, "LG杯"],
+    [/Chunlan/i, "春兰杯"],
+    [/Mlily/i, "梦百合杯"],
+    [/Bailing/i, "百灵杯"],
+    [/Bingsheng/i, "兵圣杯"],
+    [/Limin/i, "利民杯"],
+    [/Nie Weiping/i, "聂卫平杯"],
+    [/Mingren/i, "中日名人"],
+    [/Agon/i, "阿含桐山杯"],
+    [/Tengen/i, "天元"],
+  ];
+  for (const [re, zh] of cups) if (re.test(text)) return zh;
+  return "";
+}
+
+function headerOf(file) {
+  const head = readFileSync(file, "utf8").slice(0, 2500);
+  if (/gogod/i.test(head)) return null;
+  const prop = (key) => {
+    const found = head.match(new RegExp(`${key}\\[([^\\]]*)\\]`));
+    return found ? found[1].trim() : "";
+  };
+  return {
+    pb: prop("PB"),
+    pw: prop("PW"),
+    dt: prop("DT"),
+    ev: prop("EV"),
+    re: prop("RE"),
+    sz: prop("SZ"),
+  };
+}
+
+function spreadPick(list, cap) {
+  if (list.length <= cap) return list;
+  const out = [];
+  const used = new Set();
+  for (let i = 0; i < cap; i += 1) {
+    const idx = Math.round((i * (list.length - 1)) / (cap - 1));
+    if (used.has(idx)) continue;
+    used.add(idx);
+    out.push(list[idx]);
+  }
+  return out;
+}
+
+function chineseMasterSpecs() {
+  const root = "/tmp/cn-kifu/games";
+  if (!existsSync(root)) {
+    console.error("SKIP chinese masters: /tmp/cn-kifu/games is missing");
+    return [];
+  }
+  const byMaster = new Map(CHINESE_MASTERS.map(([en]) => [en, []]));
+  const skipped = new Map();
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) {
+        if (name === "Go_Seigen") continue;
+        walk(path);
+        continue;
+      }
+      if (!name.endsWith(".sgf")) continue;
+      const meta = headerOf(path);
+      if (!meta) continue;
+      if (meta.sz && meta.sz !== "19") continue;
+      const hit = [meta.pb, meta.pw].filter((player) => byMaster.has(player));
+      if (!hit.length) continue;
+      const namesOk = [meta.pb, meta.pw].every((player) => knownName(player));
+      if (!namesOk) {
+        for (const player of [meta.pb, meta.pw]) {
+          if (!knownName(player)) skipped.set(player, (skipped.get(player) || 0) + 1);
+        }
+        continue;
+      }
+      const owner = hit.sort((a, b) => CHINESE_MASTERS.findIndex((row) => row[0] === a) - CHINESE_MASTERS.findIndex((row) => row[0] === b))[0];
+      byMaster.get(owner).push({ path, meta });
+    }
+  };
+  walk(root);
+  const specs = [];
+  for (const [en, zh, cap] of CHINESE_MASTERS) {
+    const rows = byMaster.get(en).sort((a, b) => String(a.meta.dt).localeCompare(String(b.meta.dt)));
+    for (const row of spreadPick(rows, cap)) {
+      const cup = eventLabel(row.meta.ev);
+      const year = String(row.meta.dt || "").slice(0, 4);
+      specs.push({
+        file: row.path,
+        group: zh,
+        blurb: `${year && year !== "0000" ? `${year} 年。` : ""}${cup || "公开对局"}。19 路全谱，可以打谱或猜下一手。`,
+        titleExtra: [cup, year && year !== "0000" ? year : ""].filter(Boolean).join(" · "),
+      });
+    }
+  }
+  const unseen = [...skipped.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25);
+  if (unseen.length) console.log("untranslated opponents", unseen.map(([name, n]) => `${n} ${name}`).join(" | "));
+  return specs;
+}
+
+for (const spec of chineseMasterSpecs()) FILES.push(spec);
 
 const games = [];
 for (const spec of FILES) {
@@ -403,7 +705,8 @@ const body = `/**
  * 由 games/go/tools/build-kifu.mjs 生成。
  * 来源：Andries Brouwer（CWI）公开的公有领域棋谱，
  * https://homepages.cwi.nl/~aeb/go/games/
- * 含当湖十局、唐宋棋、秀策耳赤之局与御城棋、秀策番棋、道策与秀伯御城棋、丈和名局。
+ * 含当湖十局、唐宋棋、秀策耳赤之局与御城棋、秀策番棋、道策与秀伯御城棋、丈和名局，
+ * 以及中日交流、富士通杯、应氏杯、三星杯、LG杯、春兰杯等公开赛里的中国高手对局。
  */
 export const KIFU_GROUPS = ${JSON.stringify([...new Set(unique.map((g) => g.group))], null, 2)};
 

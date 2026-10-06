@@ -6,10 +6,12 @@ function assert(cond, msg) {
 }
 
 function testLibrary() {
-  assert(KIFU.length >= 100, `expected a shelf of full games, got ${KIFU.length}`);
+  assert(KIFU.length >= 300, `expected a shelf of full games, got ${KIFU.length}`);
   const groups = new Set(KIFU.map((g) => g.group));
   assert(groups.has("当湖十局"), "danghu");
   assert(groups.has("秀策名局"), "shusaku");
+  assert(groups.has("聂卫平") && groups.has("柯洁") && groups.has("陈祖德"), "chinese masters");
+  assert(KIFU.filter((g) => g.group === "聂卫平").length >= 8, "nie games");
   for (const game of KIFU) {
     assert(game.size === 19, `${game.id} not 19`);
     assert(game.moves.length >= 40, `${game.id} short`);
