@@ -24,6 +24,11 @@ The Game Hub aggregates several open-source games under a shared UI shell.
   - 引擎移植自 [Web KaTrain](https://github.com/Sir-Teo/web-katrain)（MIT），其中的神经网络前向与搜索来自 [KataGo](https://github.com/lightvector/KataGo)（MIT）
   - 模型 `g170-b6c96-s175395328-d26788732`，KataGo 仓库公开的测试用小网络 / small public test network from the KataGo repository
 - 练习题一到三级：馆内原创 / Beginner drills: original
+- 每周一题 / Weekly problems, levels 4–9 of 解题:
+  - 作者 / Authors: 安永吉 An Younggil (8 dan) and David Ormerod, Go Game Guru
+  - 来源 / Source: [gogameguru/go-problems](https://github.com/gogameguru/go-problems)
+  - 许可证 / License: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+  - 说明 / Note: 抽出标成 Correct 的正解，改成中文目标和对战练习。这是改编，不是原谱全文。仅供非商业使用。Adapted to Chinese goals and interactive lines; non-commercial only.
 - 古典解题与官子（公有领域）/ Classical problems, public domain:
   - 碁经众妙 Gokyo Shumyo（Hayashi Genbi，1812）。正解谱转录见 [u-go.net classical problems](https://www.u-go.net/classic/)（Ulrich Goertz；底稿来自 Flygo，经许可再分发）
   - 玄玄棋经 Xuanxuan Qijing（严德甫、晏天章，约 1349）。SGF 由 Jean-Pierre Vesinet 整理，经 u-go.net 发布

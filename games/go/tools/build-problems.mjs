@@ -2,12 +2,9 @@
  * Build games/go/js/problems.js
  *
  * Beginner problems are original to this repo.
- * Higher ranks use public-domain classical collections, with solution lines
- * taken from the SGF transcriptions Ulrich Goertz hosts (Flygo permission):
- *   - 碁经众妙 Gokyo Shumyo / qjzm-a (Hayashi Genbi, 1812)
- *   - 玄玄棋经 Xuanxuan Qijing / xxqj (Yan Defu & Yan Tianzhang, ~1349;
- *     SGF by Jean-Pierre Vesinet)
- *   - 官子谱 Guan Zi Pu / gzp (Qing; Flygo → u-go.net)
+ * Levels 4–9 use Go Game Guru weekly problems by An Younggil (8p) and
+ * David Ormerod (CC BY-NC-SA 4.0). Only the line marked Correct is kept.
+ * 官子 uses Guan Zi Pu / gzp (Qing; Flygo → u-go.net).
  *
  * Modern copyrighted problem books are not included.
  */
@@ -791,24 +788,122 @@ for (const level of [1, 2, 3]) {
 ORIGINALS.length = 0;
 ORIGINALS.push(...originals);
 
-function tagPool(games, prefix) {
-  return games
-    .map((tree, index) => viable(problemFromTree(tree), `${prefix}-${index}`))
-    .filter((problem) => problem && problem.lineLen <= 40)
-    .map((problem, index) => ({ ...problem, key: `${prefix}-${index}`, n: index + 1 }));
+function commentOf(node) {
+  return (node.C || []).join(" ").replace(/\s+/g, " ").trim();
 }
 
-const qjzm = dedupe(
-  tagPool(loadBook("/tmp/go-sgf/qjzm-a.sgf.gz"), "qjzm"),
-  seenShape
-);
-const xxqj = dedupe(tagPool(loadBook("/tmp/go-sgf/xxqj.sgf.gz"), "xxqj"), seenShape);
-const xuanlanDir = "/tmp/go-sgf/xuanlan";
-const xuanlanGames = readdirSync(xuanlanDir)
-  .filter((name) => name.endsWith(".sgf"))
-  .sort()
-  .flatMap((name) => parseSgf(readFileSync(`${xuanlanDir}/${name}`, "utf8")));
-const xuanlan = dedupe(tagPool(xuanlanGames, "xl"), seenShape);
+function isCorrectComment(text) {
+  const value = String(text || "").toLowerCase();
+  if (!value.includes("correct")) return false;
+  return !value.includes("incorrect") && !value.includes("not correct");
+}
+
+function movesFromTree(tree) {
+  const seq = tree.sequence.filter((node) => node.B || node.W);
+  const children = tree.variations.flatMap((variation) => movesFromTree(variation));
+  if (!seq.length) return children;
+  let replies = children;
+  for (let i = seq.length - 1; i >= 0; i -= 1) {
+    const move = toMove(seq[i]);
+    if (!move) return [];
+    move.note = commentOf(seq[i]);
+    move.replies = replies;
+    replies = [move];
+  }
+  return replies;
+}
+
+function keepCorrect(moves) {
+  const kept = [];
+  for (const move of moves) {
+    const replies = keepCorrect(move.replies || []);
+    if (!isCorrectComment(move.note) && !replies.length) continue;
+    kept.push({ ...move, replies });
+  }
+  kept.sort((a, b) => correctRank(a.note) - correctRank(b.note));
+  return kept;
+}
+
+function correctRank(note) {
+  const value = String(note || "").toLowerCase();
+  if (value.startsWith("correct")) return 0;
+  if (value.includes("also correct")) return 1;
+  return 2;
+}
+
+function goalFromComment(text, toPlay) {
+  const who = toPlay === BLACK ? "黑" : "白";
+  const body = String(text || "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/^(black|white) to play\.?\s*/i, "")
+    .trim()
+    .toLowerCase();
+  if (/captur/.test(body) && /race/.test(body)) return `${who}先。这是对杀，要抢先把气收完。`;
+  if (/captur/.test(body) && /two/.test(body)) return `${who}先。要把对方那两子提掉。`;
+  if (/captur/.test(body) && /cutting/.test(body)) return `${who}先。要把切断的棋提掉。`;
+  if (/captur/.test(body)) return `${who}先。要把该吃的棋提掉。`;
+  if (/connect/.test(body)) return `${who}先。要把自己的棋连回去。`;
+  if (/overplay/.test(body)) return `${who}先。对方刚才走过头了，要抓住这个机会。`;
+  if (/mistake/.test(body)) return `${who}先。对方刚才那手有破绽，要抓住。`;
+  if (/life|live|alive/.test(body)) return `${who}先。要把这块棋做活。`;
+  if (/kill/.test(body)) return `${who}先。要把对方这块棋吃掉。`;
+  if (/\bko\b/.test(body)) return `${who}先。这题会走出劫。`;
+  if (/ladder/.test(body)) return `${who}先。这是征子，要一路叫吃追下去。`;
+  return `${who}先。这是职业棋手出的局部题，按标出的正解下完。`;
+}
+
+function loadWeekly(dir, prefix) {
+  return readdirSync(dir)
+    .filter((name) => name.endsWith(".sgf"))
+    .sort()
+    .map((name) => {
+      const [tree] = parseSgf(readFileSync(`${dir}/${name}`, "utf8"));
+      if (!tree) return null;
+      const setup = { size: 19, black: [], white: [], toPlay: null, comment: "" };
+      for (const node of tree.sequence) {
+        if (node.SZ) setup.size = Number.parseInt(node.SZ[0], 10) || setup.size;
+        for (const raw of node.AB || []) {
+          const pt = parseCoord(raw);
+          if (pt) setup.black.push(pt);
+        }
+        for (const raw of node.AW || []) {
+          const pt = parseCoord(raw);
+          if (pt) setup.white.push(pt);
+        }
+        if (node.PL) setup.toPlay = parsePL(node.PL[0]);
+        if (node.C && !setup.comment) setup.comment = commentOf(node);
+      }
+      const moves = keepCorrect(movesFromTree({ sequence: [], variations: tree.variations }));
+      if (!moves.length) return null;
+      if (!setup.toPlay) setup.toPlay = moves[0].color;
+      const problem = {
+        id: `${prefix}-${name}`,
+        track: "tactic",
+        level: 1,
+        title: name,
+        prompt: goalFromComment(setup.comment, setup.toPlay),
+        source: "",
+        size: setup.size,
+        toPlay: setup.toPlay,
+        black: setup.black,
+        white: setup.white,
+        moves,
+        key: `${prefix}-${name}`,
+      };
+      try {
+        assertTree(problem);
+      } catch {
+        return null;
+      }
+      return { ...problem, lineLen: lineLen(moves), stones: setup.black.length + setup.white.length };
+    })
+    .filter((problem) => problem && problem.lineLen <= 40);
+}
+
+const weeklyRoot = "/tmp/ggg/weekly-go-problems";
+const weeklyEasy = dedupe(loadWeekly(`${weeklyRoot}/easy`, "easy"), seenShape);
+const weeklyMid = dedupe(loadWeekly(`${weeklyRoot}/intermediate`, "mid"), seenShape);
+const weeklyHard = dedupe(loadWeekly(`${weeklyRoot}/hard`, "hard"), seenShape);
 const gzp = ["gzp1", "gzp2", "gzp3"]
   .flatMap((name) =>
     loadBook(`/tmp/go-sgf/${name}.sgf.gz`).map((tree, index) => viable(problemFromTree(tree), `${name}-${index}`))
@@ -816,53 +911,34 @@ const gzp = ["gzp1", "gzp2", "gzp3"]
   .filter(Boolean)
   .map((problem, index) => ({ ...problem, key: `gzp-${index}`, book: "gzp", n: index + 1 }));
 
-console.log(`unique qjzm ${qjzm.length} xxqj ${xxqj.length} xuanlan ${xuanlan.length} gzp ${gzp.length}`);
+console.log(`weekly easy ${weeklyEasy.length} mid ${weeklyMid.length} hard ${weeklyHard.length} gzp ${gzp.length}`);
 
-const qjzmBands = splitBands(qjzm, [
-  { level: 4, title: "入门", note: "古典棋题，适合从入门往上走。" },
-  { level: 5, title: "进阶", note: "这一级手数更长。" },
-  { level: 6, title: "深入", note: "这一级更接近实战里的复杂棋题。" },
-]);
-const xxqjBands = splitBands(xxqj, [
-  { level: 7, title: "入门", note: "玄玄棋经是高段棋题。" },
-  { level: 8, title: "进阶", note: "这一级手数更长。" },
-  { level: 9, title: "深入", note: "这一级更接近实战里的复杂棋题。" },
-  { level: 10, title: "长谱", note: "手数最长的一批玄玄棋经。" },
-]);
-const QJZM_SOURCE = "碁经众妙（1812，公有领域；正解谱来自 u-go.net / Flygo）";
-const XXQJ_SOURCE = "玄玄棋经（约 1349，公有领域；SGF：Jean-Pierre Vesinet）";
-const XUANLAN_SOURCE = "玄览（公有领域；谱面转录 Flygo / u-go.net）";
+function half(items) {
+  const mid = Math.ceil(items.length / 2);
+  return [items.slice(0, mid), items.slice(mid)];
+}
 
-const tacticClassical = [
-  ...qjzmBands.flatMap((band) =>
-    decorate(
-      band.items,
-      "tactic",
-      band.level,
-      (_problem, index) => `碁经众妙 · ${band.title} ${index + 1}`,
-      (problem) => classicalPrompt(problem, band.note),
-      QJZM_SOURCE
-    )
-  ),
-  ...xxqjBands.flatMap((band) =>
-    decorate(
-      band.items,
-      "tactic",
-      band.level,
-      (_problem, index) => `玄玄棋经 · ${band.title} ${index + 1}`,
-      (problem) => classicalPrompt(problem, band.note),
-      XXQJ_SOURCE
-    )
-  ),
-  ...decorate(
-    xuanlan,
-    "tactic",
-    11,
-    (_problem, index) => `玄览 · ${index + 1}`,
-    (problem) => classicalPrompt(problem, "玄览是另一部古典棋题。"),
-    XUANLAN_SOURCE
-  ),
+const GGG_CREDIT =
+  "安永吉八段与 David Ormerod，Go Game Guru 每周一题。CC BY-NC-SA 4.0，抽出正解并写成中文说明。https://github.com/gogameguru/go-problems";
+const weeklyBands = [
+  [4, "容易 · 前半", weeklyEasy, half(weeklyEasy)[0]],
+  [5, "容易 · 后半", weeklyEasy, half(weeklyEasy)[1]],
+  [6, "中等 · 前半", weeklyMid, half(weeklyMid)[0]],
+  [7, "中等 · 后半", weeklyMid, half(weeklyMid)[1]],
+  [8, "难 · 前半", weeklyHard, half(weeklyHard)[0]],
+  [9, "难 · 后半", weeklyHard, half(weeklyHard)[1]],
 ];
+
+const tacticClassical = weeklyBands.flatMap(([level, title, , items]) =>
+  decorate(
+    items,
+    "tactic",
+    level,
+    (_problem, index) => `每周一题 · ${title} ${index + 1}`,
+    (problem) => problem.prompt,
+    GGG_CREDIT
+  )
+);
 
 const N = 20;
 
@@ -915,19 +991,17 @@ const TRACKS = [
   {
     id: "tactic",
     name: "解题",
-    intro: "局部解题。同一棋形只收一题，不再把镜像当成新题。开局说明目标，坐标在「提示」里。需要连续应手时，对方会落子，你再继续。等级可以随时切换。",
+    intro: "局部解题。前三级是不同的基本棋形。四级起是安永吉八段和 David Ormerod 的每周一题，按容易、中等、难分开。同一棋形只收一题。开局说明目标，坐标在「提示」里。等级可以随时切换。",
     levels: [
       { level: 1, name: "一级 · 提子与逃气" },
       { level: 2, name: "二级 · 连接与双打" },
       { level: 3, name: "三级 · 征子与扑吃" },
-      { level: 4, name: "四级 · 碁经众妙入门" },
-      { level: 5, name: "五级 · 碁经众妙进阶" },
-      { level: 6, name: "六级 · 碁经众妙深入" },
-      { level: 7, name: "七级 · 玄玄棋经入门" },
-      { level: 8, name: "八级 · 玄玄棋经进阶" },
-      { level: 9, name: "九级 · 玄玄棋经深入" },
-      { level: 10, name: "十级 · 玄玄棋经长谱" },
-      { level: 11, name: "十一级 · 玄览" },
+      { level: 4, name: "四级 · 每周一题容易（前）" },
+      { level: 5, name: "五级 · 每周一题容易（后）" },
+      { level: 6, name: "六级 · 每周一题中等（前）" },
+      { level: 7, name: "七级 · 每周一题中等（后）" },
+      { level: 8, name: "八级 · 每周一题难（前）" },
+      { level: 9, name: "九级 · 每周一题难（后）" },
     ],
   },
   {
@@ -1057,11 +1131,26 @@ function describeMove(before, after, move, res, attacker, track) {
     : `${who}下在 ${name}。原因：${job}。这一手在${where}，${contact}。`;
 }
 
+function terminalHint(note) {
+  const text = String(note || "").toLowerCase();
+  if (!text.includes("correct")) return "";
+  if (text.includes("double ko")) return "谱上标成双方都做成双活。";
+  if (text.includes("seki")) return "谱上标成双方都做成双活。";
+  if (text.includes("ladder")) return "谱上标成这是征子。";
+  if (text.includes("capturing race")) return "谱上标成对杀是这边快。";
+  if (text.includes("miai")) return "谱上标成两点见合。";
+  if (/\bko\b/.test(text)) return "谱上标成这手之后是劫。";
+  return "";
+}
+
 function annotateTree(engine, moves, attacker, track) {
   for (const move of moves || []) {
     const copy = engine.clone();
     const res = copy.play(move.x, move.y);
     move.why = describeMove(engine, copy, move, res, attacker, track);
+    const extra = terminalHint(move.note);
+    if (extra) move.why = `${move.why} ${extra}`;
+    delete move.note;
     if (move.replies?.length && res.ok) annotateTree(copy, move.replies, attacker, track);
   }
 }
@@ -1112,10 +1201,12 @@ function annotateProblem(problem) {
       }`
     : "这题只要下一子就能结束，谱上没有后续应手。";
   const next = first?.why ? `下一手：${first.why}` : "";
-  const authored = problem.prompt && !problem.prompt.includes("请走出谱上的主变化")
-    ? `${problem.prompt.replace(/。$/, "")}。`
-    : `${who}先。`;
-  const face = `${authored}目标是${goal}。${battle}`.replace(/。+$/u, "。");
+  const hasOwnGoal = problem.prompt && !problem.prompt.includes("请走出谱上的主变化");
+  const genericWeekly = /按标出的正解下完/.test(problem.prompt || "");
+  const authored = hasOwnGoal && !genericWeekly
+    ? problem.prompt.replace(/。+$/u, "")
+    : `${who}先。目标是${goal}`;
+  const face = `${authored}。${battle}`.replace(/。+$/u, "。");
   problem.prompt = face;
   problem.explain = next ? `${face}${next}` : face;
   problem.lesson = ownMoves.map((move, index) => `第${index + 1}手，${move.why}`).join("");
@@ -1129,12 +1220,12 @@ const body = `/**
  * 由 games/go/tools/build-problems.mjs 生成。不要手改古典题坐标。
  * 每题的 prompt 只写目标。坐标和原因在每步 why 里，走完后写入 lesson。
  *
- * 来源（u-go.net 汇总的公有领域谱，https://www.u-go.net/classic/）：
- * - 碁经众妙 Gokyo Shumyo（Hayashi Genbi，1812）。u-go.net 的 qjzm-a 带正解，其余分册没有正解，未收录。
- * - 玄玄棋经 Xuanxuan Qijing（严德甫、晏天章，约 1349；SGF：Jean-Pierre Vesinet）
- * - 官子谱（公有领域；Flygo 转录，Ulrich Goertz 汇总于 u-go.net）
- * - 玄览（公有领域；Flygo 转录，u-go.net 重排变化）
- * 旋转或对称后相同的棋形只保留一题。未收录赵治勋、李昌镐等近代题集。发阳论等只有棋形、没有可核对正解的谱，也未收。
+ * 解题四级起：Go Game Guru 每周一题，安永吉八段与 David Ormerod。
+ * 许可 CC BY-NC-SA 4.0：https://creativecommons.org/licenses/by-nc-sa/4.0/
+ * 原谱 https://github.com/gogameguru/go-problems
+ * 这里抽出标成 Correct 的正解，写成中文目标，属于改编。
+ * 官子仍用 u-go.net 的公有领域官子谱。
+ * 未收录赵治勋、李昌镐等近代题集，也未整段搬 101 围棋网等不能再分发的题库。
  */
 export const TRACKS = ${JSON.stringify(TRACKS, null, 2)};
 
