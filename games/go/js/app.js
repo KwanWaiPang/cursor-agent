@@ -16,6 +16,7 @@ import {
   KifuSession,
   coordName,
   gameById,
+  stoneMoveIndex,
   stoneNumbers,
 } from "./kifu-play.js";
 
@@ -82,6 +83,9 @@ const els = {
   teachField: document.getElementById("teachField"),
   teachNote: document.getElementById("teachNote"),
   btnKifuTeach: document.getElementById("btnKifuTeach"),
+  btnKifuPlay: document.getElementById("btnKifuPlay"),
+  kifuSlider: document.getElementById("kifuSlider"),
+  kifuPace: document.getElementById("kifuPace"),
 };
 
 let engine = new GoEngine(
@@ -104,6 +108,9 @@ let kifu = null;
 let kifuToken = 0;
 let kifuNumbers = null;
 let kifuAiThinking = false;
+let kifuTimer = null;
+let kifuPlaying = false;
+let kifuSliderHold = false;
 let teachOverlay = null;
 let teachArmed = null;
 let teachBusy = false;
@@ -294,6 +301,14 @@ function updatePanel() {
     if (els.btnKifuNote) els.btnKifuNote.disabled = kifuAiThinking || !kifu.game.moves.some((move) => move.note);
     if (els.btnKifuMiss) els.btnKifuMiss.disabled = kifuAiThinking || kifu.misses.length === 0;
     if (els.btnKifuJump) els.btnKifuJump.disabled = kifuAiThinking;
+    if (els.btnKifuPlay) els.btnKifuPlay.disabled = kifuAiThinking || kifu.deviated || kifu.mode !== "replay";
+    syncKifuPlayButton();
+    if (els.kifuSlider) {
+      els.kifuSlider.disabled = kifuAiThinking || kifu.deviated;
+      els.kifuSlider.max = String(kifu.total);
+      els.kifuSlider.setAttribute("aria-valuetext", `第 ${kifu.cursor} 手，共 ${kifu.total} 手`);
+      if (!kifuSliderHold) els.kifuSlider.value = String(kifu.cursor);
+    }
     els.kifuSideField.hidden = kifu.mode !== "play";
     syncKifuStudyNote();
   } else if (els.kifuNote) {
@@ -486,13 +501,13 @@ function draw() {
     }
   }
 
-  const ring = (pt, color) => {
+  const ring = (pt, color, scale = 0.78) => {
     if (!pt || pt.x < x0 || pt.x > x1 || pt.y < y0 || pt.y > y1) return;
     const p = pointToXY(pt.x, pt.y, m);
     ctx.beginPath();
     ctx.strokeStyle = color;
     ctx.lineWidth = Math.max(2, r * 0.12);
-    ctx.arc(p.sx, p.sy, r * 0.78, 0, Math.PI * 2);
+    ctx.arc(p.sx, p.sy, r * scale, 0, Math.PI * 2);
     ctx.stroke();
   };
   if (kifuNumbers) {
@@ -524,17 +539,17 @@ function draw() {
       }
     }
   }
-  const recordNext = isKifu() && kifu?.mode === "replay" && !kifu.deviated ? kifu.nextMove() : null;
+  if (isKifu() && engine.lastMove && !engine.lastMove.pass && engine.phase !== "scoring") {
+    ring(engine.lastMove, "#8a3d12", 1.08);
+  }
+  const recordNext = isKifu() && kifu?.mode === "replay" && !kifu.deviated && !kifuPlaying ? kifu.nextMove() : null;
   const hinted = teachOverlay?.best;
   const sameAsRecord = recordNext && hinted && !recordNext.pass && recordNext.x === hinted.x && recordNext.y === hinted.y;
   if (!sameAsRecord) ring(hinted, "#c45c26");
 
   ring(drillHint, "#0f5c4c");
   ring(drillFlash, "#8b2e2e");
-  if (isKifu() && kifu.mode === "replay" && !kifu.deviated) {
-    const nxt = kifu.nextMove();
-    if (nxt && !nxt.pass) ring(nxt, "rgba(15,92,76,0.55)");
-  }
+  if (recordNext && !recordNext.pass) ring(recordNext, "rgba(15,92,76,0.55)");
 
   if (
     hover &&
@@ -708,6 +723,7 @@ function captureTeachPoint() {
 }
 
 async function reviewPreviousMove() {
+  stopKifuPlay();
   if (teachBusy || aiThinking || kifuAiThinking) return;
   if (!engine.moveHistory.length) {
     if (els.teachNote) els.teachNote.textContent = "还没有可以看的一手。";
@@ -1109,6 +1125,7 @@ function startKifu() {
   hover = null;
   drillHint = null;
   drillFlash = null;
+  stopKifuPlay();
   els.kifuBlurb.textContent = kifuHeadline(game);
   teachOverlay = null;
   teachArmed = null;
@@ -1117,23 +1134,33 @@ function startKifu() {
   armTeach();
 }
 
+function playedMoveText() {
+  const played = kifu.playedMove();
+  if (!played) return "";
+  const who = colorName(played.color);
+  if (played.pass) return `上一手 ${who}停着。`;
+  return `上一手 ${who} ${coordName(played.x, played.y, kifu.game.size)}。`;
+}
+
 function kifuStatusLine() {
   const game = kifu.game;
   const nxt = kifu.nextMove();
   const played = kifu.playedMove();
   const at = `第 ${kifu.cursor} / ${kifu.total} 手`;
+  const just = playedMoveText();
   if (kifu.deviated) return `${game.title}。已经离开棋谱，AI 会接着应。要回到分岔前，按「回到谱上」。`;
   if (played?.note) {
     const extra = kifu.mode === "guess" && nxt ? " 请继续猜下一手。" : "";
-    return `${game.title} · ${at}。${played.note}${extra}`;
+    return `${game.title} · ${at}。${just}${played.note}${extra}`;
   }
-  if (!nxt) return `${game.title} · ${at}。谱已结束。${game.result}`;
-  if (kifu.mode === "guess") return `${game.title} · ${at}。请猜${colorName(engine.toPlay)}的下一手。`;
+  if (!nxt) return `${game.title} · ${at}。${just}谱已结束。${game.result}`;
+  if (kifu.mode === "guess") return `${game.title} · ${at}。${just}请猜${colorName(engine.toPlay)}的下一手。`;
   if (kifu.mode === "play") {
-    return `${game.title} · ${at}。你执${colorName(kifu.userSide)}。下在谱上就继续，下到别处则改由 AI 应手。`;
+    return `${game.title} · ${at}。${just}你执${colorName(kifu.userSide)}。下在谱上就继续，下到别处则改由 AI 应手。`;
   }
+  if (kifuPlaying) return `${game.title} · ${at}。${just || "连续打谱中。"}`;
   const where = nxt.pass ? "停着" : coordName(nxt.x, nxt.y, game.size);
-  return `${game.title} · ${at}。下一手 ${colorName(nxt.color)} ${where}。`;
+  return `${game.title} · ${at}。${just}下一手 ${colorName(nxt.color)} ${where}。`;
 }
 
 function syncKifuStudyNote() {
@@ -1150,12 +1177,83 @@ function syncKifuStudyNote() {
   els.kifuNote.textContent = played?.note
     ? played.note
     : notes
-      ? `本局有 ${notes} 处批注。跳到那一手，或按「下一处批注」，说明会出现在刚落下的那一手上。`
+      ? `本局有 ${notes} 处批注。拖进度条、点盘上的子，或按「下一处批注」。说明出现在刚落下的那一手上。`
       : "这局还没有逐手批注。";
 }
 
-function stepKifu(dir) {
+function kifuPlayLabel() {
+  if (kifu && kifu.mode === "replay" && !kifu.deviated && kifu.cursor > 0 && kifu.nextMove()) return "继续";
+  return "连续打谱";
+}
+
+function syncKifuPlayButton() {
+  if (!els.btnKifuPlay) return;
+  els.btnKifuPlay.textContent = kifuPlaying ? "暂停" : kifuPlayLabel();
+}
+
+function stopKifuPlay() {
+  if (kifuTimer) {
+    clearInterval(kifuTimer);
+    kifuTimer = null;
+  }
+  kifuPlaying = false;
+  syncKifuPlayButton();
+}
+
+function kifuPaceMs() {
+  if (els.kifuPace?.value === "slow") return 1100;
+  if (els.kifuPace?.value === "fast") return 280;
+  return 620;
+}
+
+function startKifuPlay() {
+  if (!kifu || kifu.mode !== "replay" || kifu.deviated || kifuAiThinking) {
+    showMessage("连续打谱只在「打谱」里使用。", true);
+    return;
+  }
+  if (!kifu.nextMove()) {
+    showMessage("已经是终局。", true);
+    return;
+  }
+  clearTeachDisplay();
+  if (kifuTimer) {
+    clearInterval(kifuTimer);
+    kifuTimer = null;
+  }
+  kifuPlaying = true;
+  syncKifuPlayButton();
+  refresh(kifuStatusLine(), true);
+  kifuTimer = setInterval(() => {
+    if (!kifuPlaying || !isKifu() || !kifu || kifu.mode !== "replay" || kifu.deviated || !kifu.nextMove()) {
+      stopKifuPlay();
+      return;
+    }
+    stepKifu(1, true);
+    if (kifu.playedMove()?.note || !kifu.nextMove()) stopKifuPlay();
+  }, kifuPaceMs());
+}
+
+function toggleKifuPlay() {
+  if (kifuTimer) stopKifuPlay();
+  else startKifuPlay();
+}
+
+function seekKifu(target) {
+  stopKifuPlay();
+  if (!kifu || kifuAiThinking || kifu.deviated) return;
+  const dest = Math.max(0, Math.min(Math.round(Number(target)) || 0, kifu.total));
+  if (dest === kifu.cursor) return;
+  clearTeachDisplay();
+  kifuToken += 1;
+  kifu.jumpTo(dest);
+  engine = kifu.mount();
+  if (kifu.mode === "play") kifu.autoOpponent(engine);
+  refresh(kifuStatusLine(), true);
+}
+
+function stepKifu(dir, silent = false) {
   if (!kifu || kifuAiThinking) return;
+  if (!silent) stopKifuPlay();
   clearTeachDisplay();
   kifuToken += 1;
   if (kifu.deviated) {
@@ -1169,9 +1267,10 @@ function stepKifu(dir) {
     const res = kifu.advance(engine);
     if (!res.ok) {
       showMessage(res.reason || "不能继续");
+      stopKifuPlay();
       return;
     }
-    playSound("clickAudio");
+    if (!silent) playSound("clickAudio");
   } else if (kifu.cursor > 0 && engine.undo().ok) {
     kifu.cursor -= 1;
   }
@@ -1189,6 +1288,7 @@ function remountKifu(message) {
 }
 
 function jumpKifuNote() {
+  stopKifuPlay();
   if (!kifu || kifuAiThinking) return;
   const index = kifu.nextNoteIndex();
   if (index < 0) {
@@ -1211,6 +1311,7 @@ function practiceKifuMiss() {
 }
 
 function jumpKifuNumber() {
+  stopKifuPlay();
   if (!kifu || kifuAiThinking || !els.kifuJump) return;
   const raw = Number(els.kifuJump.value);
   if (!Number.isFinite(raw)) {
@@ -1231,6 +1332,7 @@ function hintDrill() {
 }
 
 function revealKifuMove() {
+  stopKifuPlay();
   if (!kifu || kifu.deviated || kifu.mode === "replay") return;
   const move = kifu.nextMove();
   if (!move) return;
@@ -1257,17 +1359,22 @@ function returnToRecord() {
 
 function jumpKifuEnd() {
   if (!kifu || kifu.deviated || kifuAiThinking) return;
-  while (kifu.nextMove()) {
-    const res = kifu.advance(engine);
-    if (!res.ok) break;
-  }
-  refresh(kifuStatusLine(), true);
+  seekKifu(kifu.total);
 }
 
 async function onKifuMove(coord) {
   if (!kifu || kifuAiThinking) return;
   if (kifu.mode === "replay") {
-    showMessage("打谱请用「下一手」。想自己下，把学习方式换成「试下」或「对练」。", true);
+    if (engine.board[coord.y][coord.x]) {
+      const index = stoneMoveIndex(engine, coord.x, coord.y);
+      if (index) {
+        seekKifu(index);
+        return;
+      }
+      showMessage("这是座子，开局就在盘上。", true);
+      return;
+    }
+    showMessage("这个交叉点还没有棋子。用「下一手」或进度条往后看。", true);
     return;
   }
   if (engine.board[coord.y][coord.x]) {
@@ -1365,6 +1472,7 @@ async function maybeKifuAi() {
 }
 
 function newGame() {
+  stopKifuPlay();
   if (kifuSelected()) {
     kifuToken += 1;
     drill = null;
@@ -1556,6 +1664,28 @@ els.btnKifuReturn?.addEventListener("click", () => returnToRecord());
 els.btnKifuNote?.addEventListener("click", () => jumpKifuNote());
 els.btnKifuMiss?.addEventListener("click", () => practiceKifuMiss());
 els.btnKifuJump?.addEventListener("click", () => jumpKifuNumber());
+els.btnKifuPlay?.addEventListener("click", () => toggleKifuPlay());
+els.kifuPace?.addEventListener("change", () => {
+  try {
+    localStorage.setItem("go-hub-kifu-pace", els.kifuPace.value);
+  } catch {
+    /* private mode */
+  }
+  if (kifuPlaying) startKifuPlay();
+});
+els.kifuSlider?.addEventListener("pointerdown", () => {
+  kifuSliderHold = true;
+});
+const releaseKifuSlider = () => {
+  if (!kifuSliderHold) return;
+  kifuSliderHold = false;
+  if (isKifu() && els.kifuSlider) els.kifuSlider.value = String(kifu.cursor);
+};
+els.kifuSlider?.addEventListener("pointerup", releaseKifuSlider);
+els.kifuSlider?.addEventListener("pointercancel", releaseKifuSlider);
+els.kifuSlider?.addEventListener("input", () => {
+  seekKifu(Number(els.kifuSlider.value));
+});
 els.btnDrillHint?.addEventListener("click", () => hintDrill());
 
 els.kifuFilter?.addEventListener("input", () => {
@@ -1569,6 +1699,7 @@ els.kifuSelect?.addEventListener("change", () => {
 
 els.kifuStudy?.addEventListener("change", () => {
   if (!kifu || !kifuSelected()) return;
+  stopKifuPlay();
   kifu.mode = els.kifuStudy.value;
   if (kifu.mode === "play" && !kifu.deviated) {
     kifu.autoOpponent(engine);
@@ -1596,6 +1727,21 @@ window.addEventListener("keydown", (e) => {
   } else if (e.key === "ArrowLeft") {
     e.preventDefault();
     stepKifu(-1);
+  } else if (e.key === "PageDown") {
+    e.preventDefault();
+    seekKifu(kifu.cursor + 10);
+  } else if (e.key === "PageUp") {
+    e.preventDefault();
+    seekKifu(kifu.cursor - 10);
+  } else if (e.key === "Home") {
+    e.preventDefault();
+    seekKifu(0);
+  } else if (e.key === "End") {
+    e.preventDefault();
+    seekKifu(kifu.total);
+  } else if (e.key === " " || e.code === "Space") {
+    e.preventDefault();
+    toggleKifuPlay();
   }
 });
 
@@ -1733,6 +1879,8 @@ try {
   if (localStorage.getItem("go-hub-kifu-numbers") === "0" && els.kifuNumbersToggle) {
     els.kifuNumbersToggle.checked = false;
   }
+  const pace = localStorage.getItem("go-hub-kifu-pace");
+  if (els.kifuPace && (pace === "slow" || pace === "mid" || pace === "fast")) els.kifuPace.value = pace;
 } catch {
   /* private mode */
 }

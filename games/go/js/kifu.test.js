@@ -1,5 +1,5 @@
 import { BLACK, WHITE } from "./engine.js";
-import { KIFU, KifuSession, freshKifu, coordName, attachStudyNotes } from "./kifu-play.js";
+import { KIFU, KifuSession, freshKifu, coordName, attachStudyNotes, stoneMoveIndex } from "./kifu-play.js";
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -86,6 +86,20 @@ function testSideFollow() {
   assert(engine.toPlay === BLACK, "back to the learner");
 }
 
+function testStoneMoveIndex() {
+  const game = KIFU.find((g) => g.group === "当湖十局");
+  const session = new KifuSession(game);
+  const engine = session.mount();
+  while (session.cursor < 40) session.advance(engine);
+  const just = session.playedMove();
+  assert(stoneMoveIndex(engine, just.x, just.y) === 40, "the stone just played is move 40");
+  const first = game.moves[0];
+  assert(stoneMoveIndex(engine, first.x, first.y) === 1, "the first stone stays move 1");
+  const seat = game.black[0];
+  assert(stoneMoveIndex(engine, seat[0], seat[1]) === 0, "a seat stone is not a move");
+  assert(stoneMoveIndex(engine, 0, 0) === 0, "an empty point has no move");
+}
+
 function testStudyNotes() {
   let noted = 0;
   for (const game of KIFU) {
@@ -99,5 +113,6 @@ testLibrary();
 testEarNoteAndGuess();
 testMissesAndNotes();
 testSideFollow();
+testStoneMoveIndex();
 testStudyNotes();
 console.log(`All kifu tests passed (${KIFU.length} games).`);

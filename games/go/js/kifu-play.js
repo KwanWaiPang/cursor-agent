@@ -23,6 +23,16 @@ export function freshKifu(game) {
   return g;
 }
 
+/** 这个交叉点上仍在的子是谱里的第几手。座子和空点返回 0。 */
+export function stoneMoveIndex(engine, x, y) {
+  if (!engine.board[y]?.[x]) return 0;
+  let found = 0;
+  engine.moveHistory.forEach((move, i) => {
+    if (move.type === "play" && move.x === x && move.y === y) found = i + 1;
+  });
+  return found;
+}
+
 /** 仍在盘上的子，标上它落下时的手数。座子没有手数。 */
 export function stoneNumbers(game, engine) {
   const g = freshKifu(game);
