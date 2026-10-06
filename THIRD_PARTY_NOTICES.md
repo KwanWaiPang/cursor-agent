@@ -29,11 +29,12 @@ The Game Hub aggregates several open-source games under a shared UI shell.
   - 来源 / Source: [gogameguru/go-problems](https://github.com/gogameguru/go-problems)
   - 许可证 / License: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
   - 说明 / Note: 抽出标成 Correct 的正解，改成中文目标和对战练习。这是改编，不是原谱全文。仅供非商业使用。Adapted to Chinese goals and interactive lines; non-commercial only.
-- 古典解题与官子（公有领域）/ Classical problems, public domain:
+- 古典解题（十级起）与官子（公有领域）/ Classical problems, public domain:
   - 碁经众妙 Gokyo Shumyo（Hayashi Genbi，1812）。正解谱转录见 [u-go.net classical problems](https://www.u-go.net/classic/)（Ulrich Goertz；底稿来自 Flygo，经许可再分发）
   - 玄玄棋经 Xuanxuan Qijing（严德甫、晏天章，约 1349）。SGF 由 Jean-Pierre Vesinet 整理，经 u-go.net 发布
+  - 玄览 Xuanlan。谱面转录 Flygo → u-go.net
   - 官子谱 Guan Zi Pu。谱面转录 Flygo → u-go.net
-- 未收录赵治勋、李昌镐等近代题集 / Modern copyrighted problem books are not included
+- 未收录 / Not included: 101 围棋网、goproblems.com，以及赵治勋、李昌镐的现代题集。这些题目不能再分发。
 - 19 路经典全谱 / Full-board classical games, public domain, collected by Andries Brouwer (CWI), who states he claims no rights and that the games are in the public domain: <https://homepages.cwi.nl/~aeb/go/games/>
   - 当湖十局（范西屏、施襄夏，1739）、施襄夏对程兰如、徐星友对程兰如、烂柯，以及唐宋对局
   - 秀策耳赤之局（1846）与御城棋；对太田雄藏、对海老泽健造、对村濑秀甫

@@ -900,10 +900,25 @@ function loadWeekly(dir, prefix) {
     .filter((problem) => problem && problem.lineLen <= 40);
 }
 
+function tagPool(games, prefix) {
+  return games
+    .map((tree, index) => viable(problemFromTree(tree), `${prefix}-${index}`))
+    .filter((problem) => problem && problem.lineLen <= 40)
+    .map((problem, index) => ({ ...problem, key: `${prefix}-${index}`, n: index + 1 }));
+}
+
 const weeklyRoot = "/tmp/ggg/weekly-go-problems";
 const weeklyEasy = dedupe(loadWeekly(`${weeklyRoot}/easy`, "easy"), seenShape);
 const weeklyMid = dedupe(loadWeekly(`${weeklyRoot}/intermediate`, "mid"), seenShape);
 const weeklyHard = dedupe(loadWeekly(`${weeklyRoot}/hard`, "hard"), seenShape);
+const qjzm = dedupe(tagPool(loadBook("/tmp/go-sgf/qjzm-a.sgf.gz"), "qjzm"), seenShape);
+const xxqj = dedupe(tagPool(loadBook("/tmp/go-sgf/xxqj.sgf.gz"), "xxqj"), seenShape);
+const xuanlanDir = "/tmp/go-sgf/xuanlan";
+const xuanlanGames = readdirSync(xuanlanDir)
+  .filter((name) => name.endsWith(".sgf"))
+  .sort()
+  .flatMap((name) => parseSgf(readFileSync(`${xuanlanDir}/${name}`, "utf8")));
+const xuanlan = dedupe(tagPool(xuanlanGames, "xl"), seenShape);
 const gzp = ["gzp1", "gzp2", "gzp3"]
   .flatMap((name) =>
     loadBook(`/tmp/go-sgf/${name}.sgf.gz`).map((tree, index) => viable(problemFromTree(tree), `${name}-${index}`))
@@ -911,7 +926,9 @@ const gzp = ["gzp1", "gzp2", "gzp3"]
   .filter(Boolean)
   .map((problem, index) => ({ ...problem, key: `gzp-${index}`, book: "gzp", n: index + 1 }));
 
-console.log(`weekly easy ${weeklyEasy.length} mid ${weeklyMid.length} hard ${weeklyHard.length} gzp ${gzp.length}`);
+console.log(
+  `weekly easy ${weeklyEasy.length} mid ${weeklyMid.length} hard ${weeklyHard.length} qjzm ${qjzm.length} xxqj ${xxqj.length} xuanlan ${xuanlan.length} gzp ${gzp.length}`
+);
 
 function half(items) {
   const mid = Math.ceil(items.length / 2);
@@ -929,16 +946,54 @@ const weeklyBands = [
   [9, "难 · 后半", weeklyHard, half(weeklyHard)[1]],
 ];
 
-const tacticClassical = weeklyBands.flatMap(([level, title, , items]) =>
-  decorate(
-    items,
+const QJZM_SOURCE = "碁经众妙（1812，公有领域；带正解的部分来自 u-go.net / Flygo）";
+const XXQJ_SOURCE = "玄玄棋经（约 1349，公有领域；SGF：Jean-Pierre Vesinet，u-go.net）";
+const XUANLAN_SOURCE = "玄览（公有领域；谱面转录 Flygo / u-go.net）";
+const xxqjBands = splitBands(xxqj, [
+  { level: 11, title: "入门" },
+  { level: 12, title: "进阶" },
+  { level: 13, title: "深入" },
+  { level: 14, title: "长谱" },
+]);
+
+const tacticClassical = [
+  ...weeklyBands.flatMap(([level, title, , items]) =>
+    decorate(
+      items,
+      "tactic",
+      level,
+      (_problem, index) => `每周一题 · ${title} ${index + 1}`,
+      (problem) => problem.prompt,
+      GGG_CREDIT
+    )
+  ),
+  ...decorate(
+    qjzm,
     "tactic",
-    level,
-    (_problem, index) => `每周一题 · ${title} ${index + 1}`,
-    (problem) => problem.prompt,
-    GGG_CREDIT
-  )
-);
+    10,
+    (_problem, index) => `碁经众妙 · ${index + 1}`,
+    (problem) => classicalPrompt(problem, "这是带正解的古典题。"),
+    QJZM_SOURCE
+  ),
+  ...xxqjBands.flatMap((band) =>
+    decorate(
+      band.items,
+      "tactic",
+      band.level,
+      (_problem, index) => `玄玄棋经 · ${band.title} ${index + 1}`,
+      (problem) => classicalPrompt(problem, "这是带正解的古典题。"),
+      XXQJ_SOURCE
+    )
+  ),
+  ...decorate(
+    xuanlan,
+    "tactic",
+    15,
+    (_problem, index) => `玄览 · ${index + 1}`,
+    (problem) => classicalPrompt(problem, "这是带正解的古典题。"),
+    XUANLAN_SOURCE
+  ),
+];
 
 const N = 20;
 
@@ -991,7 +1046,7 @@ const TRACKS = [
   {
     id: "tactic",
     name: "解题",
-    intro: "局部解题。前三级是不同的基本棋形。四级起是安永吉八段和 David Ormerod 的每周一题，按容易、中等、难分开。同一棋形只收一题。开局说明目标，坐标在「提示」里。等级可以随时切换。",
+    intro: "局部解题。前三级是不同的基本棋形。四级到九级是每周一题。十级起是 u-go.net 上带正解的古典谱：碁经众妙、玄玄棋经、玄览。同一棋形只收一题。等级可以随时切换。",
     levels: [
       { level: 1, name: "一级 · 提子与逃气" },
       { level: 2, name: "二级 · 连接与双打" },
@@ -1002,6 +1057,12 @@ const TRACKS = [
       { level: 7, name: "七级 · 每周一题中等（后）" },
       { level: 8, name: "八级 · 每周一题难（前）" },
       { level: 9, name: "九级 · 每周一题难（后）" },
+      { level: 10, name: "十级 · 碁经众妙" },
+      { level: 11, name: "十一级 · 玄玄棋经入门" },
+      { level: 12, name: "十二级 · 玄玄棋经进阶" },
+      { level: 13, name: "十三级 · 玄玄棋经深入" },
+      { level: 14, name: "十四级 · 玄玄棋经长谱" },
+      { level: 15, name: "十五级 · 玄览" },
     ],
   },
   {
@@ -1224,8 +1285,9 @@ const body = `/**
  * 许可 CC BY-NC-SA 4.0：https://creativecommons.org/licenses/by-nc-sa/4.0/
  * 原谱 https://github.com/gogameguru/go-problems
  * 这里抽出标成 Correct 的正解，写成中文目标，属于改编。
+ * 十级起另收 u-go.net 上带正解的古典谱：碁经众妙有正解的一部分、玄玄棋经、玄览。
  * 官子仍用 u-go.net 的公有领域官子谱。
- * 未收录赵治勋、李昌镐等近代题集，也未整段搬 101 围棋网等不能再分发的题库。
+ * 没有整段搬 101 围棋网、goproblems，也没有收录赵治勋、李昌镐的现代题集。
  */
 export const TRACKS = ${JSON.stringify(TRACKS, null, 2)};
 

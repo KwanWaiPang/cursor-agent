@@ -106,8 +106,9 @@ function testUnlock() {
     }
   }
   const session = new DrillSession({ solved: {} });
-  assert(session.setPlace("tactic", 9, 0), "can open the last tactic level immediately");
-  assert(session.problem.level === 9, "landed on level 9");
+  const lastTactic = TRACKS.find((track) => track.id === "tactic").levels.at(-1).level;
+  assert(session.setPlace("tactic", lastTactic, 0), "can open the last tactic level immediately");
+  assert(session.problem.level === lastTactic, "landed on the last tactic level");
 }
 
 function testRejectsWrongMove() {
