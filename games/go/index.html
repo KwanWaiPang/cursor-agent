@@ -71,8 +71,8 @@
               <button id="btnPass" type="button">停着</button>
               <button id="btnResign" class="danger" type="button">认输</button>
               <button id="btnUndo" class="secondary" type="button">悔棋</button>
-              <button id="btnAutoDead" class="secondary" type="button" disabled>自动标死子</button>
-              <button id="btnScore" class="secondary" type="button" disabled>确认点目</button>
+              <button id="btnAutoDead" class="secondary" type="button" disabled title="双方连续停着、进入点目之后才能用">自动标死子</button>
+              <button id="btnScore" class="secondary" type="button" disabled title="双方连续停着、进入点目之后才能用">确认点目</button>
             </div>
           </section>
 
@@ -82,6 +82,7 @@
               <label for="modeSelect">对战模式</label>
               <select id="modeSelect">
                 <option value="human">人人对战</option>
+                <option value="record">打谱 · 两人下，棋子标序号</option>
                 <option value="ai" selected>人机对战（AI）</option>
                 <option value="drill">分级练习（解题 / 官子）</option>
                 <option value="kifu">经典棋谱（19路全谱）</option>
@@ -265,7 +266,8 @@
                 <li>黑先白后，轮流在交叉点落子。</li>
                 <li>无气的棋子被提掉；禁止自杀。</li>
                 <li>禁止同形再现（含劫争）。</li>
-                <li>双方连续停着后进入点目，自动标记死子；也可点击棋子手动改。</li>
+                <li>对局中「确认点目」和「自动标死子」是灰的。黑白各停着一次、两下连着停，才进入点目。这时会先自动标一次死子，两个按钮才能按。点棋子可以把标错的死子改回来，再按「确认点目」出结果。解题和经典棋谱里没有这两个按钮。</li>
+                <li>「打谱」和人人对战一样，两人轮流下。差别是每颗落下的棋子标着序号，提掉的子不再标，停着不占号。点目之后整盘序号还在。</li>
                 <li>计分采用中国规则：子空皆地，白贴目。</li>
                 <li>AI 按棋力分成十六档。二十五级到一级用本地搜索：低段随手，十级起搜索，三级会读吃子，一级搜索最久。</li>
                 <li>初段到九段改用 KataGo 模型，引擎与 Web KaTrain 相同，在浏览器里计算。段位越高，搜索越多、着手越稳。九段一手可能要几十秒。第一次会下载约 4MB 的公开小模型，不是完整的大模型。</li>

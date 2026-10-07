@@ -15,6 +15,21 @@ export function colorName(color) {
   return color === BLACK ? "黑" : "白";
 }
 
+/** 仍在盘上的子，标它是第几手落下的。停着不占号，提掉的子不再标。 */
+export function stoneOrderNumbers(engine) {
+  const numbers = Array.from({ length: engine.size }, () => Array(engine.size).fill(0));
+  let n = 0;
+  for (const move of engine.moveHistory) {
+    if (move.type !== "play") continue;
+    n += 1;
+    for (const [x, y] of move.captured || []) {
+      if (numbers[y]) numbers[y][x] = 0;
+    }
+    if (numbers[move.y]) numbers[move.y][move.x] = n;
+  }
+  return numbers;
+}
+
 function keyOf(x, y) {
   return `${x},${y}`;
 }

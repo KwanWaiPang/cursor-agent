@@ -1,5 +1,5 @@
 import { measureBoardBox } from "../../../js/fit-board.js";
-import { BLACK, WHITE, GoEngine, colorName, opponent } from "./engine.js";
+import { BLACK, WHITE, GoEngine, colorName, opponent, stoneOrderNumbers } from "./engine.js";
 import { GoAI } from "./ai.js";
 import {
   DrillSession,
@@ -156,6 +156,10 @@ function isAiMode() {
   return els.modeSelect.value === "ai";
 }
 
+function isRecordMode() {
+  return els.modeSelect.value === "record";
+}
+
 function humanColor() {
   return els.humanColorSelect.value === "white" ? WHITE : BLACK;
 }
@@ -198,7 +202,7 @@ function phaseText() {
     return "打谱";
   }
   if (aiThinking) return "AI思考中";
-  if (engine.phase === "playing") return "对局中";
+  if (engine.phase === "playing") return isRecordMode() ? "打谱" : "对局中";
   if (engine.phase === "scoring") return "点目中";
   return "已结束";
 }
@@ -496,7 +500,7 @@ function draw() {
     }
   }
 
-  if (engine.lastMove && !engine.lastMove.pass && engine.phase !== "scoring") {
+  if (!kifuNumbers && engine.lastMove && !engine.lastMove.pass && engine.phase !== "scoring") {
     const { x, y } = engine.lastMove;
     if (x >= x0 && x <= x1 && y >= y0 && y <= y1 && engine.board[y] && engine.board[y][x]) {
       const p = pointToXY(x, y, m);
@@ -516,20 +520,7 @@ function draw() {
     ctx.arc(p.sx, p.sy, r * scale, 0, Math.PI * 2);
     ctx.stroke();
   };
-  if (kifuNumbers) {
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    for (let y = y0; y <= y1; y += 1) {
-      for (let x = x0; x <= x1; x += 1) {
-        const num = kifuNumbers[y]?.[x];
-        if (!num || !engine.board[y][x]) continue;
-        const p = pointToXY(x, y, m);
-        ctx.fillStyle = engine.board[y][x] === BLACK ? "rgba(255,236,200,0.94)" : "rgba(40,24,12,0.84)";
-        ctx.font = `700 ${Math.max(8, r * (num >= 100 ? 0.42 : 0.5))}px "Noto Serif SC", serif`;
-        ctx.fillText(String(num), p.sx, p.sy);
-      }
-    }
-  }
+  if (kifuNumbers) drawMoveNumbers(kifuNumbers, m, r, x0, x1, y0, y1);
 
   if (teachOverlay?.territory?.length === engine.size) {
     for (let y = y0; y <= y1; y += 1) {
@@ -545,7 +536,7 @@ function draw() {
       }
     }
   }
-  if (isKifu() && engine.lastMove && !engine.lastMove.pass && engine.phase !== "scoring") {
+  if ((isKifu() || isRecordMode()) && engine.lastMove && !engine.lastMove.pass && engine.phase !== "scoring") {
     ring(engine.lastMove, "#8a3d12", 1.08);
   }
   const recordNext = isKifu() && kifu?.mode === "replay" && !kifu.deviated && !kifuPlaying ? kifu.nextMove() : null;
@@ -574,6 +565,45 @@ function draw() {
     drawStone(p.sx, p.sy, r, engine.toPlay, false);
     ctx.globalAlpha = 1;
   }
+}
+
+function moveNumberFont(size) {
+  return `700 ${size}px "Noto Sans", "DejaVu Sans", "Liberation Sans", sans-serif`;
+}
+
+function moveNumberSize(radius, label) {
+  const digits = label.length;
+  let size = radius * (digits >= 3 ? 0.78 : digits === 2 ? 0.92 : 1.05);
+  ctx.font = moveNumberFont(size);
+  const width = ctx.measureText(label).width;
+  const maxWidth = radius * 1.82;
+  if (width > maxWidth && width > 0) size *= maxWidth / width;
+  return size;
+}
+
+function drawMoveNumbers(numbers, m, radius, x0, x1, y0, y1) {
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  for (let y = y0; y <= y1; y += 1) {
+    for (let x = x0; x <= x1; x += 1) {
+      const num = numbers[y]?.[x];
+      if (!num || !engine.board[y][x]) continue;
+      const label = String(num);
+      const size = moveNumberSize(radius, label);
+      const p = pointToXY(x, y, m);
+      const black = engine.board[y][x] === BLACK;
+      ctx.globalAlpha = engine.deadMarks.has(`${x},${y}`) ? 0.42 : 1;
+      ctx.font = moveNumberFont(size);
+      ctx.lineWidth = Math.max(1.4, size * 0.18);
+      ctx.strokeStyle = black ? "rgba(0,0,0,0.78)" : "rgba(255,252,246,0.96)";
+      ctx.fillStyle = black ? "#fff8ec" : "#1b120c";
+      ctx.strokeText(label, p.sx, p.sy);
+      ctx.fillText(label, p.sx, p.sy);
+    }
+  }
+  ctx.restore();
 }
 
 function drawStone(cx, cy, r, color, dead) {
@@ -646,7 +676,12 @@ function showKifuNumbers() {
 }
 
 function refresh(msg, info = false) {
-  kifuNumbers = isKifu() && showKifuNumbers() ? stoneNumbers(kifu.game, engine) : null;
+  kifuNumbers =
+    isKifu() && showKifuNumbers()
+      ? stoneNumbers(kifu.game, engine)
+      : isRecordMode()
+        ? stoneOrderNumbers(engine)
+        : null;
   updatePanel();
   draw();
   if (msg !== undefined) showMessage(msg, info);
@@ -1556,7 +1591,9 @@ function newGame() {
   hover = null;
   syncAiOptionVisibility();
 
-  let tip = "新对局开始，黑先。";
+  let tip = isRecordMode()
+    ? "打谱开始，黑先。每颗落下的棋子标着序号，提掉的不再标。双方连续停着后才能点目。"
+    : "新对局开始，黑先。";
   if (isAiMode()) {
     const you = colorName(humanColor());
     const pace = size >= 19 ? "19 路思考会稍久。" : "";
@@ -1866,8 +1903,16 @@ els.modeSelect.addEventListener("change", () => {
     newGame();
     return;
   }
+  if (isRecordMode()) {
+    refresh("打谱：两人轮流下。棋子上标着落子序号。双方连续停着后，「确认点目」和「自动标死子」才能按。", true);
+    return;
+  }
+  if (els.modeSelect.value === "human") {
+    refresh("人人对战。棋子不标序号。", true);
+    return;
+  }
+  refresh();
   showMessage("设置已更新，点击「开始新对局」生效。", true);
-  updatePanel();
 });
 
 for (const el of [

@@ -1,4 +1,4 @@
-import { BLACK, WHITE, GoEngine } from "./engine.js";
+import { BLACK, WHITE, GoEngine, stoneOrderNumbers } from "./engine.js";
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -168,6 +168,30 @@ function testAutoMarkDeadTwoEyesAlive() {
   assert(!g.deadMarks.has("0,0"), "eyed black not marked dead");
 }
 
+function testStoneOrderNumbers() {
+  const g = new GoEngine(9, 7.5);
+  g.play(0, 1);
+  g.play(1, 1);
+  g.pass();
+  g.play(5, 5);
+  g.play(1, 0);
+  g.play(6, 6);
+  g.play(1, 2);
+  g.play(7, 7);
+  const cap = g.play(2, 1);
+  assert(cap.captured.length === 1, "capture for numbering");
+  const numbers = stoneOrderNumbers(g);
+  assert(numbers[1][0] === 1, "first stone stays 1");
+  assert(numbers[1][1] === 0, "captured stone loses its number");
+  assert(numbers[5][5] === 3, "a pass does not take a stone number");
+  assert(numbers[1][2] === 8, "the capturing stone is the 8th play");
+  g.pass();
+  g.pass();
+  assert(g.phase === "scoring", "scoring keeps the record");
+  assert(stoneOrderNumbers(g)[1][2] === 8, "numbers stay through scoring");
+}
+
+testStoneOrderNumbers();
 testCapture();
 testSuicide();
 testKo();
