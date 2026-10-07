@@ -283,15 +283,18 @@ function updatePanel() {
   els.btnAutoDead.hidden = isDrill() || isKifu();
   els.btnScore.hidden = isDrill() || isKifu();
   els.btnResign.disabled = engine.phase !== "playing" || aiThinking || isDrill() || isKifu();
-  els.btnAutoDead.disabled = engine.phase !== "scoring" || aiThinking;
-  els.btnScore.disabled = engine.phase !== "scoring" || aiThinking;
+  const canScoreNow =
+    !aiThinking && (engine.phase === "playing" || engine.phase === "scoring");
+  els.btnAutoDead.disabled = !canScoreNow;
+  els.btnScore.disabled = !canScoreNow;
   els.btnUndo.disabled = isDrill()
     ? !drill || drill.busy || drill.log.length === 0
     : isKifu()
       ? kifuAiThinking || (kifu.cursor === 0 && !kifu.deviated && engine.moveHistory.length === 0)
       : aiThinking ||
         (engine.moveHistory.length === 0 &&
-          !(engine.phase === "finished" && engine.result?.type === "resign"));
+          engine.phase !== "scoring" &&
+          !(engine.phase === "finished" && engine.result));
   if (isDrill()) {
     const total = problemsOf(drill.problem.track, drill.problem.level).length;
     els.btnDrillPrev.disabled = drill.busy || drill.index <= 0;
@@ -1592,7 +1595,7 @@ function newGame() {
   syncAiOptionVisibility();
 
   let tip = isRecordMode()
-    ? "打谱开始，黑先。每颗落下的棋子标着序号，提掉的不再标。双方连续停着后才能点目。"
+    ? "打谱开始，黑先。每颗落下的棋子标着序号，提掉的不再标。随时可以标死子或确认点目。"
     : "新对局开始，黑先。";
   if (isAiMode()) {
     const you = colorName(humanColor());
@@ -1634,13 +1637,20 @@ els.btnPass.addEventListener("click", async () => {
 });
 
 els.btnAutoDead.addEventListener("click", () => {
-  if (engine.phase !== "scoring") return;
+  if (aiThinking) return;
+  if (engine.phase !== "playing" && engine.phase !== "scoring") return;
+  aiToken += 1;
   const res = engine.autoMarkDead();
   if (!res.ok) {
     showMessage(res.reason || "");
     return;
   }
-  refresh(`已重新自动标记 ${res.count} 个死子，可手动微调后确认点目。`, true);
+  refresh(
+    res.entered
+      ? `已进入点目，自动标记 ${res.count} 个死子。可点击棋子修改，再确认点目。`
+      : `已重新自动标记 ${res.count} 个死子，可手动微调后确认点目。`,
+    true
+  );
 });
 
 els.btnResign.addEventListener("click", () => {
@@ -1719,6 +1729,9 @@ els.btnUndo.addEventListener("click", () => {
 });
 
 els.btnScore.addEventListener("click", () => {
+  if (aiThinking) return;
+  if (engine.phase !== "playing" && engine.phase !== "scoring") return;
+  aiToken += 1;
   const res = engine.score();
   if (!res.ok) showMessage(res.reason);
   else refresh(engine.result.text, true);
@@ -1904,7 +1917,7 @@ els.modeSelect.addEventListener("change", () => {
     return;
   }
   if (isRecordMode()) {
-    refresh("打谱：两人轮流下。棋子上标着落子序号。双方连续停着后，「确认点目」和「自动标死子」才能按。", true);
+    refresh("打谱：两人轮流下。棋子上标着落子序号。随时可以标死子或确认点目。", true);
     return;
   }
   if (els.modeSelect.value === "human") {

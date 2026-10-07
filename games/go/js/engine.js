@@ -1,7 +1,7 @@
 /**
  * 围棋规则引擎（中国规则思路：子空皆地）
  * - 落子、提子、禁自杀、禁止同形再现（超劫）
- * - 连续两次停着进入点目；可标记死子后计分
+ * - 连续两次停着会进入点目；对局中也可以直接标死子或点目
  */
 
 export const BLACK = 1;
@@ -246,11 +246,8 @@ export class GoEngine {
       this.result = null;
       return { ok: true };
     }
-    if (!this.moveHistory.length) {
-      return { ok: false, reason: "没有可悔的棋" };
-    }
-    if (this.phase === "scoring" || this.phase === "finished") {
-      // 从点目回到对局：撤销最后一次停着，并再撤销前一次停着（若存在）
+    if (this.phase === "scoring" || (this.phase === "finished" && this.result?.type === "score")) {
+      // 离开点目，回到对局。连着的停着一并拿掉，已经落下的子留着。
       this.phase = "playing";
       this.result = null;
       this.deadMarks = new Set();
@@ -262,6 +259,9 @@ export class GoEngine {
         this._undoOne();
       }
       return { ok: true };
+    }
+    if (!this.moveHistory.length) {
+      return { ok: false, reason: "没有可悔的棋" };
     }
     return this._undoOne();
   }
@@ -417,8 +417,10 @@ export class GoEngine {
    * - 迭代：删去死子后再评估被围在对方实地里的残子
    */
   autoMarkDead() {
+    const entered = this.phase === "playing";
+    if (entered) this.phase = "scoring";
     if (this.phase !== "scoring" && this.phase !== "finished") {
-      return { ok: false, reason: "仅点目阶段可用" };
+      return { ok: false, reason: "对局已结束" };
     }
 
     this.deadMarks = new Set();
@@ -495,7 +497,7 @@ export class GoEngine {
       if (!added) break;
     }
 
-    return { ok: true, count: this.deadMarks.size };
+    return { ok: true, count: this.deadMarks.size, entered };
   }
 
   /**
@@ -540,8 +542,9 @@ export class GoEngine {
    * 中国规则数子：存活子 + 独占空点；白贴目
    */
   score() {
+    if (this.phase === "playing") this.autoMarkDead();
     if (this.phase !== "scoring" && this.phase !== "finished") {
-      return { ok: false, reason: "请先双方停着进入点目" };
+      return { ok: false, reason: "对局已结束" };
     }
 
     const working = this.cloneBoard();

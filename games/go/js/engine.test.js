@@ -69,6 +69,27 @@ function testScore() {
   assert(res.result.blackScore === 0, "black 0 empty");
 }
 
+function testScoreAnytime() {
+  const g = new GoEngine(9, 7.5);
+  assert(g.play(0, 0).ok, "black");
+  assert(g.play(8, 8).ok, "white");
+  assert(g.phase === "playing", "still playing");
+  const marked = g.autoMarkDead();
+  assert(marked.ok && marked.entered, "marking during play enters scoring");
+  assert(g.phase === "scoring", "scoring without two passes");
+  assert(g.undo().ok, "undo leaves the stones");
+  assert(g.phase === "playing" && g.moveHistory.length === 2, "stones stay on the board");
+  const scored = g.score();
+  assert(scored.ok && g.phase === "finished", "confirm score during play");
+  assert(typeof scored.result.blackScore === "number", "score is computed");
+  assert(g.undo().ok && g.phase === "playing", "undo a finished count");
+  assert(g.board[0][0] === BLACK, "the stone is still there");
+
+  const empty = new GoEngine(9, 7.5);
+  assert(empty.autoMarkDead().ok && empty.phase === "scoring", "empty board can be marked");
+  assert(empty.undo().ok && empty.phase === "playing", "undo returns from an empty count");
+}
+
 function testUndoPassAndScoring() {
   const g = new GoEngine(9, 7.5);
   assert(g.play(0, 0).ok, "play");
@@ -196,6 +217,7 @@ testCapture();
 testSuicide();
 testKo();
 testScore();
+testScoreAnytime();
 testUndoPassAndScoring();
 testCaptureWithSharedGroup();
 testResignUndo();

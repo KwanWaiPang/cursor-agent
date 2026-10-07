@@ -71,8 +71,8 @@
               <button id="btnPass" type="button">停着</button>
               <button id="btnResign" class="danger" type="button">认输</button>
               <button id="btnUndo" class="secondary" type="button">悔棋</button>
-              <button id="btnAutoDead" class="secondary" type="button" disabled title="双方连续停着、进入点目之后才能用">自动标死子</button>
-              <button id="btnScore" class="secondary" type="button" disabled title="双方连续停着、进入点目之后才能用">确认点目</button>
+              <button id="btnAutoDead" class="secondary" type="button" disabled title="对局中随时可以标死子">自动标死子</button>
+              <button id="btnScore" class="secondary" type="button" disabled title="对局中随时可以点目">确认点目</button>
             </div>
           </section>
 
@@ -266,7 +266,7 @@
                 <li>黑先白后，轮流在交叉点落子。</li>
                 <li>无气的棋子被提掉；禁止自杀。</li>
                 <li>禁止同形再现（含劫争）。</li>
-                <li>对局中「确认点目」和「自动标死子」是灰的。黑白各停着一次、两下连着停，才进入点目。这时会先自动标一次死子，两个按钮才能按。点棋子可以把标错的死子改回来，再按「确认点目」出结果。解题和经典棋谱里没有这两个按钮。</li>
+                <li>「确认点目」和「自动标死子」在对局中随时可以按。按「自动标死子」就进入点目并标出死子，点棋子可以把标错的改回来。按「确认点目」直接数出结果；如果还没标过，会先自动标一次。双方连续停着也会进入点目。解题和经典棋谱里没有这两个按钮。</li>
                 <li>「打谱」和人人对战一样，两人轮流下。差别是每颗落下的棋子标着序号，提掉的子不再标，停着不占号。点目之后整盘序号还在。</li>
                 <li>计分采用中国规则：子空皆地，白贴目。</li>
                 <li>AI 按棋力分成十六档。二十五级到一级用本地搜索：低段随手，十级起搜索，三级会读吃子，一级搜索最久。</li>
