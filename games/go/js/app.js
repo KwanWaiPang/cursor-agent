@@ -89,7 +89,6 @@ const els = {
   btnAutoDead: document.getElementById("btnAutoDead"),
   btnClearDead: document.getElementById("btnClearDead"),
   btnScore: document.getElementById("btnScore"),
-  btnSkipAi: document.getElementById("btnSkipAi"),
   btnCoord: document.getElementById("btnCoord"),
   coordInput: document.getElementById("coordInput"),
   autoDeadToggle: document.getElementById("autoDeadToggle"),
@@ -137,7 +136,6 @@ let longPressTimer = 0;
 let keyboardPoint = null;
 let scoreOverlay = null;
 let kataAbort = null;
-let skipRequested = false;
 const DIFFICULTY_KEY = "go-hub-difficulty";
 
 function sleep(ms) {
@@ -254,7 +252,7 @@ function syncEngineNote() {
     return;
   }
   els.aiEngineNote.textContent = danSelected()
-    ? "这一档是 KataGo 模型，在浏览器里计算。高段可能要等一会儿，思考中可以跳过。"
+    ? "这一档是 KataGo 模型，在浏览器里计算。高段可能要等一会儿。"
     : "这一档是本地搜索，不下载、也不运行 KataGo。";
 }
 
@@ -388,10 +386,6 @@ function updatePanel() {
   els.btnScore.disabled = !canScoreNow;
   if (els.btnClearDead) els.btnClearDead.disabled = engine.phase !== "scoring";
   if (els.btnScore) els.btnScore.textContent = engine.phase === "scoring" ? "确认结果" : "确认点目";
-  if (els.btnSkipAi) {
-    const modelThinking = (aiThinking || kifuAiThinking) && danSelected();
-    els.btnSkipAi.hidden = !modelThinking;
-  }
   if (els.scorePreview) {
     if (engine.phase === "scoring" && scoreOverlay) {
       const area = scoreOverlay;
@@ -962,20 +956,6 @@ async function chooseAiMove(signal) {
   return ai.chooseMove(engine);
 }
 
-async function resolveAiMove(signal) {
-  try {
-    return await chooseAiMove(signal);
-  } catch (err) {
-    if (isKataCanceled(err) && skipRequested) {
-      skipRequested = false;
-      ai.setDifficulty("k15");
-      showMessage("已跳过 KataGo，改用本地快速应手。", true);
-      return ai.chooseMove(engine);
-    }
-    throw err;
-  }
-}
-
 async function maybeAiMove() {
   if (isDrill() || isKifu() || !isAiMode() || engine.phase !== "playing") return;
   if (engine.toPlay !== aiColor()) return;
@@ -984,10 +964,10 @@ async function maybeAiMove() {
   const token = ++aiToken;
   aiThinking = true;
   const signal = armKataSearch();
-  refresh(danSelected() ? "KataGo 模型思考中…可跳过。" : "本地搜索思考中…", true);
+  refresh(danSelected() ? "KataGo 模型思考中…" : "本地搜索思考中…", true);
 
   try {
-    const move = await resolveAiMove(signal);
+    const move = await chooseAiMove(signal);
     if (token !== aiToken) return;
     if (engine.phase !== "playing" || engine.toPlay !== aiColor()) return;
 
@@ -1709,9 +1689,9 @@ async function maybeKifuAi() {
   const token = ++kifuToken;
   kifuAiThinking = true;
   const signal = armKataSearch();
-  refresh(danSelected() ? "KataGo 模型正在应手…可跳过。" : "本地搜索正在应手…", true);
+  refresh(danSelected() ? "KataGo 模型正在应手…" : "本地搜索正在应手…", true);
   try {
-    const move = await resolveAiMove(signal);
+    const move = await chooseAiMove(signal);
     if (token !== kifuToken || !kifu?.deviated) return;
     if (move.type === "pass") engine.pass();
     else {
@@ -1740,7 +1720,6 @@ async function maybeKifuAi() {
 
 async function newGame() {
   stopKifuPlay();
-  skipRequested = false;
   abortKataSearch();
   touchPreview = null;
   keyboardPoint = null;
@@ -1968,13 +1947,6 @@ els.btnClearDead?.addEventListener("click", () => {
   if (engine.phase !== "scoring") return;
   engine.clearDeadMarks();
   refresh("已清除死子标记。可以点棋子重标，或再按「自动标死子」。", true);
-});
-
-els.btnSkipAi?.addEventListener("click", () => {
-  if (!aiThinking && !kifuAiThinking) return;
-  skipRequested = true;
-  showMessage("正在跳过 KataGo…", true);
-  kataAbort?.abort();
 });
 
 function parseCoord(text) {
