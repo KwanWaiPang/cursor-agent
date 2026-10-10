@@ -1,5 +1,6 @@
 import { BLACK, WHITE } from "./engine.js";
-import { KIFU, KifuSession, freshKifu, coordName, attachStudyNotes, stoneMoveIndex } from "./kifu-play.js";
+import { KIFU } from "./kifu.js";
+import { KifuSession, freshKifu, coordName, attachStudyNotes, stoneMoveIndex } from "./kifu-play.js";
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);

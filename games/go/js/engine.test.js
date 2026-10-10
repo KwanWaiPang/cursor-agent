@@ -212,6 +212,113 @@ function testStoneOrderNumbers() {
   assert(stoneOrderNumbers(g)[1][2] === 8, "numbers stay through scoring");
 }
 
+function testSimpleKoVersusSuperko() {
+  const simple = new GoEngine(9, 7.5);
+  const strict = new GoEngine(9, 7.5, { koRule: "superko" });
+  assert(simple.koRule === "simple" && strict.koRule === "superko", "ko rules");
+  assert(simple.positionSet.has(simple.serialize()), "hash set stores the start");
+  simple.play(0, 1);
+  simple.play(8, 8);
+  strict.play(0, 1);
+  strict.play(8, 8);
+  const trial = simple.tryPlay(4, 4);
+  assert(trial.ok, "candidate is legal before the forged repeat");
+  simple.positionSet.set(trial.serialized, 1);
+  strict.positionSet.set(trial.serialized, 1);
+  assert(simple.tryPlay(4, 4).ok, "simple ko still allows a non-immediate repeat");
+  assert(!strict.tryPlay(4, 4).ok, "superko forbids any earlier shape");
+}
+
+function testScorePreview() {
+  const g = new GoEngine(5, 0, { autoDead: false });
+  assert(g.play(0, 0).ok, "black");
+  assert(g.play(4, 4).ok, "white");
+  g.pass();
+  g.pass();
+  assert(g.phase === "scoring", "two passes enter scoring");
+  const preview = g.scorePreview();
+  assert(g.phase === "scoring", "preview does not finish the game");
+  assert(preview.territoryMap.length === 5, "territory map");
+  assert(preview.blackScore >= 1 && preview.whiteScore >= 1, "both stones count");
+  const done = g.score();
+  assert(done.ok && g.phase === "finished", "confirm finishes");
+  assert(done.result.blackScore === preview.blackScore, "black matches preview");
+  assert(done.result.whiteScore === preview.whiteScore, "white matches preview");
+  assert(done.result.text.includes("胜") || done.result.text.includes("和"), done.result.text);
+}
+
+function testAutoDeadCanBeDisabled() {
+  const g = new GoEngine(9, 7.5, { autoDead: false });
+  g.board[1][1] = WHITE;
+  g.board[0][1] = BLACK;
+  g.board[1][0] = BLACK;
+  g.board[1][2] = BLACK;
+  g.board[2][1] = BLACK;
+  g.positionHistory = [g.serialize()];
+  g.pass();
+  g.pass();
+  assert(g.phase === "scoring", "still enters scoring");
+  assert(g.deadMarks.size === 0, "auto mark stayed off");
+  g.autoMarkDead();
+  assert(g.deadMarks.has("1,1"), "explicit auto mark still works");
+  g.clearDeadMarks();
+  assert(g.deadMarks.size === 0, "marks are reversible");
+  const preview = g.scorePreview();
+  assert(g.phase === "scoring" && preview.whiteScore >= 1, "cleared stone is scored alive");
+}
+
+function testSekiLives() {
+  const g = new GoEngine(3, 0);
+  for (const [x, y] of [
+    [0, 0],
+    [1, 0],
+    [0, 1],
+  ]) {
+    g.board[y][x] = BLACK;
+  }
+  for (const [x, y] of [
+    [2, 0],
+    [2, 1],
+    [1, 2],
+    [2, 2],
+  ]) {
+    g.board[y][x] = WHITE;
+  }
+  g.positionHistory = [g.serialize()];
+  const black = { color: BLACK, ...g.getGroup(0, 0) };
+  assert(g.looksLikeSeki(black), "shared liberties are seki");
+  g.pass();
+  g.pass();
+  assert(!g.deadMarks.has("0,0"), "seki black stays alive");
+  assert(!g.deadMarks.has("2,2"), "seki white stays alive");
+  const preview = g.scorePreview();
+  assert(preview.territoryMap[1][1] === 0, "shared point is not territory");
+  assert(preview.territoryMap[2][0] === 0, "other shared point is not territory");
+}
+
+function testCornerFalseEye() {
+  const g = new GoEngine(3, 0);
+  for (const [x, y] of [
+    [1, 0],
+    [2, 0],
+    [0, 1],
+    [2, 1],
+    [0, 2],
+    [1, 2],
+    [2, 2],
+  ]) {
+    g.board[y][x] = BLACK;
+  }
+  g.board[1][1] = WHITE;
+  const group = { color: BLACK, ...g.getGroup(1, 0) };
+  assert(g.countApproxEyes(group) === 0, "corner eye with an enemy diagonal is false");
+}
+
+testSimpleKoVersusSuperko();
+testScorePreview();
+testAutoDeadCanBeDisabled();
+testSekiLives();
+testCornerFalseEye();
 testStoneOrderNumbers();
 testCapture();
 testSuicide();

@@ -144,20 +144,59 @@ function orientReview(engine, review) {
   };
 }
 
-export async function kataReview(engine, onStatus) {
+/** 把浏览器的 AbortSignal 收成引擎认识的取消句柄。 */
+export function kataSignal(signal) {
+  if (!signal) return undefined;
+  return {
+    get aborted() {
+      return Boolean(signal.aborted);
+    },
+    addAbortListener(fn) {
+      if (signal.aborted) {
+        fn();
+        return () => {};
+      }
+      if (typeof signal.addAbortListener === "function") return signal.addAbortListener(fn);
+      const onAbort = () => fn();
+      signal.addEventListener?.("abort", onAbort, { once: true });
+      return () => signal.removeEventListener?.("abort", onAbort);
+    },
+  };
+}
+
+export function isKataCanceled(err) {
+  return Boolean(err && (err.canceled || err.name === "KataGoCanceledError"));
+}
+
+export async function kataReview(engine, onStatus, signal) {
+  if (signal?.aborted) {
+    const err = new Error("Analysis canceled");
+    err.canceled = true;
+    err.name = "KataGoCanceledError";
+    throw err;
+  }
   if (!modelReady) onStatus?.("正在加载 KataGo 模型，第一次大约 4MB…");
   const hub = await import("../katago/hub.js");
-  const review = await hub.reviewPosition(positionForKata(engine), TEACH_SETTINGS);
+  const review = await hub.reviewPosition(positionForKata(engine), {
+    ...TEACH_SETTINGS,
+    signal: kataSignal(signal),
+  });
   modelReady = true;
   return orientReview(engine, review);
 }
 
-export async function kataChooseMove(engine, level, onStatus) {
+export async function kataChooseMove(engine, level, onStatus, signal) {
+  if (signal?.aborted) {
+    const err = new Error("Analysis canceled");
+    err.canceled = true;
+    err.name = "KataGoCanceledError";
+    throw err;
+  }
   const settings = KATA_LEVELS[level] || KATA_LEVELS.d3;
   if (!modelReady) onStatus?.("正在加载 KataGo 模型，第一次大约 4MB…");
-  else onStatus?.("KataGo 思考中…");
+  else onStatus?.("KataGo 模型思考中…可跳过，改用本地搜索。");
   const hub = await import("../katago/hub.js");
-  const move = await hub.chooseMove(positionForKata(engine), settings);
+  const move = await hub.chooseMove(positionForKata(engine), { ...settings, signal: kataSignal(signal) });
   modelReady = true;
   if (move.type === "pass") return move;
   if (engine.isLegal(move.x, move.y)) return move;

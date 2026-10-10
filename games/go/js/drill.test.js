@@ -1,14 +1,16 @@
 import { BLACK, WHITE } from "./engine.js";
+import { PROBLEMS, TRACKS } from "./problems.js";
 import {
-  PROBLEMS,
-  TRACKS,
   DrillSession,
   drillFaceText,
+  installDrillCatalog,
   isLevelUnlocked,
   levelCleared,
   loadPosition,
   problemsOf,
 } from "./drill.js";
+
+installDrillCatalog({ PROBLEMS, TRACKS });
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);

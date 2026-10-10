@@ -4,9 +4,44 @@
  */
 
 import { BLACK, WHITE, GoEngine } from "./engine.js";
-import { KIFU, KIFU_GROUPS } from "./kifu.js";
 
-export { KIFU, KIFU_GROUPS };
+let KIFU = [];
+let KIFU_GROUPS = [];
+let kifuLoad = null;
+
+export function kifuLibraryReady() {
+  return KIFU.length > 0;
+}
+
+export function installKifuLibrary(mod) {
+  KIFU = mod?.KIFU || [];
+  KIFU_GROUPS = mod?.KIFU_GROUPS || [];
+}
+
+export function getKifu() {
+  return KIFU;
+}
+
+export function getKifuGroups() {
+  return KIFU_GROUPS;
+}
+
+/** 棋谱体积很大，只在进入打谱时动态加载。 */
+export function loadKifuLibrary() {
+  if (KIFU.length) return Promise.resolve({ KIFU, KIFU_GROUPS });
+  if (!kifuLoad) {
+    kifuLoad = import("./kifu.js")
+      .then((mod) => {
+        installKifuLibrary(mod);
+        return { KIFU, KIFU_GROUPS };
+      })
+      .catch((err) => {
+        kifuLoad = null;
+        throw err;
+      });
+  }
+  return kifuLoad;
+}
 
 const FILES = "ABCDEFGHJKLMNOPQRST";
 
@@ -187,5 +222,5 @@ export class KifuSession {
 }
 
 export function gameById(id) {
-  return KIFU.find((g) => g.id === id) || KIFU[0];
+  return KIFU.find((g) => g.id === id) || KIFU[0] || null;
 }

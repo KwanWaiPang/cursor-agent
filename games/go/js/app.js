@@ -3,8 +3,10 @@ import { BLACK, WHITE, GoEngine, colorName, opponent, stoneOrderNumbers } from "
 import { GoAI } from "./ai.js";
 import {
   DrillSession,
+  drillCatalogReady,
   drillFaceText,
   levelCleared,
+  loadDrillCatalog,
   loadPosition,
   loadProgress,
   problemsOf,
@@ -12,10 +14,12 @@ import {
   trackById,
 } from "./drill.js";
 import {
-  KIFU,
   KifuSession,
   coordName,
   gameById,
+  getKifu,
+  kifuLibraryReady,
+  loadKifuLibrary,
   stoneMoveIndex,
   stoneNumbers,
 } from "./kifu-play.js";
@@ -30,6 +34,8 @@ const els = {
   captures: document.getElementById("captures"),
   moveCount: document.getElementById("moveCount"),
   message: document.getElementById("message"),
+  liveAnnounce: document.getElementById("liveAnnounce"),
+  scorePreview: document.getElementById("scorePreview"),
   result: document.getElementById("result"),
   sizeSelect: document.getElementById("sizeSelect"),
   komiSelect: document.getElementById("komiSelect"),
@@ -81,7 +87,14 @@ const els = {
   btnResign: document.getElementById("btnResign"),
   btnUndo: document.getElementById("btnUndo"),
   btnAutoDead: document.getElementById("btnAutoDead"),
+  btnClearDead: document.getElementById("btnClearDead"),
   btnScore: document.getElementById("btnScore"),
+  btnSkipAi: document.getElementById("btnSkipAi"),
+  btnCoord: document.getElementById("btnCoord"),
+  coordInput: document.getElementById("coordInput"),
+  autoDeadToggle: document.getElementById("autoDeadToggle"),
+  koSelect: document.getElementById("koSelect"),
+  aiEngineNote: document.getElementById("aiEngineNote"),
   btnNew: document.getElementById("btnNew"),
   actionCard: document.getElementById("actionCard"),
   teachToggle: document.getElementById("teachToggle"),
@@ -119,6 +132,13 @@ let kifuSliderHold = false;
 let teachOverlay = null;
 let teachArmed = null;
 let teachBusy = false;
+let touchPreview = null;
+let longPressTimer = 0;
+let keyboardPoint = null;
+let scoreOverlay = null;
+let kataAbort = null;
+let skipRequested = false;
+const DIFFICULTY_KEY = "go-hub-difficulty";
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -183,9 +203,67 @@ function kifuCanClick() {
   return engine.toPlay === kifu.userSide;
 }
 
+function announce(text) {
+  if (!els.liveAnnounce || !text) return;
+  els.liveAnnounce.textContent = "";
+  const next = text;
+  requestAnimationFrame(() => {
+    if (els.liveAnnounce) els.liveAnnounce.textContent = next;
+  });
+}
+
 function showMessage(text, info = false) {
   els.message.textContent = text || "";
   els.message.classList.toggle("info", Boolean(info && text));
+  if (text) announce(text);
+}
+
+function weakDevice() {
+  const cores = navigator.hardwareConcurrency || 8;
+  const memory = navigator.deviceMemory || 8;
+  const saveData = navigator.connection && navigator.connection.saveData;
+  return Boolean(saveData || cores <= 4 || memory <= 4);
+}
+
+function initDifficultyDefault() {
+  let saved = null;
+  try {
+    saved = localStorage.getItem(DIFFICULTY_KEY);
+  } catch {
+    /* private mode */
+  }
+  const known = saved && [...els.difficultySelect.options].some((opt) => opt.value === saved);
+  if (known) els.difficultySelect.value = saved;
+  else if (weakDevice()) els.difficultySelect.value = "k15";
+  if (!known && danSelected()) els.difficultySelect.value = weakDevice() ? "k15" : "k6";
+}
+
+function rememberDifficulty() {
+  try {
+    localStorage.setItem(DIFFICULTY_KEY, els.difficultySelect.value);
+  } catch {
+    /* private mode */
+  }
+}
+
+function syncEngineNote() {
+  if (!els.aiEngineNote) return;
+  const show = isAiMode() || kifuSelected();
+  if (!show) {
+    els.aiEngineNote.textContent = "";
+    return;
+  }
+  els.aiEngineNote.textContent = danSelected()
+    ? "这一档是 KataGo 模型，在浏览器里计算。高段可能要等一会儿，思考中可以跳过。"
+    : "这一档是本地搜索，不下载、也不运行 KataGo。";
+}
+
+function currentKoRule() {
+  return els.koSelect?.value === "superko" ? "superko" : "simple";
+}
+
+function syncAutoDead() {
+  engine.autoDead = !els.autoDeadToggle || els.autoDeadToggle.checked;
 }
 
 function phaseText() {
@@ -226,8 +304,29 @@ function syncAiOptionVisibility() {
   if (els.setupHeading) els.setupHeading.textContent = kifuOn ? "棋谱" : drillOn ? "练习" : "新对局";
   if (els.difficultyLabel) els.difficultyLabel.textContent = kifuOn ? "偏离棋谱后的 AI" : "AI 强度";
   if (els.teachField) els.teachField.hidden = drillOn;
-  if (drillOn) fillLevelSelect();
-  if (kifuOn) fillKifuSelect();
+  if (drillOn) {
+    if (drillCatalogReady()) fillLevelSelect();
+    else {
+      showMessage("正在载入练习题…", true);
+      void loadDrillCatalog()
+        .then(() => {
+          if (drillSelected()) fillLevelSelect();
+        })
+        .catch(() => showMessage("练习题没有载入。"));
+    }
+  }
+  if (kifuOn) {
+    if (kifuLibraryReady()) fillKifuSelect();
+    else {
+      showMessage("正在载入棋谱…", true);
+      void loadKifuLibrary()
+        .then(() => {
+          if (kifuSelected()) fillKifuSelect();
+        })
+        .catch(() => showMessage("棋谱没有载入。"));
+    }
+  }
+  syncEngineNote();
 }
 
 function updatePanel() {
@@ -263,7 +362,7 @@ function updatePanel() {
     els.turnLabel.textContent = "对局结束";
   }
   els.phaseBadge.textContent = phaseText();
-  els.captures.textContent = `黑提 ${engine.captures[BLACK]} · 白提 ${engine.captures[WHITE]}`;
+  els.captures.textContent = `黑提 ${engine.captures[BLACK]} · 白提 ${engine.captures[WHITE]}（只作记录，不计进结果）`;
   const plays = engine.moveHistory.filter((m) => m.type === "play").length;
   const passes = engine.moveHistory.filter((m) => m.type === "pass").length;
   els.moveCount.textContent = `手数 ${plays} · 停着 ${passes}`;
@@ -287,6 +386,20 @@ function updatePanel() {
     !aiThinking && (engine.phase === "playing" || engine.phase === "scoring");
   els.btnAutoDead.disabled = !canScoreNow;
   els.btnScore.disabled = !canScoreNow;
+  if (els.btnClearDead) els.btnClearDead.disabled = engine.phase !== "scoring";
+  if (els.btnScore) els.btnScore.textContent = engine.phase === "scoring" ? "确认结果" : "确认点目";
+  if (els.btnSkipAi) {
+    const modelThinking = (aiThinking || kifuAiThinking) && danSelected();
+    els.btnSkipAi.hidden = !modelThinking;
+  }
+  if (els.scorePreview) {
+    if (engine.phase === "scoring" && scoreOverlay) {
+      const area = scoreOverlay;
+      els.scorePreview.textContent = `预览：黑 ${area.blackScore.toFixed(1)} · 白 ${area.whiteScore.toFixed(1)}（含贴目 ${engine.komi}）。深色空点计黑，浅色空点计白，没着色的是单官或双活。半透明棋子是死子，点一下可以改，清除标记则全部撤销。提子不另加。`;
+    } else {
+      els.scorePreview.textContent = "";
+    }
+  }
   els.btnUndo.disabled = isDrill()
     ? !drill || drill.busy || drill.log.length === 0
     : isKifu()
@@ -342,7 +455,7 @@ function updatePanel() {
   } else if (engine.result) {
     els.result.textContent = engine.result.text;
     if (engine.result.type === "score") {
-      els.result.textContent += `（黑 ${engine.result.blackScore.toFixed(1)} · 白 ${engine.result.whiteScore.toFixed(1)}，含贴目 ${engine.komi}）`;
+      els.result.textContent += `（黑 ${engine.result.blackScore.toFixed(1)} · 白 ${engine.result.whiteScore.toFixed(1)}，含贴目 ${engine.komi}。提子没有另加。）`;
     }
     els.result.classList.add("show");
   } else {
@@ -491,6 +604,20 @@ function draw() {
     ctx.fillText(rank, right.sx + lift, right.sy);
   }
   ctx.restore();
+
+  if (scoreOverlay?.territoryMap) {
+    const map = scoreOverlay.territoryMap;
+    for (let y = y0; y <= y1; y += 1) {
+      for (let x = x0; x <= x1; x += 1) {
+        const owner = map[y]?.[x];
+        if (!owner) continue;
+        const p = pointToXY(x, y, m);
+        ctx.fillStyle = owner === BLACK ? "rgba(28, 22, 16, 0.34)" : "rgba(255, 250, 240, 0.62)";
+        const half = grid * 0.46;
+        ctx.fillRect(p.sx - half, p.sy - half, half * 2, half * 2);
+      }
+    }
+  }
 
   const r = stoneRadius(grid);
   for (let y = y0; y <= y1; y += 1) {
@@ -678,6 +805,12 @@ function showKifuNumbers() {
   return !els.kifuNumbersToggle || els.kifuNumbersToggle.checked;
 }
 
+function refreshScoreOverlay() {
+  const show =
+    engine.phase === "scoring" || (engine.phase === "finished" && engine.result?.type === "score");
+  scoreOverlay = show ? engine.scorePreview() : null;
+}
+
 function refresh(msg, info = false) {
   kifuNumbers =
     isKifu() && showKifuNumbers()
@@ -685,9 +818,26 @@ function refresh(msg, info = false) {
       : isRecordMode()
         ? stoneOrderNumbers(engine)
         : null;
+  refreshScoreOverlay();
   updatePanel();
   draw();
   if (msg !== undefined) showMessage(msg, info);
+}
+
+function abortKataSearch() {
+  kataAbort?.abort();
+  kataAbort = null;
+}
+
+function armKataSearch() {
+  abortKataSearch();
+  if (!danSelected()) return undefined;
+  kataAbort = new AbortController();
+  return kataAbort.signal;
+}
+
+function isKataCanceled(err) {
+  return Boolean(err && (err.canceled || err.name === "KataGoCanceledError"));
 }
 
 function danSelected() {
@@ -802,14 +952,28 @@ function applyDifficulty() {
   if (!danSelected()) ai.setDifficulty(id || "k6");
 }
 
-async function chooseAiMove() {
+async function chooseAiMove(signal) {
   const id = els.difficultySelect.value;
   if (danSelected()) {
     const bridge = await import("./katago-bridge.js");
-    return bridge.kataChooseMove(engine, id, (text) => showMessage(text, true));
+    return bridge.kataChooseMove(engine, id, (text) => showMessage(text, true), signal);
   }
   ai.setDifficulty(id || "k6");
   return ai.chooseMove(engine);
+}
+
+async function resolveAiMove(signal) {
+  try {
+    return await chooseAiMove(signal);
+  } catch (err) {
+    if (isKataCanceled(err) && skipRequested) {
+      skipRequested = false;
+      ai.setDifficulty("k15");
+      showMessage("已跳过 KataGo，改用本地快速应手。", true);
+      return ai.chooseMove(engine);
+    }
+    throw err;
+  }
 }
 
 async function maybeAiMove() {
@@ -819,10 +983,11 @@ async function maybeAiMove() {
 
   const token = ++aiToken;
   aiThinking = true;
-  refresh("AI 思考中…", true);
+  const signal = armKataSearch();
+  refresh(danSelected() ? "KataGo 模型思考中…可跳过。" : "本地搜索思考中…", true);
 
   try {
-    const move = await chooseAiMove();
+    const move = await resolveAiMove(signal);
     if (token !== aiToken) return;
     if (engine.phase !== "playing" || engine.toPlay !== aiColor()) return;
 
@@ -835,7 +1000,7 @@ async function maybeAiMove() {
       if (res.scoring) {
         const n = engine.deadMarks.size;
         refresh(
-          `AI 停着，进入点目：已自动标记 ${n} 个死子，可手动调整后确认点目。`,
+          `AI 停着，进入点目预览：已标 ${n} 个死子。看着色，可点棋子修改后再确认。`,
           true
         );
       } else {
@@ -852,8 +1017,11 @@ async function maybeAiMove() {
     }
     playSound("clickAudio");
     const cap = res.captured?.length || 0;
-    refresh(cap ? `AI 落子，提子 ${cap}` : "AI 已落子", true);
+    const where = coordName(move.x, move.y, engine.size);
+    const who = colorName(opponent(engine.toPlay));
+    refresh(cap ? `${who} ${where}，提子 ${cap}` : `${who} ${where}`, true);
   } catch (err) {
+    if (isKataCanceled(err)) return;
     console.error(err);
     const detail = err instanceof Error ? err.message : "";
     refresh(detail ? `AI 出错：${detail}` : "AI 出错，请悔棋或新开一局");
@@ -868,9 +1036,9 @@ async function maybeAiMove() {
 }
 
 async function onBoardClick(evt) {
-  evt.preventDefault();
+  evt.preventDefault?.();
   if (aiThinking || teachBusy || kifuAiThinking) return;
-  const coord = eventToCoord(evt);
+  const coord = evt.coord || eventToCoord(evt);
   if (!coord) return;
 
   if (isDrill()) {
@@ -905,7 +1073,10 @@ async function onBoardClick(evt) {
   }
   playSound("clickAudio");
   const cap = res.captured?.length || 0;
-  refresh(cap ? `提子 ${cap}` : "", true);
+  const who = colorName(opponent(engine.toPlay));
+  const where = coordName(coord.x, coord.y, engine.size);
+  refresh(cap ? `${who} ${where}，提子 ${cap}` : "", true);
+  announce(`${who} ${where}${cap ? `，提子 ${cap}` : ""}`);
   await afterUserMove({ pass: false, x: coord.x, y: coord.y }, taught?.key, taught?.snap);
 }
 
@@ -945,6 +1116,7 @@ function updateDrillMeta() {
 }
 
 function fillLevelSelect() {
+  if (!drillCatalogReady()) return;
   uiLock += 1;
   const trackId = els.trackSelect.value || "tactic";
   const track = trackById(trackId);
@@ -1108,7 +1280,7 @@ let kifuPlayersReady = false;
 function fillKifuPlayers() {
   if (!els.kifuPlayer || kifuPlayersReady) return;
   const counts = new Map();
-  for (const game of KIFU) {
+  for (const game of getKifu()) {
     counts.set(game.blackName, (counts.get(game.blackName) || 0) + 1);
     counts.set(game.whiteName, (counts.get(game.whiteName) || 0) + 1);
   }
@@ -1128,14 +1300,14 @@ function kifuBucket(game, player) {
 }
 
 function fillKifuSelect() {
-  if (!els.kifuSelect) return;
+  if (!els.kifuSelect || !kifuLibraryReady()) return;
   fillKifuPlayers();
   const query = (els.kifuFilter?.value || "").trim();
   const player = els.kifuPlayer?.value || "";
   const level = els.kifuLevel?.value || "";
   const era = els.kifuEra?.value || "";
   const current = els.kifuSelect.value;
-  const games = KIFU.filter((game) => {
+  const games = getKifu().filter((game) => {
     if (player && game.blackName !== player && game.whiteName !== player) return false;
     if (level && game.level !== level) return false;
     if (era && game.era !== era) return false;
@@ -1196,8 +1368,13 @@ function startKifu() {
     showMessage("没有对上的棋谱");
     return;
   }
-  const id = els.kifuSelect?.value || KIFU[0].id;
+  const library = getKifu();
+  const id = els.kifuSelect?.value || library[0]?.id;
   const game = gameById(id);
+  if (!game) {
+    showMessage("没有对上的棋谱");
+    return;
+  }
   if (!kifu || kifu.game.id !== game.id) kifu = new KifuSession(game);
   kifu.game = game;
   kifu.mode = els.kifuStudy?.value || "replay";
@@ -1531,9 +1708,10 @@ async function maybeKifuAi() {
   if (kifuAiThinking) return;
   const token = ++kifuToken;
   kifuAiThinking = true;
-  refresh("AI 正在应你离开棋谱的那一手…", true);
+  const signal = armKataSearch();
+  refresh(danSelected() ? "KataGo 模型正在应手…可跳过。" : "本地搜索正在应手…", true);
   try {
-    const move = await chooseAiMove();
+    const move = await resolveAiMove(signal);
     if (token !== kifuToken || !kifu?.deviated) return;
     if (move.type === "pass") engine.pass();
     else {
@@ -1544,8 +1722,10 @@ async function maybeKifuAi() {
       }
       playSound("clickAudio");
     }
-    refresh("AI 已应手。可以继续探索，或回到谱上。", true);
+    const placed = move.type === "pass" ? "停着" : coordName(move.x, move.y, engine.size);
+    refresh(`AI 已应 ${placed}。可以继续探索，或回到谱上。`, true);
   } catch (err) {
+    if (isKataCanceled(err)) return;
     console.error(err);
     refresh("AI 出错，请回到谱上");
   } finally {
@@ -1558,9 +1738,24 @@ async function maybeKifuAi() {
   }
 }
 
-function newGame() {
+async function newGame() {
   stopKifuPlay();
+  skipRequested = false;
+  abortKataSearch();
+  touchPreview = null;
+  keyboardPoint = null;
   if (kifuSelected()) {
+    if (!kifuLibraryReady()) {
+      showMessage("正在载入棋谱…", true);
+      try {
+        await loadKifuLibrary();
+      } catch {
+        showMessage("棋谱没有载入。");
+        return;
+      }
+      if (!kifuSelected()) return;
+      fillKifuSelect();
+    }
     kifuToken += 1;
     drill = null;
     startKifu();
@@ -1569,6 +1764,17 @@ function newGame() {
   kifu = null;
   kifuNumbers = null;
   if (drillSelected()) {
+    if (!drillCatalogReady()) {
+      showMessage("正在载入练习题…", true);
+      try {
+        await loadDrillCatalog();
+      } catch {
+        showMessage("练习题没有载入。");
+        return;
+      }
+      if (!drillSelected()) return;
+      fillLevelSelect();
+    }
     if (!drill) drill = new DrillSession(loadProgress());
     const track = els.trackSelect.value || "tactic";
     const level = Number(els.levelSelect.value) || 1;
@@ -1589,7 +1795,10 @@ function newGame() {
   aiThinking = false;
   const size = Number(els.sizeSelect.value);
   const komi = Number(els.komiSelect.value);
-  engine = new GoEngine(size, komi);
+  engine = new GoEngine(size, komi, {
+    koRule: currentKoRule(),
+    autoDead: !els.autoDeadToggle || els.autoDeadToggle.checked,
+  });
   applyDifficulty();
   hover = null;
   syncAiOptionVisibility();
@@ -1626,7 +1835,7 @@ els.btnPass.addEventListener("click", async () => {
   if (res.scoring) {
     const n = engine.deadMarks.size;
     refresh(
-      `双方停着，进入点目：已自动标记 ${n} 个死子，可点击棋子修改，或按「自动标死子」重算。`,
+      `双方停着，进入点目预览：已标 ${n} 个死子。深色空点计黑，浅色计白。可点棋子修改后再确认。`,
       true
     );
     if (taught) await explainPlayed({ pass: true }, taught.key, taught.snap);
@@ -1730,12 +1939,103 @@ els.btnUndo.addEventListener("click", () => {
 
 els.btnScore.addEventListener("click", () => {
   if (aiThinking) return;
-  if (engine.phase !== "playing" && engine.phase !== "scoring") return;
+  if (engine.phase === "playing") {
+    aiToken += 1;
+    abortKataSearch();
+    syncAutoDead();
+    const res = engine.beginScoring();
+    if (!res.ok) {
+      showMessage(res.reason || "");
+      return;
+    }
+    const n = engine.deadMarks.size;
+    refresh(
+      engine.autoDead
+        ? `点目预览：自动标了 ${n} 个死子。看着色改完，再按「确认结果」。提子不另加。`
+        : "点目预览：没有自动标死子。点棋子自己标，再按「确认结果」。",
+      true
+    );
+    return;
+  }
+  if (engine.phase !== "scoring") return;
   aiToken += 1;
   const res = engine.score();
   if (!res.ok) showMessage(res.reason);
-  else refresh(engine.result.text, true);
+  else refresh(`${engine.result.text} 提子没有另加。`, true);
 });
+
+els.btnClearDead?.addEventListener("click", () => {
+  if (engine.phase !== "scoring") return;
+  engine.clearDeadMarks();
+  refresh("已清除死子标记。可以点棋子重标，或再按「自动标死子」。", true);
+});
+
+els.btnSkipAi?.addEventListener("click", () => {
+  if (!aiThinking && !kifuAiThinking) return;
+  skipRequested = true;
+  showMessage("正在跳过 KataGo…", true);
+  kataAbort?.abort();
+});
+
+function parseCoord(text) {
+  const raw = String(text || "").trim().toUpperCase();
+  const match = raw.match(/^([A-HJ-T])\s*(\d{1,2})$/);
+  if (!match) return null;
+  const files = "ABCDEFGHJKLMNOPQRST";
+  const x = files.indexOf(match[1]);
+  const rank = Number(match[2]);
+  const y = engine.size - rank;
+  if (x < 0 || y < 0 || y >= engine.size || x >= engine.size) return null;
+  return { x, y };
+}
+
+function submitCoord() {
+  const coord = parseCoord(els.coordInput?.value);
+  if (!coord) {
+    showMessage("坐标写成字母加数字，例如 D4。I 不用。");
+    return;
+  }
+  keyboardPoint = coord;
+  hover = coord;
+  if (els.coordInput) els.coordInput.value = "";
+  void onBoardClick({ coord });
+}
+
+els.btnCoord?.addEventListener("click", () => submitCoord());
+els.coordInput?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    submitCoord();
+  }
+});
+
+function nudgeKeyboard(dx, dy) {
+  const size = engine.size;
+  const view = isDrill() && drill?.view ? drill.view : null;
+  const x0 = view ? view.x0 : 0;
+  const y0 = view ? view.y0 : 0;
+  const x1 = view ? view.x1 : size - 1;
+  const y1 = view ? view.y1 : size - 1;
+  if (!keyboardPoint) {
+    keyboardPoint = { x: Math.round((x0 + x1) / 2), y: Math.round((y0 + y1) / 2) };
+  } else {
+    keyboardPoint = {
+      x: Math.max(x0, Math.min(x1, keyboardPoint.x + dx)),
+      y: Math.max(y0, Math.min(y1, keyboardPoint.y + dy)),
+    };
+  }
+  hover = keyboardPoint;
+  touchPreview = null;
+  announce(`选中 ${coordName(keyboardPoint.x, keyboardPoint.y, size)}`);
+  draw();
+}
+
+function placeKeyboard() {
+  if (!keyboardPoint) nudgeKeyboard(0, 0);
+  if (!keyboardPoint) return;
+  hover = keyboardPoint;
+  void onBoardClick({ coord: keyboardPoint });
+}
 
 els.btnNew.addEventListener("click", () => {
   const dirty = isDrill() ? drill && drill.log.length > 0 : engine.moveHistory.length > 0;
@@ -1822,30 +2122,49 @@ els.kifuSide?.addEventListener("change", () => {
 });
 
 window.addEventListener("keydown", (e) => {
-  if (!isKifu() || kifu.mode !== "replay" || kifu.deviated) return;
   const tag = document.activeElement?.tagName;
-  if (tag === "SELECT" || tag === "INPUT" || tag === "TEXTAREA") return;
-  if (e.key === "ArrowRight") {
+  const typing = tag === "SELECT" || tag === "INPUT" || tag === "TEXTAREA";
+  if (isKifu() && kifu.mode === "replay" && !kifu.deviated && !typing) {
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      stepKifu(1);
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      stepKifu(-1);
+    } else if (e.key === "PageDown") {
+      e.preventDefault();
+      seekKifu(kifu.cursor + 10);
+    } else if (e.key === "PageUp") {
+      e.preventDefault();
+      seekKifu(kifu.cursor - 10);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      seekKifu(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      seekKifu(kifu.total);
+    } else if (e.key === " " || e.code === "Space") {
+      e.preventDefault();
+      toggleKifuPlay();
+    }
+    return;
+  }
+  if (typing || tag === "BUTTON" || tag === "A" || tag === "SUMMARY") return;
+  if (e.key === "ArrowLeft") {
     e.preventDefault();
-    stepKifu(1);
-  } else if (e.key === "ArrowLeft") {
+    nudgeKeyboard(-1, 0);
+  } else if (e.key === "ArrowRight") {
     e.preventDefault();
-    stepKifu(-1);
-  } else if (e.key === "PageDown") {
+    nudgeKeyboard(1, 0);
+  } else if (e.key === "ArrowUp") {
     e.preventDefault();
-    seekKifu(kifu.cursor + 10);
-  } else if (e.key === "PageUp") {
+    nudgeKeyboard(0, -1);
+  } else if (e.key === "ArrowDown") {
     e.preventDefault();
-    seekKifu(kifu.cursor - 10);
-  } else if (e.key === "Home") {
+    nudgeKeyboard(0, 1);
+  } else if (e.key === "Enter") {
     e.preventDefault();
-    seekKifu(0);
-  } else if (e.key === "End") {
-    e.preventDefault();
-    seekKifu(kifu.total);
-  } else if (e.key === " " || e.code === "Space") {
-    e.preventDefault();
-    toggleKifuPlay();
+    placeKeyboard();
   }
 });
 
@@ -1931,11 +2250,14 @@ els.modeSelect.addEventListener("change", () => {
 for (const el of [
   els.sizeSelect,
   els.komiSelect,
+  els.koSelect,
   els.humanColorSelect,
   els.difficultySelect,
-]) {
+].filter(Boolean)) {
   el.addEventListener("change", () => {
     if (el === els.difficultySelect) {
+      rememberDifficulty();
+      syncEngineNote();
       if (!danSelected()) teachArmed = null;
       else armTeach();
     }
@@ -1951,10 +2273,10 @@ for (const el of [
       return;
     }
     // 尚未落子：立即同步棋盘规格/贴目，避免界面与内部状态不一致
-    engine = new GoEngine(
-      Number(els.sizeSelect.value),
-      Number(els.komiSelect.value)
-    );
+    engine = new GoEngine(Number(els.sizeSelect.value), Number(els.komiSelect.value), {
+      koRule: currentKoRule(),
+      autoDead: !els.autoDeadToggle || els.autoDeadToggle.checked,
+    });
     applyDifficulty();
     hover = null;
     refresh("设置已同步。人机对战请点击「开始新对局」。", true);
@@ -1969,18 +2291,66 @@ canvas.addEventListener("click", (e) => {
 });
 canvas.addEventListener("mousemove", onMove);
 canvas.addEventListener("mouseleave", () => {
+  if (touchPreview) return;
   hover = null;
   draw();
 });
-canvas.addEventListener(
-  "touchstart",
-  (e) => {
-    lastTouchAt = Date.now();
-    if (e.cancelable) e.preventDefault();
-    onBoardClick(e);
-  },
-  { passive: false }
-);
+
+function clearLongPress() {
+  if (!longPressTimer) return;
+  clearTimeout(longPressTimer);
+  longPressTimer = 0;
+}
+
+function placeNeedsSecondTap(coord) {
+  if (!coord) return false;
+  if (engine.phase === "scoring") return false;
+  if (isKifu() && kifu?.mode === "replay") return false;
+  if (engine.board[coord.y]?.[coord.x]) return false;
+  return true;
+}
+
+function onTouchStart(e) {
+  lastTouchAt = Date.now();
+  if (e.cancelable) e.preventDefault();
+  const coord = eventToCoord(e);
+  if (!coord || !placeNeedsSecondTap(coord)) {
+    touchPreview = null;
+    clearLongPress();
+    void onBoardClick(e);
+    return;
+  }
+  const same = touchPreview && touchPreview.x === coord.x && touchPreview.y === coord.y;
+  hover = { x: coord.x, y: coord.y };
+  keyboardPoint = hover;
+  const place = () => onBoardClick({ coord, preventDefault() {} });
+  if (same) {
+    clearLongPress();
+    touchPreview = null;
+    void place();
+    return;
+  }
+  touchPreview = { x: coord.x, y: coord.y };
+  draw();
+  showMessage("再点一次，或按住，确认落子。", true);
+  clearLongPress();
+  longPressTimer = window.setTimeout(() => {
+    longPressTimer = 0;
+    if (!touchPreview || touchPreview.x !== coord.x || touchPreview.y !== coord.y) return;
+    touchPreview = null;
+    void place();
+  }, 520);
+}
+
+canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+canvas.addEventListener("touchend", () => {
+  clearLongPress();
+  lastTouchAt = Date.now();
+});
+canvas.addEventListener("touchcancel", () => {
+  clearLongPress();
+  touchPreview = null;
+});
 
 window.addEventListener("resize", () => {
   dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -2036,6 +2406,25 @@ els.btnKifuTeach?.addEventListener("click", () => {
   void reviewPreviousMove();
 });
 
+try {
+  if (localStorage.getItem("go-hub-auto-dead") === "0" && els.autoDeadToggle) {
+    els.autoDeadToggle.checked = false;
+    engine.autoDead = false;
+  }
+} catch {
+  /* private mode */
+}
+els.autoDeadToggle?.addEventListener("change", () => {
+  syncAutoDead();
+  try {
+    localStorage.setItem("go-hub-auto-dead", els.autoDeadToggle.checked ? "1" : "0");
+  } catch {
+    /* private mode */
+  }
+});
+
+initDifficultyDefault();
+syncEngineNote();
 syncAiOptionVisibility();
 resizeCanvas();
-refresh("可选「人机对战」与 AI 下棋 · 中国规则", true);
+refresh("可选「人机对战」与 AI 下棋 · 中国规则。提子只作记录。", true);

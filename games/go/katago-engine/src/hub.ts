@@ -35,9 +35,19 @@ export function ensureKataGo(): Promise<void> {
   return ready;
 }
 
+type KataAbortSignal = {
+  readonly aborted: boolean;
+  addAbortListener: (listener: () => void) => () => void;
+};
+
 export async function chooseMove(
   position: KataPosition,
-  settings: { visits?: number; maxTimeMs?: number; rootPolicyTemperature?: number } = {},
+  settings: {
+    visits?: number;
+    maxTimeMs?: number;
+    rootPolicyTemperature?: number;
+    signal?: KataAbortSignal;
+  } = {},
 ): Promise<{ type: "play"; x: number; y: number } | { type: "pass" }> {
   await ensureKataGo();
   const analysis = await getKataGoEngineClient().analyze({
@@ -55,6 +65,7 @@ export async function chooseMove(
     topK: 8,
     ownershipMode: "none",
     conservativePass: true,
+    signal: settings.signal,
   });
   const ranked = [...(analysis.moves ?? [])].sort(
     (a, b) => (b.playSelectionValue ?? b.visits ?? 0) - (a.playSelectionValue ?? a.visits ?? 0),
@@ -90,7 +101,13 @@ export type KataReview = {
 
 export async function reviewPosition(
   position: KataPosition,
-  settings: { visits?: number; maxTimeMs?: number; rootPolicyTemperature?: number; topK?: number } = {},
+  settings: {
+    visits?: number;
+    maxTimeMs?: number;
+    rootPolicyTemperature?: number;
+    topK?: number;
+    signal?: KataAbortSignal;
+  } = {},
 ): Promise<KataReview> {
   await ensureKataGo();
   const analysis = await getKataGoEngineClient().analyze({
@@ -108,6 +125,7 @@ export async function reviewPosition(
     topK: settings.topK ?? 12,
     ownershipMode: "root",
     conservativePass: true,
+    signal: settings.signal,
   });
   const flatOwnership = analysis.ownership;
   const territory: number[][] = [];

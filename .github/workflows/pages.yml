@@ -41,6 +41,7 @@ jobs:
         run: |
           node --experimental-default-type=module js/fit-board.test.js
           node --experimental-default-type=module games/go/js/engine.test.js
+          node --experimental-default-type=module games/go/js/lazy-assets.test.js
           node --experimental-default-type=module games/go/js/ai.test.js
           node --experimental-default-type=module games/go/js/drill.test.js
           node --experimental-default-type=module games/go/js/kifu.test.js
