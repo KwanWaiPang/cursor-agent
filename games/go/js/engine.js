@@ -1,7 +1,8 @@
 /**
- * 围棋规则引擎（中国规则思路：子空皆地）
- * - 落子、提子、禁自杀、禁止同形再现（超劫）
- * - 连续两次停着会进入点目；对局中也可以直接标死子或点目
+ * 围棋规则引擎（中国规则：子空皆地，禁自杀）
+ * - 默认简单劫：不能立刻回提。可选超劫，禁止任何同形再现。
+ * - 局面哈希放在 Map（哈希集合）里，判定不再对数组做线性扫描。
+ * - 连续两次停着会进入点目；对局中也可以直接标死子或点目。
  */
 
 export const BLACK = 1;
@@ -35,10 +36,53 @@ function keyOf(x, y) {
 }
 
 export class GoEngine {
-  constructor(size = 19, komi = 7.5) {
+  constructor(size = 19, komi = 7.5, options = {}) {
     this.size = size;
     this.komi = komi;
+    this.koRule = options.koRule === "superko" ? "superko" : "simple";
+    this.autoDead = options.autoDead !== false;
+    this._history = [];
+    this._counts = new Map();
     this.reset();
+  }
+
+  /** 有序局面栈，供悔棋和搜索截断。赋值时会重建哈希集合。 */
+  get positionHistory() {
+    return this._history;
+  }
+
+  set positionHistory(list) {
+    this._history = Array.isArray(list) ? list.slice() : [];
+    this._counts = new Map();
+    for (const hash of this._history) {
+      this._counts.set(hash, (this._counts.get(hash) || 0) + 1);
+    }
+  }
+
+  /** 局面哈希集合。值为出现次数，`.has` 即 O(1) 查重。 */
+  get positionSet() {
+    return this._counts;
+  }
+
+  _pushPosition(hash) {
+    this._history.push(hash);
+    this._counts.set(hash, (this._counts.get(hash) || 0) + 1);
+  }
+
+  _popPosition() {
+    const removed = this._history.pop();
+    if (removed != null) {
+      const left = (this._counts.get(removed) || 1) - 1;
+      if (left <= 0) this._counts.delete(removed);
+      else this._counts.set(removed, left);
+    }
+    return this._history[this._history.length - 1];
+  }
+
+  _koForbidden(hash) {
+    if (this.koRule === "superko") return this._counts.has(hash);
+    if (this._history.length < 2) return false;
+    return hash === this._history[this._history.length - 2];
   }
 
   reset() {
@@ -154,8 +198,10 @@ export class GoEngine {
     }
 
     const serialized = this.serialize(next);
-    if (this.positionHistory.includes(serialized)) {
-      return { ok: false, reason: "禁着点（同形再现 / 劫争）" };
+    if (this._koForbidden(serialized)) {
+      const reason =
+        this.koRule === "superko" ? "禁着点（同形再现）" : "禁着点（劫争，不能立刻回提）";
+      return { ok: false, reason };
     }
 
     return { ok: true, board: next, captured, serialized };
@@ -180,7 +226,7 @@ export class GoEngine {
       captured: trial.captured,
       prevBoard: this.positionHistory[this.positionHistory.length - 1],
     });
-    this.positionHistory.push(trial.serialized);
+    this._pushPosition(trial.serialized);
     this.consecutivePasses = 0;
     this.lastMove = { x, y, color };
     this.toPlay = opponent(color);
@@ -197,11 +243,7 @@ export class GoEngine {
     this.lastMove = { pass: true, color };
     this.toPlay = opponent(color);
 
-    if (this.consecutivePasses >= 2) {
-      this.phase = "scoring";
-      this.deadMarks = new Set();
-      this.autoMarkDead();
-    }
+    if (this.consecutivePasses >= 2) this.beginScoring();
     return { ok: true, scoring: this.phase === "scoring" };
   }
 
@@ -222,7 +264,10 @@ export class GoEngine {
 
   /** 深拷贝当前局面，供 AI 搜索使用 */
   clone() {
-    const g = new GoEngine(this.size, this.komi);
+    const g = new GoEngine(this.size, this.komi, {
+      koRule: this.koRule,
+      autoDead: this.autoDead,
+    });
     g.board = this.cloneBoard();
     g.toPlay = this.toPlay;
     g.captures = { [BLACK]: this.captures[BLACK], [WHITE]: this.captures[WHITE] };
@@ -278,8 +323,7 @@ export class GoEngine {
     }
 
     // restore board from previous serialized position
-    this.positionHistory.pop();
-    const prev = this.positionHistory[this.positionHistory.length - 1];
+    const prev = this._popPosition();
     this.board = prev.split("/").map((row) =>
       row.split("").map((ch) => Number(ch))
     );
@@ -374,7 +418,10 @@ export class GoEngine {
           diagTotal += 1;
           if (board[ny][nx] && board[ny][nx] !== color) diagEnemy += 1;
         }
-        if (diagTotal === 0 || diagEnemy <= 1) eyes += 1;
+        // 角上和边上，一个对角敌子就是假眼；中腹要两个对角敌子才算假眼。
+        const falseEye =
+          diagTotal <= 1 ? diagEnemy >= 1 : diagTotal === 2 ? diagEnemy >= 1 : diagEnemy >= 2;
+        if (!falseEye) eyes += 1;
       }
     }
     return eyes;
@@ -448,6 +495,7 @@ export class GoEngine {
 
         const eyes = this.countApproxEyes(g, aliveBoard);
         if (eyes >= 2) continue; // 有两眼，视为活棋
+        if (this.looksLikeSeki(g, aliveBoard)) continue;
 
         // 终局一气：死
         if (g.liberties.size <= 1) {
@@ -501,6 +549,63 @@ export class GoEngine {
   }
 
   /**
+   * 双方气都只在同一小片公共空上，谁先填谁就被提，终局算双活。
+   * 只认 1 到 3 口气，避免把大空误判成活棋。
+   */
+  looksLikeSeki(group, board = this.board) {
+    const libs = group.liberties;
+    if (!libs || libs.size < 1 || libs.size > 3) return false;
+    const color = group.color ?? board[group.stones[0][1]][group.stones[0][0]];
+    const opp = opponent(color);
+    if (this.countApproxEyes(group, board) >= 2) return false;
+
+    const oppGroups = [];
+    const seen = new Set();
+    for (const lk of libs) {
+      const [x, y] = lk.split(",").map(Number);
+      let touched = false;
+      for (const [nx, ny] of this.neighbors(x, y)) {
+        if (board[ny][nx] !== opp) continue;
+        touched = true;
+        const mark = keyOf(nx, ny);
+        if (seen.has(mark)) continue;
+        const other = this.getGroup(nx, ny, board);
+        for (const [sx, sy] of other.stones) seen.add(keyOf(sx, sy));
+        oppGroups.push(other);
+      }
+      if (!touched) return false;
+    }
+    if (!oppGroups.length) return false;
+
+    for (const lk of libs) {
+      if (!oppGroups.some((other) => other.liberties.has(lk))) return false;
+    }
+    for (const other of oppGroups) {
+      if (this.countApproxEyes({ color: opp, ...other }, board) >= 2) return false;
+      for (const lk of other.liberties) {
+        if (!libs.has(lk)) return false;
+      }
+    }
+    for (const lk of libs) {
+      const [x, y] = lk.split(",").map(Number);
+      const selfTry = this._canFill(board, x, y, color);
+      const oppTry = this._canFill(board, x, y, opp);
+      if (selfTry.ok && selfTry.captured?.length) return false;
+      if (oppTry.ok && oppTry.captured?.length) return false;
+    }
+    return true;
+  }
+
+  _canFill(board, x, y, color) {
+    const probe = new GoEngine(this.size, this.komi, { koRule: "simple", autoDead: false });
+    probe.board = board.map((row) => row.slice());
+    probe.toPlay = color;
+    probe.phase = "playing";
+    probe.positionHistory = [probe.serialize()];
+    return probe.tryPlay(x, y, color);
+  }
+
+  /**
    * 棋块的所有气点所属空区，是否都只被对方（+自身）包围
    */
   isEnclosedByOpponent(group, board) {
@@ -538,21 +643,32 @@ export class GoEngine {
     return group.liberties.size > 0;
   }
 
-  /**
-   * 中国规则数子：存活子 + 独占空点；白贴目
-   */
-  score() {
-    if (this.phase === "playing") this.autoMarkDead();
-    if (this.phase !== "scoring" && this.phase !== "finished") {
+  /** 进入点目。自动判断可关；已经在点目时只刷新预览，不抹掉手动标记。 */
+  beginScoring() {
+    if (this.phase === "finished" && this.result?.type === "resign") {
       return { ok: false, reason: "对局已结束" };
     }
+    const entered = this.phase === "playing";
+    if (entered) {
+      this.phase = "scoring";
+      this.deadMarks = new Set();
+      if (this.autoDead) this.autoMarkDead();
+    }
+    return { ok: true, entered, preview: this.scorePreview() };
+  }
 
+  /**
+   * 中国规则数子：存活子 + 独占空点；白贴目。
+   * 死子先从盘上拿走，那些交叉点若被一方围住就计入该方空点。
+   * 提子数不另加。双活的公共气两边都挨着，不算任何一方的地。
+   */
+  analyzeArea() {
     const working = this.cloneBoard();
-    // 死子移除并计入对方提子（展示用）
+    const territoryMap = Array.from({ length: this.size }, () => Array(this.size).fill(0));
     const removed = { [BLACK]: 0, [WHITE]: 0 };
     for (const k of this.deadMarks) {
       const [x, y] = k.split(",").map(Number);
-      const c = working[y][x];
+      const c = working[y]?.[x];
       if (c) {
         removed[c] += 1;
         working[y][x] = 0;
@@ -560,9 +676,7 @@ export class GoEngine {
     }
 
     const territory = { [BLACK]: 0, [WHITE]: 0 };
-    const visited = Array.from({ length: this.size }, () =>
-      Array(this.size).fill(false)
-    );
+    const visited = Array.from({ length: this.size }, () => Array(this.size).fill(false));
 
     for (let y = 0; y < this.size; y++) {
       for (let x = 0; x < this.size; x++) {
@@ -592,6 +706,7 @@ export class GoEngine {
         if (borders.size === 1) {
           const owner = [...borders][0];
           territory[owner] += empties.length;
+          for (const [ex, ey] of empties) territoryMap[ey][ex] = owner;
         }
       }
     }
@@ -612,25 +727,48 @@ export class GoEngine {
     let text;
     if (blackScore > whiteScore) {
       winner = BLACK;
-      text = `黑胜 ${((blackScore - whiteScore)).toFixed(1)} 子`;
+      text = `黑胜 ${(blackScore - whiteScore).toFixed(1)} 子`;
     } else if (whiteScore > blackScore) {
       winner = WHITE;
-      text = `白胜 ${((whiteScore - blackScore)).toFixed(1)} 子`;
+      text = `白胜 ${(whiteScore - blackScore).toFixed(1)} 子`;
     } else {
       text = "和棋";
     }
 
-    this.phase = "finished";
-    this.result = {
-      type: "score",
+    return {
       winner,
       text,
       blackScore,
       whiteScore,
       territory,
+      territoryMap,
       stones: { [BLACK]: blackStones, [WHITE]: whiteStones },
       removed,
     };
+  }
+
+  /** 确认前的着色预览。不结束对局。 */
+  scorePreview() {
+    return this.analyzeArea();
+  }
+
+  /**
+   * 中国规则数子：存活子 + 独占空点；白贴目。
+   * 提子只作记录，不另加进这个结果。
+   */
+  score() {
+    if (this.phase === "playing") {
+      this.phase = "scoring";
+      this.deadMarks = new Set();
+      if (this.autoDead) this.autoMarkDead();
+    }
+    if (this.phase !== "scoring" && this.phase !== "finished") {
+      return { ok: false, reason: "对局已结束" };
+    }
+
+    const area = this.analyzeArea();
+    this.phase = "finished";
+    this.result = { type: "score", ...area };
     return { ok: true, result: this.result };
   }
 

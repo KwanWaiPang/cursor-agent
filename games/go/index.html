@@ -39,7 +39,14 @@
 
       <main class="layout">
         <section class="board-wrap" aria-label="棋盘">
-          <canvas id="board" width="320" height="320" role="img" aria-label="围棋棋盘"></canvas>
+          <canvas
+            id="board"
+            width="320"
+            height="320"
+            tabindex="0"
+            role="application"
+            aria-label="围棋棋盘。方向键选点，回车落子。"
+          ></canvas>
         </section>
 
         <aside class="panel">
@@ -54,9 +61,15 @@
             </div>
             <div class="meta">
               <div id="captures">黑提 0 · 白提 0</div>
+              <p id="captureNote" class="capture-note">
+                提子数只作记录。中国规则按盘上活子和空点计分，提子不另加。
+              </p>
               <div id="moveCount">手数 0 · 停着 0</div>
             </div>
+            <div id="liveAnnounce" class="sr-only" aria-live="polite"></div>
             <div id="message" class="message info"></div>
+            <p id="scorePreview" class="score-preview"></p>
+            <button id="btnSkipAi" class="secondary skip-ai" type="button" hidden>跳过模型，本地应手</button>
             <label class="inline-check" id="teachField" for="teachToggle">
               <input id="teachToggle" type="checkbox" />
               模型讲解（初段起自动）
@@ -72,11 +85,21 @@
               <button id="btnResign" class="danger" type="button">认输</button>
               <button id="btnUndo" class="secondary" type="button">悔棋</button>
               <button id="btnAutoDead" class="secondary" type="button" disabled title="对局中随时可以标死子">自动标死子</button>
-              <button id="btnScore" class="secondary" type="button" disabled title="对局中随时可以点目">确认点目</button>
+              <button id="btnClearDead" class="secondary" type="button" disabled title="撤销全部死子标记">清除标记</button>
+              <button id="btnScore" class="secondary" type="button" disabled title="先看领地着色，再确认">确认点目</button>
+            </div>
+            <label class="inline-check" id="autoDeadField" for="autoDeadToggle">
+              <input id="autoDeadToggle" type="checkbox" checked />
+              点目时自动判断死子（可关，标完也能改）
+            </label>
+            <div class="coord-row">
+              <label for="coordInput">坐标落子</label>
+              <input id="coordInput" type="text" inputmode="text" maxlength="4" placeholder="如 D4" autocomplete="off" spellcheck="false" aria-label="坐标落子，例如 D4" />
+              <button id="btnCoord" class="secondary" type="button">落子</button>
             </div>
           </section>
 
-          <section class="card card-controls">
+          <section class="card card-controls card-setup" id="setupCard">
             <h2 id="setupHeading">新对局</h2>
             <div class="field">
               <label for="modeSelect">对战模式</label>
@@ -87,6 +110,34 @@
                 <option value="drill">分级练习（解题 / 官子）</option>
                 <option value="kifu">经典棋谱（19路全谱）</option>
               </select>
+            </div>
+            <div id="matchFields">
+            <div class="field">
+              <label for="sizeSelect">棋盘规格</label>
+              <select id="sizeSelect">
+                <option value="9">9路</option>
+                <option value="13">13路</option>
+                <option value="19" selected>19路（标准）</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="komiSelect">贴目（中国规则）</label>
+              <select id="komiSelect">
+                <option value="6.5">6.5</option>
+                <option value="7.5" selected>7.5</option>
+                <option value="0">0（让子练习）</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="koSelect">劫争</label>
+              <select id="koSelect">
+                <option value="simple" selected>简单劫（不能立刻回提）</option>
+                <option value="superko">超劫（禁止任何同形再现）</option>
+              </select>
+            </div>
+            </div>
+            <div class="controls start-row">
+              <button id="btnNew" type="button">开始新对局</button>
             </div>
             <div id="kifuOptions" class="ai-options" hidden>
               <p id="kifuProgress" class="drill-progress"></p>
@@ -193,23 +244,28 @@
               <div class="field" id="difficultyField">
                 <label for="difficultySelect">AI 强度</label>
                 <select id="difficultySelect">
-                  <option value="k25">二十五级 · 随手</option>
-                  <option value="k20">二十级 · 会提子</option>
-                  <option value="k15">十五级 · 会逃</option>
-                  <option value="k10">十级 · 看附近</option>
-                  <option value="k6" selected>六级 · 浅搜索</option>
-                  <option value="k3">三级 · 吃子阅读</option>
-                  <option value="k1">一级 · 搜索最强</option>
-                  <option value="d1">初段 · 模型</option>
-                  <option value="d2">二段 · 模型</option>
-                  <option value="d3">三段 · 模型</option>
-                  <option value="d4">四段 · 模型</option>
-                  <option value="d5">五段 · 模型</option>
-                  <option value="d6">六段 · 模型</option>
-                  <option value="d7">七段 · 模型</option>
-                  <option value="d8">八段 · 模型</option>
-                  <option value="d9">九段 · 模型最强</option>
+                  <optgroup label="本地搜索（不运行 KataGo）">
+                    <option value="k25">二十五级 · 本地 · 随手</option>
+                    <option value="k20">二十级 · 本地 · 会提子</option>
+                    <option value="k15">十五级 · 本地 · 会逃</option>
+                    <option value="k10">十级 · 本地 · 看附近</option>
+                    <option value="k6" selected>六级 · 本地 · 浅搜索</option>
+                    <option value="k3">三级 · 本地 · 吃子阅读</option>
+                    <option value="k1">一级 · 本地 · 搜索最强</option>
+                  </optgroup>
+                  <optgroup label="KataGo 模型（浏览器内计算）">
+                    <option value="d1">初段 · KataGo</option>
+                    <option value="d2">二段 · KataGo</option>
+                    <option value="d3">三段 · KataGo</option>
+                    <option value="d4">四段 · KataGo</option>
+                    <option value="d5">五段 · KataGo</option>
+                    <option value="d6">六段 · KataGo</option>
+                    <option value="d7">七段 · KataGo</option>
+                    <option value="d8">八段 · KataGo</option>
+                    <option value="d9">九段 · KataGo · 最久</option>
+                  </optgroup>
                 </select>
+                <p id="aiEngineNote" class="drill-note"></p>
               </div>
             </div>
             <div id="drillOptions" class="ai-options" hidden>
@@ -236,27 +292,6 @@
               <p id="drillIntro" class="drill-note"></p>
               <p id="drillSource" class="drill-source"></p>
             </div>
-            <div id="matchFields">
-            <div class="field">
-              <label for="sizeSelect">棋盘规格</label>
-              <select id="sizeSelect">
-                <option value="9">9路</option>
-                <option value="13">13路</option>
-                <option value="19" selected>19路（标准）</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="komiSelect">贴目（中国规则）</label>
-              <select id="komiSelect">
-                <option value="6.5">6.5</option>
-                <option value="7.5" selected>7.5</option>
-                <option value="0">0（让子练习）</option>
-              </select>
-            </div>
-            </div>
-            <div class="controls" style="grid-template-columns: 1fr">
-              <button id="btnNew" type="button">开始新对局</button>
-            </div>
           </section>
 
           <section class="card card-help">
@@ -265,15 +300,15 @@
               <ul class="help">
                 <li>黑先白后，轮流在交叉点落子。</li>
                 <li>无气的棋子被提掉；禁止自杀。</li>
-                <li>禁止同形再现（含劫争）。</li>
-                <li>「确认点目」和「自动标死子」在对局中随时可以按。按「自动标死子」就进入点目并标出死子，点棋子可以把标错的改回来。按「确认点目」直接数出结果；如果还没标过，会先自动标一次。双方连续停着也会进入点目。解题和经典棋谱里没有这两个按钮。</li>
+                <li>默认是简单劫：刚提掉的子不能立刻回提。需要先在别处走一手。想禁止整局任何同形再现，可在新对局里改成超劫。</li>
+                <li>「确认点目」会先进入预览：空点按将要计入的一方着色，半透明的是死子。点棋子可以改一组死子，「清除标记」可以全部撤销。满意后再按一次「确认结果」。可以关掉「自动判断死子」，这样预览不会先替你标。双方连续停着也会进入这个预览。解题和经典棋谱里没有这两个按钮。</li>
                 <li>「打谱」和人人对战一样，两人轮流下。差别是每颗落下的棋子标着序号，提掉的子不再标，停着不占号。点目之后整盘序号还在。</li>
-                <li>计分采用中国规则：子空皆地，白贴目。</li>
-                <li>AI 按棋力分成十六档。二十五级到一级用本地搜索：低段随手，十级起搜索，三级会读吃子，一级搜索最久。</li>
-                <li>初段到九段改用 KataGo 模型，引擎与 Web KaTrain 相同，在浏览器里计算。段位越高，搜索越多、着手越稳。九段一手可能要几十秒。第一次会下载约 4MB 的公开小模型，不是完整的大模型。</li>
+                <li>计分采用中国规则：子空皆地，白贴目。提子数只告诉你提过多少，不会再加到这个结果上。死子拿走之后，那些空出来的交叉点若被一方围住，就算那一方的空。</li>
+                <li>AI 分成两组。二十五级到一级是本地搜索：低段随手，十级起搜索，三级会读吃子，一级搜索最久。性能较弱的设备默认落在十五级，不默认高段。</li>
+                <li>初段到九段改用 KataGo 模型，引擎与 Web KaTrain 相同，在浏览器里计算。段位越高，搜索越多、着手越稳。九段一手可能要几十秒。思考中可以按「跳过模型，本地应手」。第一次会下载约 4MB 的公开小模型，不是完整的大模型。</li>
                 <li>「模型讲解」从初段起才会对每一手自动估计亏了多少目。二十五级到一级不自动算。没被这次搜索看过的手只说「没算到」，不下结论。棋谱里随时可以按「模型看上一手」。地盘只轻轻标出模型很有把握的空点。</li>
                 <li>解题前三级是不同的基本棋形。四级到九级是安永吉八段和 David Ormerod 的每周一题。十级起是 u-go.net 上带正解的古典谱：碁经众妙、玄玄棋经、玄览。同一棋形只收一题。官子仍是八级、每级 20 题。开局只说明目标，比如提子、叫吃或收气。拿不准按「提示」，下错一步按「悔棋」。需要连续应手时，对方会落子，你再继续。等级可以随时切换，不必解锁。</li>
-                <li>经典棋谱是 19 路全谱。可以按棋手、等级、时代筛选，也可以按局名查找。时代分成唐、宋、明、清、近代；唐以前的传说谱归在唐，1912 年起归在近代。等级按谱上双方较低的一段：四段及以下是初级，五段六段是中级，七段及以上是高级。没有段位时，让子和短谱算初级，分先长谱算高级。打谱时拖进度条，或按「连续打谱」往后看。播放时只标刚落下的那一手，遇到批注会先停下，再按「继续」。点盘上的棋子，就跳到它落下的那一手。方向键是上一手、下一手，翻页键一次十手，空格暂停或继续。「跳到第几手」会把这一手落到盘上。批注写在刚下的那一手；耳赤之手是第 127 手。手数可以关掉。猜下一手时，第一次猜错不公布答案；再错就记下来，以后用「再练错过」回到那些局面。</li>
+                <li>经典棋谱是 19 路全谱，打开这一模式时才载入。可以按棋手、等级、时代筛选，也可以按局名查找。时代分成唐、宋、明、清、近代；唐以前的传说谱归在唐，1912 年起归在近代。等级按谱上双方较低的一段：四段及以下是初级，五段六段是中级，七段及以上是高级。没有段位时，让子和短谱算初级，分先长谱算高级。打谱时拖进度条，或按「连续打谱」往后看。播放时只标刚落下的那一手，遇到批注会先停下，再按「继续」。点盘上的棋子，就跳到它落下的那一手。打谱时方向键是上一手、下一手，翻页键一次十手，空格暂停或继续。对局时方向键用来选点，回车落子，也可以输入坐标。批注写在刚下的那一手；耳赤之手是第 127 手。手数可以关掉。猜下一手时，第一次猜错不公布答案；再错就记下来，以后用「再练错过」回到那些局面。</li>
               </ul>
             </details>
           </section>

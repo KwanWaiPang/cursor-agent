@@ -4,11 +4,38 @@
  */
 
 import { BLACK, WHITE, GoEngine } from "./engine.js";
-import { PROBLEMS, TRACKS } from "./problems.js";
 
 const STORAGE_KEY = "go-hub-drill-v1";
 
-export { PROBLEMS, TRACKS };
+let PROBLEMS = [];
+let TRACKS = [];
+let drillLoad = null;
+
+export function drillCatalogReady() {
+  return TRACKS.length > 0;
+}
+
+export function installDrillCatalog(mod) {
+  PROBLEMS = mod?.PROBLEMS || [];
+  TRACKS = mod?.TRACKS || [];
+}
+
+/** 练习题体积很大，只在进入解题时动态加载。 */
+export function loadDrillCatalog() {
+  if (TRACKS.length) return Promise.resolve({ PROBLEMS, TRACKS });
+  if (!drillLoad) {
+    drillLoad = import("./problems.js")
+      .then((mod) => {
+        installDrillCatalog(mod);
+        return { PROBLEMS, TRACKS };
+      })
+      .catch((err) => {
+        drillLoad = null;
+        throw err;
+      });
+  }
+  return drillLoad;
+}
 
 export function loadProgress() {
   try {
