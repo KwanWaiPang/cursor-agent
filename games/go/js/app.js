@@ -601,7 +601,7 @@ function draw() {
         const owner = map[y]?.[x];
         if (!owner) continue;
         const p = pointToXY(x, y, m);
-        ctx.fillStyle = owner === BLACK ? "rgba(28, 22, 16, 0.34)" : "rgba(255, 250, 240, 0.62)";
+        ctx.fillStyle = owner === BLACK ? "rgba(28, 22, 16, 0.34)" : "rgba(255, 253, 248, 0.94)";
         const half = grid * 0.46;
         ctx.fillRect(p.sx - half, p.sy - half, half * 2, half * 2);
       }
