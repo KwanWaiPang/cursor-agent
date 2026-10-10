@@ -1,7 +1,6 @@
 /**
  * 围棋规则引擎（中国规则：子空皆地，禁自杀）
- * - 默认简单劫：不能立刻回提。可选超劫，禁止任何同形再现。
- * - 局面哈希放在 Map（哈希集合）里，判定不再对数组做线性扫描。
+ * - 劫争只认简单劫：不能立刻回提。更早出现过的局面可以再下。
  * - 连续两次停着会进入点目；对局中也可以直接标死子或点目。
  */
 
@@ -39,48 +38,31 @@ export class GoEngine {
   constructor(size = 19, komi = 7.5, options = {}) {
     this.size = size;
     this.komi = komi;
-    this.koRule = options.koRule === "superko" ? "superko" : "simple";
     this.autoDead = options.autoDead !== false;
     this._history = [];
-    this._counts = new Map();
     this.reset();
   }
 
-  /** 有序局面栈，供悔棋和搜索截断。赋值时会重建哈希集合。 */
+  /** 有序局面栈，供悔棋、搜索截断，以及简单劫（对照上上手的局面）。 */
   get positionHistory() {
     return this._history;
   }
 
   set positionHistory(list) {
     this._history = Array.isArray(list) ? list.slice() : [];
-    this._counts = new Map();
-    for (const hash of this._history) {
-      this._counts.set(hash, (this._counts.get(hash) || 0) + 1);
-    }
-  }
-
-  /** 局面哈希集合。值为出现次数，`.has` 即 O(1) 查重。 */
-  get positionSet() {
-    return this._counts;
   }
 
   _pushPosition(hash) {
     this._history.push(hash);
-    this._counts.set(hash, (this._counts.get(hash) || 0) + 1);
   }
 
   _popPosition() {
-    const removed = this._history.pop();
-    if (removed != null) {
-      const left = (this._counts.get(removed) || 1) - 1;
-      if (left <= 0) this._counts.delete(removed);
-      else this._counts.set(removed, left);
-    }
+    this._history.pop();
     return this._history[this._history.length - 1];
   }
 
+  /** 简单劫：这一手若把棋盘还原成上上手的局面，就是立刻回提，不允许。 */
   _koForbidden(hash) {
-    if (this.koRule === "superko") return this._counts.has(hash);
     if (this._history.length < 2) return false;
     return hash === this._history[this._history.length - 2];
   }
@@ -199,9 +181,7 @@ export class GoEngine {
 
     const serialized = this.serialize(next);
     if (this._koForbidden(serialized)) {
-      const reason =
-        this.koRule === "superko" ? "禁着点（同形再现）" : "禁着点（劫争，不能立刻回提）";
-      return { ok: false, reason };
+      return { ok: false, reason: "禁着点（劫争，不能立刻回提）" };
     }
 
     return { ok: true, board: next, captured, serialized };
@@ -265,7 +245,6 @@ export class GoEngine {
   /** 深拷贝当前局面，供 AI 搜索使用 */
   clone() {
     const g = new GoEngine(this.size, this.komi, {
-      koRule: this.koRule,
       autoDead: this.autoDead,
     });
     g.board = this.cloneBoard();
@@ -597,7 +576,7 @@ export class GoEngine {
   }
 
   _canFill(board, x, y, color) {
-    const probe = new GoEngine(this.size, this.komi, { koRule: "simple", autoDead: false });
+    const probe = new GoEngine(this.size, this.komi, { autoDead: false });
     probe.board = board.map((row) => row.slice());
     probe.toPlay = color;
     probe.phase = "playing";
