@@ -194,7 +194,7 @@ export async function kataChooseMove(engine, level, onStatus, signal) {
   }
   const settings = KATA_LEVELS[level] || KATA_LEVELS.d3;
   if (!modelReady) onStatus?.("正在加载 KataGo 模型，第一次大约 4MB…");
-  else onStatus?.("KataGo 模型思考中…可跳过，改用本地搜索。");
+  else onStatus?.("KataGo 模型思考中…");
   const hub = await import("../katago/hub.js");
   const move = await hub.chooseMove(positionForKata(engine), { ...settings, signal: kataSignal(signal) });
   modelReady = true;

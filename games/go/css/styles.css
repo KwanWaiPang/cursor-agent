@@ -172,13 +172,8 @@ body.game-page {
   display: none;
 }
 
-.skip-ai {
-  width: 100%;
-  margin-top: 0.55rem;
-}
-
-.skip-ai[hidden] {
-  display: none;
+.game-page button[hidden] {
+  display: none !important;
 }
 
 .sr-only {
@@ -508,6 +503,26 @@ button.danger {
   }
 }
 
+/* 桌面侧栏：新对局（贴目、开始）排在操作前面，不依赖矮屏压缩。 */
+@media (min-width: 901px) {
+  .game-page .panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .game-page #setupCard {
+    order: -1;
+  }
+
+  .game-page #actionCard {
+    order: 1;
+  }
+
+  .game-page .card-help {
+    order: 2;
+  }
+}
+
 @media (max-height: 860px) and (min-width: 901px) {
   .game-page .panel {
     position: relative;
@@ -522,10 +537,6 @@ button.danger {
 
   .game-page #actionCard {
     order: 1;
-  }
-
-  #btnSkipAi[hidden] {
-    display: none !important;
   }
 
   .game-page .card {
