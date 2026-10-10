@@ -92,7 +92,6 @@ const els = {
   btnCoord: document.getElementById("btnCoord"),
   coordInput: document.getElementById("coordInput"),
   autoDeadToggle: document.getElementById("autoDeadToggle"),
-  koSelect: document.getElementById("koSelect"),
   aiEngineNote: document.getElementById("aiEngineNote"),
   btnNew: document.getElementById("btnNew"),
   actionCard: document.getElementById("actionCard"),
@@ -254,10 +253,6 @@ function syncEngineNote() {
   els.aiEngineNote.textContent = danSelected()
     ? "这一档是 KataGo 模型，在浏览器里计算。高段可能要等一会儿。"
     : "这一档是本地搜索，不下载、也不运行 KataGo。";
-}
-
-function currentKoRule() {
-  return els.koSelect?.value === "superko" ? "superko" : "simple";
 }
 
 function syncAutoDead() {
@@ -1775,7 +1770,6 @@ async function newGame() {
   const size = Number(els.sizeSelect.value);
   const komi = Number(els.komiSelect.value);
   engine = new GoEngine(size, komi, {
-    koRule: currentKoRule(),
     autoDead: !els.autoDeadToggle || els.autoDeadToggle.checked,
   });
   applyDifficulty();
@@ -2222,7 +2216,6 @@ els.modeSelect.addEventListener("change", () => {
 for (const el of [
   els.sizeSelect,
   els.komiSelect,
-  els.koSelect,
   els.humanColorSelect,
   els.difficultySelect,
 ].filter(Boolean)) {
@@ -2246,7 +2239,6 @@ for (const el of [
     }
     // 尚未落子：立即同步棋盘规格/贴目，避免界面与内部状态不一致
     engine = new GoEngine(Number(els.sizeSelect.value), Number(els.komiSelect.value), {
-      koRule: currentKoRule(),
       autoDead: !els.autoDeadToggle || els.autoDeadToggle.checked,
     });
     applyDifficulty();

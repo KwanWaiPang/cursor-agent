@@ -257,7 +257,7 @@ function countStones(engine) {
 
 /** 搜索用轻量局面（不拷贝完整棋谱，显著加快 MCTS） */
 function applyTrial(engine, trial, color, x, y) {
-  const next = new GoEngine(engine.size, engine.komi, { koRule: engine.koRule });
+  const next = new GoEngine(engine.size, engine.komi);
   next.board = trial.board;
   next.captures = {
     [BLACK]:
@@ -279,7 +279,7 @@ function applyTrial(engine, trial, color, x, y) {
 }
 
 function lightState(engine) {
-  const next = new GoEngine(engine.size, engine.komi, { koRule: engine.koRule });
+  const next = new GoEngine(engine.size, engine.komi);
   next.board = engine.cloneBoard();
   next.captures = {
     [BLACK]: engine.captures[BLACK],

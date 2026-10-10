@@ -54,6 +54,12 @@ function testKo() {
   assert(g.board[1][1] === 0, "white ko stone gone");
   const re = g.tryPlay(1, 1, WHITE);
   assert(!re.ok, "immediate ko recapture illegal");
+  assert(re.reason.includes("不能立刻回提"), re.reason);
+
+  assert(g.play(8, 8).ok, "white plays elsewhere");
+  assert(g.play(8, 7).ok, "black answers");
+  const later = g.play(1, 1);
+  assert(later.ok && later.captured.length === 1, "recapture is legal after a move elsewhere");
 }
 
 function testScore() {
@@ -212,21 +218,23 @@ function testStoneOrderNumbers() {
   assert(stoneOrderNumbers(g)[1][2] === 8, "numbers stay through scoring");
 }
 
-function testSimpleKoVersusSuperko() {
-  const simple = new GoEngine(9, 7.5);
-  const strict = new GoEngine(9, 7.5, { koRule: "superko" });
-  assert(simple.koRule === "simple" && strict.koRule === "superko", "ko rules");
-  assert(simple.positionSet.has(simple.serialize()), "hash set stores the start");
-  simple.play(0, 1);
-  simple.play(8, 8);
-  strict.play(0, 1);
-  strict.play(8, 8);
-  const trial = simple.tryPlay(4, 4);
-  assert(trial.ok, "candidate is legal before the forged repeat");
-  simple.positionSet.set(trial.serialized, 1);
-  strict.positionSet.set(trial.serialized, 1);
-  assert(simple.tryPlay(4, 4).ok, "simple ko still allows a non-immediate repeat");
-  assert(!strict.tryPlay(4, 4).ok, "superko forbids any earlier shape");
+function testSimpleKoOnly() {
+  const g = new GoEngine(9, 7.5, { koRule: "superko" });
+  assert(g.koRule === undefined, "there is no ko-rule switch");
+  g.play(0, 1);
+  g.play(8, 8);
+  const trial = g.tryPlay(4, 4);
+  assert(trial.ok, "candidate is legal before a forged earlier shape");
+  const current = g.serialize();
+  g.positionHistory = [trial.serialized, "other-shape", current];
+  const again = g.tryPlay(4, 4);
+  assert(again.ok, "an earlier shape is not banned");
+  assert(!String(again.reason || "").includes("同形"), "no full-history ban");
+
+  g.positionHistory = [trial.serialized, current];
+  const banned = g.tryPlay(4, 4);
+  assert(!banned.ok, "restoring the board from two plies ago is illegal");
+  assert(banned.reason.includes("不能立刻回提"), banned.reason);
 }
 
 function testScorePreview() {
@@ -314,7 +322,7 @@ function testCornerFalseEye() {
   assert(g.countApproxEyes(group) === 0, "corner eye with an enemy diagonal is false");
 }
 
-testSimpleKoVersusSuperko();
+testSimpleKoOnly();
 testScorePreview();
 testAutoDeadCanBeDisabled();
 testSekiLives();
