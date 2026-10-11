@@ -257,19 +257,25 @@ button {
   border-radius: 12px;
   padding: 0.7rem 0.85rem;
   background: var(--accent);
-  color: #f7fff9;
+  color: #fff;
   font-size: 0.95rem;
   letter-spacing: 0.04em;
   line-height: 1.35;
   white-space: normal;
   overflow-wrap: anywhere;
   cursor: pointer;
-  transition: transform 160ms ease, background 160ms ease, opacity 160ms ease;
+  transition: transform 160ms ease, background 160ms ease, color 160ms ease, opacity 160ms ease;
 }
 
-button:hover:not(:disabled) {
+button:hover:not(:disabled):not(.secondary):not(.danger) {
   background: var(--accent-soft);
+  color: #fff;
   transform: translateY(-1px);
+}
+
+button:focus-visible:not(.secondary):not(.danger),
+button:active:not(:disabled):not(.secondary):not(.danger) {
+  color: #fff;
 }
 
 button:focus-visible,
@@ -296,12 +302,21 @@ button.secondary {
   border: 1px solid rgba(61, 47, 38, 0.28);
 }
 
-button.secondary:hover:not(:disabled) {
+button.secondary:hover:not(:disabled),
+button.secondary:focus-visible {
   background: rgba(61, 47, 38, 0.06);
+  color: var(--ink-soft);
 }
 
 button.danger {
   background: var(--danger);
+  color: #fff;
+}
+
+button.danger:hover:not(:disabled),
+button.danger:focus-visible {
+  background: var(--danger);
+  color: #fff;
 }
 
 .field {

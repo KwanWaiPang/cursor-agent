@@ -65,8 +65,6 @@
   border: none;
   border-radius: 12px;
   padding: 0.7rem 0.95rem;
-  background: var(--accent);
-  color: #f7fff9;
   font-family: var(--font-body);
   font-size: 0.95rem;
   letter-spacing: 0.04em;
@@ -75,12 +73,24 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform 160ms ease, background 160ms ease;
+  transition: transform 160ms ease, background 160ms ease, color 160ms ease;
 }
 
-.game-page button:hover:not(:disabled):not(.ui-button),
-.game-page .btn:hover {
+.game-page button:not(.ui-button):not(.ui-dialog-titlebar-close):not(.secondary):not(.danger),
+.game-page .btn:not(.secondary),
+.game-page .btn.primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.game-page button:hover:not(:disabled):not(.ui-button):not(.secondary):not(.danger),
+.game-page button:focus-visible:not(.ui-button):not(.secondary):not(.danger),
+.game-page .btn:not(.secondary):hover,
+.game-page .btn:not(.secondary):focus-visible,
+.game-page .btn.primary:hover,
+.game-page .btn.primary:focus-visible {
   background: var(--accent-soft);
+  color: #fff;
   transform: translateY(-1px);
 }
 
@@ -91,16 +101,44 @@
   border: 1px solid rgba(248, 236, 214, 0.35);
 }
 
+.game-page button.secondary:hover:not(:disabled),
+.game-page .btn.secondary:hover,
+.game-page button.secondary:focus-visible,
+.game-page .btn.secondary:focus-visible {
+  background: rgba(248, 236, 214, 0.08);
+  color: var(--cream);
+}
+
 .game-page .panel button.secondary,
 .game-page .card button.secondary,
 .game-page .bn_box button.secondary,
 .game-page .menu-link.secondary {
+  background: transparent;
   color: var(--ink-soft);
   border: 1px solid rgba(61, 47, 38, 0.28);
 }
 
+.game-page .panel button.secondary:hover:not(:disabled),
+.game-page .card button.secondary:hover:not(:disabled),
+.game-page .bn_box button.secondary:hover:not(:disabled),
+.game-page .menu-link.secondary:hover,
+.game-page .panel button.secondary:focus-visible,
+.game-page .card button.secondary:focus-visible,
+.game-page .bn_box button.secondary:focus-visible,
+.game-page .menu-link.secondary:focus-visible {
+  background: rgba(61, 47, 38, 0.06);
+  color: var(--ink-soft);
+}
+
 .game-page button.danger {
   background: var(--danger);
+  color: #fff;
+}
+
+.game-page button.danger:hover:not(:disabled),
+.game-page button.danger:focus-visible {
+  background: var(--danger);
+  color: #fff;
 }
 
 .game-page select,
