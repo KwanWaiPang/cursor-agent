@@ -263,6 +263,7 @@ function phaseText() {
   if (isDrill()) {
     if (drill.busy) return "看答案";
     if (drill.solvedFlag) return "过关";
+    if (drill.problem?.review) return "看棋形";
     return "练习中";
   }
   if (isKifu()) {
@@ -1088,6 +1089,7 @@ function updateDrillMeta() {
   if (levelCleared(p.track, p.level, drill.progress)) text += " · 本级已全部走通";
   els.drillProgress.textContent = text;
   els.drillSource.textContent = p.source || "";
+  if (els.btnDrillSolve) els.btnDrillSolve.textContent = p.review ? "看过了" : "看答案";
 }
 
 function fillLevelSelect() {
@@ -1131,7 +1133,8 @@ function startDrill() {
   const p = drill.problem;
   const total = problemsOf(p.track, p.level).length;
   const face = drillFaceText(p.prompt);
-  refresh(`${p.title}（${drill.index + 1}/${total}）。${face} 拿不准按「提示」。${cropNote()}`, true);
+  const cue = p.review ? "这题不核对落子，看过按「看过了」。" : "拿不准按「提示」。";
+  refresh(`${p.title}（${drill.index + 1}/${total}）。${face} ${cue}${cropNote()}`, true);
 }
 
 function replayDrillLog() {
@@ -1144,6 +1147,10 @@ function replayDrillLog() {
 
 function onDrillMove(coord) {
   if (!drill || drill.busy || drill.solvedFlag) return;
+  if (drill.problem?.review) {
+    showMessage("这题没有原谱正解，不核对落子。按「看过了」记入进度。");
+    return;
+  }
   if (engine.board[coord.y][coord.x]) {
     showMessage("此处已有棋子");
     return;
@@ -1207,6 +1214,16 @@ function flashWrong(coord) {
 
 async function showDrillSolution() {
   if (!drill || drill.busy) return;
+  if (drill.problem?.review) {
+    drill.solvedFlag = true;
+    drill.markSolved();
+    saveProgress(drill.progress);
+    updateDrillMeta();
+    fillLevelSelect();
+    els.levelSelect.value = String(drill.level);
+    refresh(`已记下。${drill.problem.lesson}`, true);
+    return;
+  }
   const token = ++drillToken;
   drill.busy = true;
   drill.resetAttempt();
@@ -1562,6 +1579,10 @@ function jumpKifuNumber() {
 
 function hintDrill() {
   if (!drill || drill.busy || drill.solvedFlag) return;
+  if (drill.problem?.review) {
+    showMessage(drill.problem.lesson || "这题没有原谱正解。", true);
+    return;
+  }
   const node = drill.options()[0];
   if (!node) return;
   drillHint = { x: node.x, y: node.y };

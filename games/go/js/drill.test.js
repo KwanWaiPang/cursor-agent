@@ -17,6 +17,7 @@ function assert(cond, msg) {
 }
 
 function playMain(problem) {
+  if (problem.review) return;
   const session = new DrillSession({ solved: {} });
   session.track = problem.track;
   session.level = problem.level;
@@ -71,6 +72,17 @@ function mainLineOf(problem) {
 function testExplanationsAndBattles() {
   let fights = 0;
   for (const problem of PROBLEMS) {
+    if (problem.review) {
+      assert(!problem.moves?.length, `${problem.id} look-only problem has a fake line`);
+      assert(problem.prompt.includes("无原谱正解"), `${problem.id} names the missing book line`);
+      assert(problem.lesson.includes("无原谱正解"), `${problem.id} lesson`);
+      assert(problem.explain === problem.prompt, `${problem.id} explain is the prompt`);
+      assert(!problem.prompt.includes("下一手"), `${problem.id} prompt stays a goal`);
+      const face = drillFaceText(problem.prompt);
+      assert(face && !face.includes("下一手") && !/下在 [A-T]\d+/.test(face), `${problem.id} face`);
+      assert(!/死活|吐血/.test(problem.prompt + problem.lesson), `${problem.id} wording`);
+      continue;
+    }
     assert(problem.explain && problem.explain.includes("先"), `${problem.id} explain`);
     assert(problem.explain.includes("下一手"), `${problem.id} tells the next move`);
     assert(problem.lesson && problem.lesson.includes("手"), `${problem.id} lesson`);
@@ -146,10 +158,22 @@ function testUndo() {
   assert(session.classify(first.x, first.y).ok, "the same move is available again");
 }
 
+function testReviewProblem() {
+  const problem = PROBLEMS.find((item) => item.review);
+  assert(problem, "a look-only classical problem exists");
+  const session = new DrillSession({ solved: {} });
+  const index = problemsOf(problem.track, problem.level).findIndex((item) => item.id === problem.id);
+  assert(session.setPlace(problem.track, problem.level, index), "open the look-only level");
+  assert(session.options().length === 0, "look-only problem has no checked moves");
+  session.markSolved();
+  assert(session.progress.solved[problem.id], "looking counts as seen");
+}
+
 testCurriculumShape();
 testUnlock();
 testRejectsWrongMove();
 testExplanationsAndBattles();
 testUndo();
+testReviewProblem();
 for (const problem of PROBLEMS) playMain(problem);
 console.log(`All drill tests passed (${PROBLEMS.length} problems).`);
