@@ -105,13 +105,14 @@ body.theme-yi::before {
   flex-wrap: wrap;
 }
 
-.btn {
+.btn,
+.btn.primary {
   appearance: none;
   border: none;
   border-radius: 12px;
   padding: 0.65rem 0.9rem;
   background: var(--accent);
-  color: #f7fff9;
+  color: #fff;
   font-family: inherit;
   font-size: 0.95rem;
   letter-spacing: 0.04em;
@@ -123,8 +124,12 @@ body.theme-yi::before {
   transition: transform 160ms ease, background 160ms ease;
 }
 
-.btn:hover {
+.btn:hover,
+.btn.primary:hover,
+.btn:focus-visible,
+.btn.primary:focus-visible {
   background: var(--accent-soft);
+  color: #fff;
   transform: translateY(-1px);
 }
 
@@ -134,8 +139,10 @@ body.theme-yi::before {
   border: 1px solid rgba(248, 236, 214, 0.35);
 }
 
-.btn.secondary:hover {
+.btn.secondary:hover,
+.btn.secondary:focus-visible {
   background: rgba(248, 236, 214, 0.08);
+  color: var(--cream);
 }
 
 .btn:focus-visible,
