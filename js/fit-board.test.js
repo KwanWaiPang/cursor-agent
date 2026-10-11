@@ -1,4 +1,4 @@
-import { fitBoardEdge } from "./fit-board.js";
+import { fitBoardEdge, layoutIsStacked } from "./fit-board.js";
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -19,5 +19,11 @@ assert(tall.height === 760, `tall board height ${tall.height}`);
 
 const tallShort = fitBoardEdge({ innerW: 800, availH: 500, aspect: 1.9 });
 assert(tallShort.height <= 500, "tall board stays inside a short viewport");
+
+assert(layoutIsStacked("952px") === true, "one resolved column is stacked");
+assert(layoutIsStacked("640.5px 576px") === false, "two resolved columns sit side by side");
+assert(layoutIsStacked("none") === true, "no template is stacked");
+assert(layoutIsStacked("") === true, "empty template is stacked");
+assert(layoutIsStacked("minmax(0px, 1fr) 320px") === null, "unresolved template is left to geometry");
 
 console.log("fit-board tests passed");
