@@ -1,16 +1,33 @@
 /**
  * Build games/go/js/problems.js
  *
+ * Fetch before running (source trees are not committed):
+ *   git clone --depth 1 https://github.com/gogameguru/go-problems.git /tmp/ggg
+ *   mkdir -p /tmp/go-sgf && cd /tmp/go-sgf
+ *   curl -fL -O https://dl.u-go.net/problems/qjzm-a.sgf.gz
+ *   curl -fL -O https://dl.u-go.net/problems/xxqj.sgf.gz
+ *   curl -fL -O https://dl.u-go.net/problems/gzp1.sgf.gz
+ *   curl -fL -O https://dl.u-go.net/problems/gzp2.sgf.gz
+ *   curl -fL -O https://dl.u-go.net/problems/gzp3.sgf.gz
+ *   curl -fL -O https://dl.u-go.net/problems/qjzm.tar.gz
+ *   curl -fL -O https://dl.u-go.net/problems/xuanlan.tar.gz
+ *   mkdir -p xuanlan qjzm-raw && tar -xzf xuanlan.tar.gz -C xuanlan && tar -xzf qjzm.tar.gz -C qjzm-raw
+ *   git clone --depth 1 https://github.com/tasuki/tsumego.git /tmp/tasuki
+ *
  * Beginner problems are original to this repo.
  * Levels 4–9 use Go Game Guru weekly problems by An Younggil (8p) and
  * David Ormerod (CC BY-NC-SA 4.0). Only the line marked Correct is kept.
- * 官子 uses Guan Zi Pu / gzp (Qing; Flygo → u-go.net).
+ * Level 10+ uses public-domain classical problems that already have solutions
+ * (u-go.net / Flygo: 碁经众妙, 玄玄棋经, 玄览, 官子谱).
+ * A short later band is look-only: tasuki's public-domain diagrams with no
+ * book line. Those are not auto-checked.
  *
- * Modern copyrighted problem books are not included.
+ * Not included: 101weiqi, goproblems, Cho Chikun, Lee Changho.
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { GoEngine } from "../js/engine.js";
+import { parseTasukiFile } from "./tsumego-read.mjs";
 
 const BLACK = 1;
 const WHITE = 2;
@@ -547,7 +564,7 @@ function lineLen(moves) {
   while (cur?.length) {
     n += 1;
     cur = cur[0].replies;
-    if (n > 48) return n;
+    if (n > 80) return n;
   }
   return n;
 }
@@ -692,7 +709,7 @@ function decorate(picked, track, level, titleOf, promptOf, source) {
     id: `${track}-${level}-${String(i + 1).padStart(2, "0")}`,
     track,
     level,
-    title: titleOf(p, i),
+    title: p.customTitle || titleOf(p, i),
     prompt: promptOf(p),
     source,
     size: p.size,
@@ -777,6 +794,33 @@ function diagramKey(problem) {
     if (!best || key < best) best = key;
   }
   return best;
+}
+
+function shapeKeys(problem) {
+  const normal = diagramKey(problem);
+  const inverted = diagramKey({
+    size: problem.size,
+    toPlay: problem.toPlay === BLACK ? WHITE : BLACK,
+    black: problem.white,
+    white: problem.black,
+  });
+  return [normal, inverted].filter(Boolean);
+}
+
+function claimNewShapes(list, seen) {
+  const out = [];
+  let dropped = 0;
+  for (const problem of list) {
+    const keys = shapeKeys(problem);
+    if (!keys.length || keys.some((key) => seen.has(key))) {
+      dropped += 1;
+      continue;
+    }
+    for (const key of keys) seen.set(key, problem.label || problem.key || problem.id);
+    out.push(problem);
+  }
+  if (dropped) console.log(`dropped ${dropped} diagrams already in the book`);
+  return out;
 }
 
 function claimDiagrams(list, seen) {
@@ -882,11 +926,11 @@ function movesFromTree(tree) {
   return replies;
 }
 
-function keepCorrect(moves) {
+function keepCorrect(moves, accept = isCorrectComment) {
   const kept = [];
   for (const move of moves) {
-    const replies = keepCorrect(move.replies || []);
-    if (!isCorrectComment(move.note) && !replies.length) continue;
+    const replies = keepCorrect(move.replies || [], accept);
+    if (!accept(move.note) && !replies.length) continue;
     kept.push({ ...move, replies });
   }
   kept.sort((a, b) => correctRank(a.note) - correctRank(b.note));
@@ -921,7 +965,14 @@ function goalFromComment(text, toPlay) {
   return `${who}先。这是职业棋手出的局部题，按标出的正解下完。`;
 }
 
-function loadWeekly(dir, prefix) {
+function isOtherSuccess(text) {
+  return isCorrectComment(text) || /happy valentine/i.test(String(text || ""));
+}
+
+function loadWeekly(dir, prefix, opts = {}) {
+  const maxLen = opts.maxLen ?? 40;
+  const minLen = opts.minLen ?? 1;
+  const accept = opts.accept || isCorrectComment;
   return readdirSync(dir)
     .filter((name) => name.endsWith(".sgf"))
     .sort()
@@ -942,8 +993,11 @@ function loadWeekly(dir, prefix) {
         if (node.PL) setup.toPlay = parsePL(node.PL[0]);
         if (node.C && !setup.comment) setup.comment = commentOf(node);
       }
-      const moves = keepCorrect(movesFromTree({ sequence: [], variations: tree.variations }));
-      if (!moves.length) return null;
+      const moves = keepCorrect(movesFromTree({ sequence: [], variations: tree.variations }), accept);
+      if (!moves.length) {
+        console.log(`weekly skip ${prefix}/${name}: no marked line`);
+        return null;
+      }
       if (!setup.toPlay) setup.toPlay = moves[0].color;
       const problem = {
         id: `${prefix}-${name}`,
@@ -961,18 +1015,42 @@ function loadWeekly(dir, prefix) {
       };
       try {
         assertTree(problem);
-      } catch {
+      } catch (err) {
+        console.log(`weekly skip ${prefix}/${name}: ${err.message}`);
         return null;
       }
-      return { ...problem, lineLen: lineLen(moves), stones: setup.black.length + setup.white.length };
+      const rich = { ...problem, lineLen: lineLen(moves), stones: setup.black.length + setup.white.length };
+      if (rich.lineLen < minLen) return null;
+      if (rich.lineLen > maxLen) {
+        console.log(`weekly skip ${prefix}/${name}: length ${rich.lineLen}`);
+        return null;
+      }
+      return rich;
     })
-    .filter((problem) => problem && problem.lineLen <= 40);
+    .filter(Boolean);
 }
 
-function tagPool(games, prefix) {
+function tagPool(games, prefix, maxLen = 40) {
   return games
     .map((tree, index) => viable(problemFromTree(tree), `${prefix}-${index}`))
-    .filter((problem) => problem && problem.lineLen <= 40)
+    .filter((problem) => problem && problem.lineLen <= maxLen)
+    .map((problem, index) => ({ ...problem, key: `${prefix}-${index}`, n: index + 1 }));
+}
+
+function naturalName(name) {
+  return name.replace(/(\d+)/g, (part) => part.padStart(6, "0"));
+}
+
+function loadSgfDir(dir, prefix, maxLen = 48) {
+  return readdirSync(dir)
+    .filter((name) => name.endsWith(".sgf"))
+    .sort((a, b) => naturalName(a).localeCompare(naturalName(b)))
+    .flatMap((name) =>
+      parseSgf(readFileSync(`${dir}/${name}`, "utf8")).map((tree, index) =>
+        viable(problemFromTree(tree), `${prefix}-${name}-${index}`)
+      )
+    )
+    .filter((problem) => problem && problem.lineLen <= maxLen)
     .map((problem, index) => ({ ...problem, key: `${prefix}-${index}`, n: index + 1 }));
 }
 
@@ -980,8 +1058,32 @@ const weeklyRoot = "/tmp/ggg/weekly-go-problems";
 const weeklyEasy = claimDiagrams(dedupe(loadWeekly(`${weeklyRoot}/easy`, "easy"), seenShape), seenDiagram);
 const weeklyMid = claimDiagrams(dedupe(loadWeekly(`${weeklyRoot}/intermediate`, "mid"), seenShape), seenDiagram);
 const weeklyHard = claimDiagrams(dedupe(loadWeekly(`${weeklyRoot}/hard`, "hard"), seenShape), seenDiagram);
+const weeklyHardLong = claimDiagrams(
+  dedupe(loadWeekly(`${weeklyRoot}/hard`, "hard-long", { minLen: 41, maxLen: 72 }), seenShape),
+  seenDiagram
+);
+const weeklyOther = claimDiagrams(
+  dedupe(
+    loadWeekly(`${weeklyRoot}/other`, "other", { maxLen: 72, accept: isOtherSuccess }),
+    seenShape
+  ),
+  seenDiagram
+);
+const weeklyExtra = [...weeklyHardLong, ...weeklyOther];
+weeklyExtra.forEach((problem, index) => {
+  problem.customTitle = `每周一题 · 补遗 ${index + 1}`;
+});
 const qjzm = claimDiagrams(dedupe(tagPool(loadBook("/tmp/go-sgf/qjzm-a.sgf.gz"), "qjzm"), seenShape), seenDiagram);
-const xxqj = claimDiagrams(dedupe(tagPool(loadBook("/tmp/go-sgf/xxqj.sgf.gz"), "xxqj"), seenShape), seenDiagram);
+const qjzmExtra = claimDiagrams(
+  dedupe(loadSgfDir("/tmp/go-sgf/qjzm-raw", "qjzm-file", 48), seenShape),
+  seenDiagram
+);
+const xxqjBook = loadBook("/tmp/go-sgf/xxqj.sgf.gz");
+const xxqj = claimDiagrams(dedupe(tagPool(xxqjBook, "xxqj"), seenShape), seenDiagram);
+const xxqjLong = claimDiagrams(
+  dedupe(tagPool(xxqjBook, "xxqj-long", 72).filter((problem) => problem.lineLen > 40 && problem.lineLen <= 72), seenShape),
+  seenDiagram
+);
 const xuanlanDir = "/tmp/go-sgf/xuanlan";
 const xuanlanGames = readdirSync(xuanlanDir)
   .filter((name) => name.endsWith(".sgf"))
@@ -997,7 +1099,7 @@ const gzp = ["gzp1", "gzp2", "gzp3"]
 const gzpUnique = claimDiagrams(gzp, seenDiagram);
 
 console.log(
-  `weekly easy ${weeklyEasy.length} mid ${weeklyMid.length} hard ${weeklyHard.length} qjzm ${qjzm.length} xxqj ${xxqj.length} xuanlan ${xuanlan.length} gzp ${gzp.length}`
+  `weekly easy ${weeklyEasy.length} mid ${weeklyMid.length} hard ${weeklyHard.length} long ${weeklyHardLong.length} other ${weeklyOther.length} qjzm ${qjzm.length}+${qjzmExtra.length} xxqj ${xxqj.length}+${xxqjLong.length} xuanlan ${xuanlan.length} gzp ${gzp.length} unique ${gzpUnique.length}`
 );
 
 function half(items) {
@@ -1007,13 +1109,16 @@ function half(items) {
 
 const GGG_CREDIT =
   "安永吉八段与 David Ormerod，Go Game Guru 每周一题。CC BY-NC-SA 4.0，抽出正解并写成中文说明。https://github.com/gogameguru/go-problems";
+const easyHalves = half(weeklyEasy);
+const midHalves = half(weeklyMid);
+const hardHalves = half(weeklyHard);
 const weeklyBands = [
-  [4, "容易 · 前半", weeklyEasy, half(weeklyEasy)[0]],
-  [5, "容易 · 后半", weeklyEasy, half(weeklyEasy)[1]],
-  [6, "中等 · 前半", weeklyMid, half(weeklyMid)[0]],
-  [7, "中等 · 后半", weeklyMid, half(weeklyMid)[1]],
-  [8, "难 · 前半", weeklyHard, half(weeklyHard)[0]],
-  [9, "难 · 后半", weeklyHard, half(weeklyHard)[1]],
+  [4, "容易 · 前半", easyHalves[0]],
+  [5, "容易 · 后半", easyHalves[1]],
+  [6, "中等 · 前半", midHalves[0]],
+  [7, "中等 · 后半", midHalves[1]],
+  [8, "难 · 前半", hardHalves[0]],
+  [9, "难 · 后半", hardHalves[1].concat(weeklyExtra)],
 ];
 
 const QJZM_SOURCE = "碁经众妙（1812，公有领域；带正解的部分来自 u-go.net / Flygo）";
@@ -1025,20 +1130,22 @@ const xxqjBands = splitBands(xxqj, [
   { level: 13, title: "深入" },
   { level: 14, title: "长谱" },
 ]);
+const xxqjLongBand = xxqjBands.find((band) => band.level === 14);
+if (xxqjLongBand) xxqjLongBand.items = xxqjLongBand.items.concat(xxqjLong);
 
 const tacticClassical = [
-  ...weeklyBands.flatMap(([level, title, , items]) =>
+  ...weeklyBands.flatMap(([level, title, items]) =>
     decorate(
       items,
       "tactic",
       level,
-      (_problem, index) => `每周一题 · ${title} ${index + 1}`,
+      (problem, index) => problem.customTitle || `每周一题 · ${title} ${index + 1}`,
       (problem) => problem.prompt,
       GGG_CREDIT
     )
   ),
   ...decorate(
-    qjzm,
+    qjzm.concat(qjzmExtra),
     "tactic",
     10,
     (_problem, index) => `碁经众妙 · ${index + 1}`,
@@ -1066,6 +1173,7 @@ const tacticClassical = [
 ];
 
 const N = 20;
+const EXTRA = 30;
 
 const usedG = new Set();
 const slices = [
@@ -1078,7 +1186,7 @@ const slices = [
   [(p) => p.lineLen >= 13 && p.lineLen <= 18, 7, "长谱官子"],
   [(p) => p.lineLen >= 18 && p.lineLen <= 36, 8, "高段官子"],
 ];
-let yose = [];
+const pickedByLevel = [];
 for (const [pred, level, name] of slices) {
   let picked = take(gzpUnique, pred, N, usedG);
   if (picked.length < N) {
@@ -1087,21 +1195,138 @@ for (const [pred, level, name] of slices) {
     );
   }
   console.log(`yose L${level} ${name}: ${picked.length}`);
+  pickedByLevel.push({ pred, level, name, picked });
+}
+let yose = [];
+for (const row of pickedByLevel) {
+  const extraPred =
+    row.level === 1
+      ? (p) => p.lineLen === 1 && p.stones <= 48
+      : row.level === 2
+        ? (p) => p.lineLen === 2 && p.stones <= 48
+        : row.level === 8
+          ? (p) => p.lineLen >= 18 && p.lineLen <= 48
+          : row.pred;
+  const extra = take(gzpUnique, extraPred, EXTRA, usedG);
+  console.log(`yose extra L${row.level}: ${extra.length}`);
   yose = yose.concat(
     decorate(
-      picked,
+      row.picked.concat(extra),
       "yose",
-      level,
-      (_p, i) => `官子谱 · ${name} ${i + 1}`,
+      row.level,
+      (_p, i) => `官子谱 · ${row.name} ${i + 1}`,
       (p) => classicalPrompt(p, "这是官子题。"),
       "官子谱（公有领域；谱面转录 Flygo / u-go.net）"
     )
   );
 }
 
-const PROBLEMS = [...ORIGINALS.map(({ check, ...rest }) => rest), ...tacticClassical, ...yose];
+const TASUKI_CREDIT =
+  "棋形来自 tsumego.tasuki.org（Vít Brunner 整理，公有领域古典题，原谱无正解）。https://github.com/tasuki/tsumego";
+const tasukiRoot = "/tmp/tasuki/books/problems";
+const gokyoOpen = claimNewShapes(
+  parseTasukiFile(`${tasukiRoot}/gokyoshumyo.txt`, "gokyo").filter((problem) =>
+    ["1", "2", "4", "6"].includes(problem.section) && problem.stones >= 6 && problem.stones <= 26
+  ),
+  seenDiagram
+);
+const hatOpen = claimNewShapes(
+  parseTasukiFile(`${tasukiRoot}/hatsuyoron.txt`, "hatsuyoron").filter(
+    (problem) => problem.stones >= 8 && problem.stones <= 26
+  ),
+  seenDiagram
+);
+const xxqjOpen = claimNewShapes(
+  parseTasukiFile(`${tasukiRoot}/xxqj.txt`, "xxqj").filter(
+    (problem) => problem.stones >= 8 && problem.stones <= 24
+  ),
+  seenDiagram
+);
+const GOKYO_SECTION = { 1: "活", 2: "杀棋", 4: "攻杀", 6: "渡过" };
+function pickSpread(items, n) {
+  const sorted = items
+    .slice()
+    .sort((a, b) => a.stones - b.stones || String(a.label).localeCompare(String(b.label), "en", { numeric: true }));
+  return spread(sorted, n);
+}
+const gokyoLook = ["1", "2", "4", "6"].flatMap((section) =>
+  pickSpread(
+    gokyoOpen.filter((problem) => problem.section === section),
+    5
+  )
+);
+const hatLook = pickSpread(hatOpen, 12);
+const xxqjLook = xxqjOpen.length >= 5 ? pickSpread(xxqjOpen, 8) : [];
+console.log(`tasuki look gokyo ${gokyoLook.length} hat ${hatLook.length} xxqj ${xxqjLook.length} (open ${gokyoOpen.length}/${hatOpen.length}/${xxqjOpen.length})`);
+
+const reviewBands = [];
+let reviewLevel = 16;
+if (hatLook.length >= 5) {
+  reviewBands.push({
+    level: reviewLevel,
+    name: "十六级 · 发阳论",
+    source: `发阳论（约 1713，公有领域）。${TASUKI_CREDIT}`,
+    bookName: "发阳论",
+    items: hatLook,
+    title: (problem) => `发阳论 · ${problem.label}`,
+  });
+  reviewLevel += 1;
+}
+if (gokyoLook.length >= 5) {
+  const cn = reviewLevel === 16 ? "十六" : "十七";
+  reviewBands.push({
+    level: reviewLevel,
+    name: `${cn}级 · 碁经众妙（无原谱）`,
+    source: `碁经众妙（1812，公有领域；这份棋形无原谱正解）。${TASUKI_CREDIT}`,
+    bookName: "碁经众妙",
+    items: gokyoLook,
+    title: (problem) => `碁经众妙 · ${GOKYO_SECTION[problem.section] || "棋形"} ${problem.label}`,
+  });
+  reviewLevel += 1;
+}
+if (xxqjLook.length >= 5) {
+  const cn = { 16: "十六", 17: "十七", 18: "十八" }[reviewLevel];
+  reviewBands.push({
+    level: reviewLevel,
+    name: `${cn}级 · 玄玄棋经（无原谱）`,
+    source: `玄玄棋经（约 1349，公有领域；这份棋形无原谱正解）。${TASUKI_CREDIT}`,
+    bookName: "玄玄棋经",
+    items: xxqjLook,
+    title: (problem) => `玄玄棋经 · 无原谱 ${problem.label}`,
+  });
+}
+
+function reviewProblems(band) {
+  return band.items.map((problem, index) => ({
+    id: `tactic-${band.level}-${String(index + 1).padStart(2, "0")}`,
+    track: "tactic",
+    level: band.level,
+    title: band.title(problem, index),
+    prompt: "",
+    source: band.source,
+    size: problem.size,
+    toPlay: problem.toPlay,
+    black: problem.black,
+    white: problem.white,
+    moves: [],
+    review: true,
+    bookName: band.bookName,
+  }));
+}
+const tacticReview = reviewBands.flatMap(reviewProblems);
+
+const PROBLEMS = [
+  ...ORIGINALS.map(({ check, ...rest }) => rest),
+  ...tacticClassical,
+  ...tacticReview,
+  ...yose,
+];
 
 for (const p of PROBLEMS) {
+  if (p.review) {
+    loadEngine(p);
+    continue;
+  }
   assertTree({ ...p, check: ORIGINALS.find((o) => o.id === p.id)?.check });
 }
 
@@ -1116,7 +1341,7 @@ const TRACKS = [
   {
     id: "tactic",
     name: "解题",
-    intro: "局部解题。前三级是不同的基本棋形。四级到九级是每周一题。十级起是 u-go.net 上带正解的古典谱：碁经众妙、玄玄棋经、玄览。同一棋形只收一题。等级可以随时切换。",
+    intro: "局部解题。前三级是不同的基本棋形。四级到九级是每周一题。十级起是 u-go.net 上带正解的古典谱：碁经众妙、玄玄棋经、玄览。再往后有少量无原谱的古典棋形，只供看，不核对落子。同一棋形只收一题。等级可以随时切换。",
     levels: [
       { level: 1, name: "一级 · 提子与逃气" },
       { level: 2, name: "二级 · 连接与双打" },
@@ -1133,12 +1358,13 @@ const TRACKS = [
       { level: 13, name: "十三级 · 玄玄棋经深入" },
       { level: 14, name: "十四级 · 玄玄棋经长谱" },
       { level: 15, name: "十五级 · 玄览" },
+      ...reviewBands.map((band) => ({ level: band.level, name: band.name })),
     ],
   },
   {
     id: "yose",
     name: "官子",
-    intro: "局部官子，不是整盘棋谱。每题说明下一手和原因；有应手就按对战继续下。等级可以随时切换，手数从短到长。",
+    intro: "局部官子，不是整盘棋谱。每题说明下一手和原因；有应手就按对战继续下。每级先排原来的二十题，再补同档官子谱。等级可以随时切换，手数从短到长。",
     levels: [
       { level: 1, name: "一级 · 一手官子" },
       { level: 2, name: "二级 · 两手收官" },
@@ -1299,6 +1525,16 @@ function mainLineNodes(moves) {
 }
 
 function annotateProblem(problem) {
+  if (problem.review) {
+    loadEngine(problem);
+    const who = problem.toPlay === BLACK ? "黑" : "白";
+    const book = problem.bookName || "古典谱";
+    problem.prompt = `${who}先。${book}这一题原谱没有记下正解。这里只摆棋形，落子不算对错。无原谱正解。`;
+    problem.explain = problem.prompt;
+    problem.lesson = `无原谱正解。棋形收自${book}。谱上没有记下正解，所以不自动核对。看过就可以过。`;
+    delete problem.bookName;
+    return;
+  }
   const engine = loadEngine({ ...problem, id: problem.id || "annotate" });
   annotateTree(engine, problem.moves, problem.toPlay, problem.track);
   const line = mainLineNodes(problem.moves);
@@ -1368,13 +1604,15 @@ const body = `/**
  * 围棋练习题。入门三级为馆内原创；四级起为公有领域古典解题与官子。
  * 由 games/go/tools/build-problems.mjs 生成。不要手改古典题坐标。
  * 每题的 prompt 只写目标。坐标和原因在每步 why 里，走完后写入 lesson。
+ * 标了 review 的题没有原谱正解，只摆棋形，不核对落子。
  *
  * 解题四级起：Go Game Guru 每周一题，安永吉八段与 David Ormerod。
  * 许可 CC BY-NC-SA 4.0：https://creativecommons.org/licenses/by-nc-sa/4.0/
  * 原谱 https://github.com/gogameguru/go-problems
  * 这里抽出标成 Correct 的正解，写成中文目标，属于改编。
  * 十级起另收 u-go.net 上带正解的古典谱：碁经众妙有正解的一部分、玄玄棋经、玄览。
- * 官子仍用 u-go.net 的公有领域官子谱。
+ * 官子仍用 u-go.net 的公有领域官子谱，每级在原来的二十题后再补同档题。
+ * 十六级起有一小部分 tsumego.tasuki.org 的公有领域棋形。那些题原谱没有正解，只供看。
  * 没有整段搬 101 围棋网、goproblems，也没有收录赵治勋、李昌镐的现代题集。
  */
 export const TRACKS = ${JSON.stringify(TRACKS, null, 2)};
