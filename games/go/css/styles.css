@@ -739,3 +739,64 @@ button.danger {
     max-height: calc(100dvh - 5.4rem);
   }
 }
+
+/*
+ * 竖屏桌面（高大于等于宽，且宽过了手机断点）：棋盘铺满宽度放在上面，
+ * 侧栏整段接到棋盘下面，棋盘才能做大。横屏仍左右并排；宽屏侧栏在够高时
+ * 继续两列。宽度不超过 900px 的手机保持原来的单列。
+ */
+@media (min-width: 901px) and (orientation: portrait) {
+  body.game-page .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.game-page .layout > .board-wrap {
+    width: max-content;
+    max-width: 100%;
+    justify-self: center;
+  }
+
+  body.game-page .board-wrap {
+    position: static;
+    top: auto;
+    max-height: none;
+  }
+
+  body.game-page .panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "setup status"
+      "setup actions"
+      "help help";
+    align-items: start;
+    align-content: start;
+    gap: 0.65rem 0.75rem;
+    max-height: none;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  body.game-page #setupCard {
+    grid-area: setup;
+  }
+
+  body.game-page #statusCard {
+    grid-area: status;
+  }
+
+  body.game-page #actionCard {
+    grid-area: actions;
+  }
+
+  body.game-page .card-help {
+    grid-area: help;
+    position: static;
+    max-height: none;
+    overflow: visible;
+    margin: 0;
+    left: auto;
+    right: auto;
+    bottom: auto;
+  }
+}
