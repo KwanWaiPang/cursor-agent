@@ -15,6 +15,49 @@ export function colorName(color) {
   return color === BLACK ? "黑" : "白";
 }
 
+
+/**
+ * 标准星位让子坐标（中国 / 日本常见摆法）。
+ * 返回 [[x,y], ...]；不支持的规格或子数返回空数组。
+ * 坐标系与本引擎一致：左上为 (0,0)，y 向下。
+ */
+export function handicapStonePoints(size, n) {
+  const count = Math.floor(Number(n) || 0);
+  if (count < 2) return [];
+  let corners;
+  let sides;
+  let tengen;
+  if (size === 19) {
+    // D4, Q16, D16, Q4；边星 D10/Q10/K16/K4；天元 K10
+    corners = [[3, 15], [15, 3], [3, 3], [15, 15]];
+    sides = [[3, 9], [15, 9], [9, 3], [9, 15]];
+    tengen = [9, 9];
+  } else if (size === 13) {
+    corners = [[3, 9], [9, 3], [3, 3], [9, 9]];
+    sides = [[3, 6], [9, 6], [6, 3], [6, 9]];
+    tengen = [6, 6];
+  } else if (size === 9) {
+    // 9 路最多五子：四角星 + 天元
+    if (count > 5) return [];
+    corners = [[2, 6], [6, 2], [2, 2], [6, 6]];
+    sides = [];
+    tengen = [4, 4];
+  } else {
+    return [];
+  }
+
+  if (count === 2) return corners.slice(0, 2);
+  if (count === 3) return corners.slice(0, 3);
+  if (count === 4) return corners.slice(0, 4);
+  if (count === 5) return [...corners.slice(0, 4), tengen];
+  if (count === 6) return [...corners.slice(0, 4), ...sides.slice(0, 2)];
+  if (count === 7) return [...corners.slice(0, 4), ...sides.slice(0, 2), tengen];
+  if (count === 8) return [...corners.slice(0, 4), ...sides.slice(0, 4)];
+  if (count === 9) return [...corners.slice(0, 4), ...sides.slice(0, 4), tengen];
+  return [];
+}
+
+
 /** 仍在盘上的子，标它是第几手落下的。停着不占号，提掉的子不再标。 */
 export function stoneOrderNumbers(engine) {
   const numbers = Array.from({ length: engine.size }, () => Array(engine.size).fill(0));
@@ -78,6 +121,7 @@ export class GoEngine {
     this.consecutivePasses = 0;
     this.phase = "playing"; // playing | scoring | finished
     this.deadMarks = new Set();
+    this.handicap = 0;
     this.result = null;
     this.lastMove = null; // {x,y} | {pass:true}
   }
@@ -258,6 +302,7 @@ export class GoEngine {
     g.consecutivePasses = this.consecutivePasses;
     g.phase = this.phase;
     g.deadMarks = new Set(this.deadMarks);
+    g.handicap = this.handicap || 0;
     g.result = this.result ? { ...this.result } : null;
     g.lastMove = this.lastMove ? { ...this.lastMove } : null;
     return g;
@@ -622,8 +667,9 @@ export class GoEngine {
     return group.liberties.size > 0;
   }
 
-  /** 进入点目。自动判断可关；已经在点目时只刷新预览，不抹掉手动标记。 */
-  beginScoring() {
+  /** 进入点目。自动判断可关；已经在点目时只刷新预览，不抹掉手动标记。
+   * options.markDead === false 时跳过自动标死子（留给外部异步模型估死子）。 */
+  beginScoring(options = {}) {
     if (this.phase === "finished" && this.result?.type === "resign") {
       return { ok: false, reason: "对局已结束" };
     }
@@ -631,7 +677,7 @@ export class GoEngine {
     if (entered) {
       this.phase = "scoring";
       this.deadMarks = new Set();
-      if (this.autoDead) this.autoMarkDead();
+      if (this.autoDead && options.markDead !== false) this.autoMarkDead();
     }
     return { ok: true, entered, preview: this.scorePreview() };
   }
@@ -749,6 +795,50 @@ export class GoEngine {
     this.phase = "finished";
     this.result = { type: "score", ...area };
     return { ok: true, result: this.result };
+  }
+
+
+  /**
+   * 摆上标准让子黑棋，白先。子数须为 2–9（9 路最多 5）。
+   * 不清空已有着法之外的状态：会 reset 棋盘。
+   */
+  applyHandicap(n) {
+    const pts = handicapStonePoints(this.size, n);
+    if (!pts.length) {
+      return { ok: false, reason: "这一规格不支持该让子数" };
+    }
+    this.reset();
+    for (const [x, y] of pts) this.board[y][x] = BLACK;
+    this.toPlay = WHITE;
+    this.handicap = pts.length;
+    this.positionHistory = [this.serialize()];
+    return { ok: true, stones: pts, count: pts.length };
+  }
+
+  /**
+   * 按 KataGo ownership / territory（正值偏黑，负值偏白）标死子。
+   * 整块棋按平均归属判断；可再手动改。
+   */
+  markDeadFromOwnership(ownership, threshold = 0.55) {
+    const entered = this.phase === "playing";
+    if (entered) this.phase = "scoring";
+    if (this.phase !== "scoring" && this.phase !== "finished") {
+      return { ok: false, reason: "对局已结束" };
+    }
+    this.deadMarks = new Set();
+    if (!Array.isArray(ownership) || ownership.length !== this.size) {
+      return { ok: false, reason: "没有可用的地盘估计", entered, count: 0 };
+    }
+    const thr = Number(threshold) || 0.55;
+    for (const g of this.listGroups()) {
+      let sum = 0;
+      for (const [x, y] of g.stones) sum += Number(ownership[y]?.[x]) || 0;
+      const avg = sum / Math.max(1, g.stones.length);
+      const dead = g.color === BLACK ? avg < -thr : avg > thr;
+      if (!dead) continue;
+      for (const [x, y] of g.stones) this.deadMarks.add(keyOf(x, y));
+    }
+    return { ok: true, count: this.deadMarks.size, entered };
   }
 
   starPoints() {

@@ -91,6 +91,13 @@
               <input id="autoDeadToggle" type="checkbox" checked />
               点目时自动判断死子（可关，标完也能改）
             </label>
+            <div class="field" id="deadMethodField">
+              <label for="deadMethodSelect">死子判断方式</label>
+              <select id="deadMethodSelect">
+                <option value="heuristic" selected>启发式</option>
+                <option value="katago">模型估死子（KataGo）</option>
+              </select>
+            </div>
             <div class="coord-row">
               <label for="coordInput">坐标落子</label>
               <input id="coordInput" type="text" inputmode="text" maxlength="4" placeholder="如 D4" autocomplete="off" spellcheck="false" aria-label="坐标落子，例如 D4" />
@@ -126,6 +133,21 @@
                 <option value="7.5" selected>7.5</option>
                 <option value="0">0（让子练习）</option>
               </select>
+            </div>
+            <div class="field" id="handicapField">
+              <label for="handicapSelect">让子</label>
+              <select id="handicapSelect">
+                <option value="0" selected>分先（不让子）</option>
+                <option value="2">让二子</option>
+                <option value="3">让三子</option>
+                <option value="4">让四子</option>
+                <option value="5">让五子</option>
+                <option value="6">让六子</option>
+                <option value="7">让七子</option>
+                <option value="8">让八子</option>
+                <option value="9">让九子</option>
+              </select>
+              <p id="handicapHint" class="drill-note" style="margin:0.35rem 0 0">二子及以上默认贴目 0，白先。9 路最多五子。</p>
             </div>
             </div>
             <div class="controls start-row">
@@ -293,7 +315,7 @@
                 <li>黑先白后，轮流在交叉点落子。</li>
                 <li>无气的棋子被提掉；禁止自杀。</li>
                 <li>劫争只认简单劫：刚提掉的子不能立刻回提，要先在别处走一手。</li>
-                <li>「确认点目」会先进入预览：空点按将要计入的一方着色，半透明的是死子。点棋子可以改一组死子，「清除标记」可以全部撤销。满意后再按一次「确认结果」。可以关掉「自动判断死子」，这样预览不会先替你标。双方连续停着也会进入这个预览。解题和经典棋谱里没有这两个按钮。</li>
+                <li>「确认点目」会先进入预览：空点按将要计入的一方着色，半透明的是死子。点棋子可以改一组死子，「清除标记」可以全部撤销。满意后再按一次「确认结果」。可以关掉「自动判断死子」，这样预览不会先替你标。死子判断可选「启发式」或「模型估死子」（需加载 KataGo；失败则退回启发式）。双方连续停着也会进入这个预览。解题和经典棋谱里没有这两个按钮。让二子到九子时，开局摆标准星位黑子、白先，默认贴目为 0。</li>
                 <li>「打谱」和人人对战一样，两人轮流下。差别是每颗落下的棋子标着序号，提掉的子不再标，停着不占号。点目之后整盘序号还在。</li>
                 <li>计分采用中国规则：子空皆地，白贴目。提子数只告诉你提过多少，不会再加到这个结果上。死子拿走之后，那些空出来的交叉点若被一方围住，就算那一方的空。</li>
                 <li>AI 分成两组。二十五级到一级是本地搜索：低段随手，十级起搜索，三级会读吃子，一级搜索最久。性能较弱的设备默认落在十五级，不默认高段。</li>
