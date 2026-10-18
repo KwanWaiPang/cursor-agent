@@ -39,6 +39,12 @@ const els = {
   result: document.getElementById("result"),
   sizeSelect: document.getElementById("sizeSelect"),
   komiSelect: document.getElementById("komiSelect"),
+  handicapSelect: document.getElementById("handicapSelect"),
+  handicapHint: document.getElementById("handicapHint"),
+  handicapField: document.getElementById("handicapField"),
+  deadMethodSelect: document.getElementById("deadMethodSelect"),
+  deadMethodField: document.getElementById("deadMethodField"),
+  autoDeadField: document.getElementById("autoDeadField"),
   modeSelect: document.getElementById("modeSelect"),
   humanColorSelect: document.getElementById("humanColorSelect"),
   difficultySelect: document.getElementById("difficultySelect"),
@@ -259,6 +265,122 @@ function syncAutoDead() {
   engine.autoDead = !els.autoDeadToggle || els.autoDeadToggle.checked;
 }
 
+
+function handicapCount() {
+  return Math.floor(Number(els.handicapSelect?.value) || 0);
+}
+
+function deadMethodIsKata() {
+  return els.deadMethodSelect?.value === "katago";
+}
+
+/** 9 路最多五子；让子≥2 时贴目改为 0。 */
+function syncHandicapOptions() {
+  if (!els.handicapSelect) return;
+  const size = Number(els.sizeSelect?.value) || 19;
+  const max = size === 9 ? 5 : 9;
+  for (const opt of els.handicapSelect.options) {
+    const n = Number(opt.value) || 0;
+    opt.disabled = n > max;
+  }
+  if (handicapCount() > max) els.handicapSelect.value = "0";
+  const n = handicapCount();
+  if (n >= 2 && els.komiSelect) els.komiSelect.value = "0";
+  if (els.handicapHint) {
+    els.handicapHint.textContent =
+      size === 9
+        ? "二子及以上默认贴目 0，白先。9 路最多五子。"
+        : "二子及以上默认贴目 0，白先。星位按中国 / 日本常见摆法。";
+  }
+}
+
+function applySelectedHandicap(eng) {
+  const n = handicapCount();
+  if (n < 2) return { ok: true, count: 0 };
+  return eng.applyHandicap(n);
+}
+
+/**
+ * 进入点目后按所选方式标死子。
+ * preferEnter：还在对局中时先 beginScoring（可跳过同步启发式）。
+ */
+async function markDeadForScoring({ preferEnter = false, force = false } = {}) {
+  syncAutoDead();
+  const wantAuto = force || engine.autoDead;
+  const useKata = wantAuto && deadMethodIsKata();
+
+  if (preferEnter && engine.phase === "playing") {
+    const prev = engine.autoDead;
+    // 进入点目时：启发式可同步标；模型路径留给下面异步。
+    engine.autoDead = wantAuto && !useKata;
+    const entered = engine.beginScoring({ markDead: wantAuto && !useKata });
+    engine.autoDead = prev;
+    if (!entered.ok) return entered;
+    if (!wantAuto) return { ok: true, count: 0, entered: true, method: "off" };
+  } else if (engine.phase !== "scoring" && engine.phase !== "finished") {
+    if (!force) return { ok: false, reason: "当前不能标死子" };
+  }
+
+  if (!wantAuto && !force) {
+    return { ok: true, count: engine.deadMarks.size, method: "off" };
+  }
+
+  if (useKata) {
+    try {
+      const signal = armKataUtilitySearch();
+      showMessage("模型正在估计死子…", true);
+      const bridge = await import("./katago-bridge.js");
+      const res = await bridge.kataEstimateDead(engine, (t) => showMessage(t, true), signal);
+      return { ok: true, count: res.count, entered: Boolean(res.entered), method: "katago" };
+    } catch (err) {
+      const bridge = await import("./katago-bridge.js");
+      if (bridge.isKataCanceled(err)) {
+        return { ok: false, canceled: true, reason: "已取消模型估死子" };
+      }
+      const fallback = engine.autoMarkDead();
+      return {
+        ok: fallback.ok,
+        count: fallback.count || 0,
+        entered: Boolean(fallback.entered),
+        method: "heuristic-fallback",
+        reason: err?.message || "模型估死子失败，已改用启发式",
+      };
+    }
+  }
+
+  const res = engine.autoMarkDead();
+  return {
+    ok: res.ok,
+    count: res.count || 0,
+    entered: Boolean(res.entered),
+    method: "heuristic",
+    reason: res.reason,
+  };
+}
+
+function scoringMarkMessage(res, { entered = false } = {}) {
+  if (res?.canceled) return res.reason || "已取消模型估死子。";
+  if (!res?.ok) return res?.reason || "标死子失败";
+  const n = res.count || 0;
+  if (res.method === "off") {
+    return entered
+      ? "点目预览：没有自动标死子。点棋子自己标，再按「确认结果」。"
+      : "未自动标死子。";
+  }
+  if (res.method === "katago") {
+    return entered
+      ? `点目预览：模型标了 ${n} 个死子。看着色改完，再按「确认结果」。提子不另加。`
+      : `模型重新标了 ${n} 个死子，可手动微调后确认点目。`;
+  }
+  if (res.method === "heuristic-fallback") {
+    return `模型估死子不可用，已改用启发式：标了 ${n} 个死子。可手动改后再确认。`;
+  }
+  return entered
+    ? `点目预览：自动标了 ${n} 个死子。看着色改完，再按「确认结果」。提子不另加。`
+    : `已重新自动标记 ${n} 个死子，可手动微调后确认点目。`;
+}
+
+
 function phaseText() {
   if (isDrill()) {
     if (drill.busy) return "看答案";
@@ -294,6 +416,9 @@ function syncAiOptionVisibility() {
   els.kifuOptions.hidden = !kifuOn;
   els.kifuOptions.setAttribute("aria-hidden", kifuOn ? "false" : "true");
   els.matchFields.hidden = drillOn || kifuOn;
+  if (els.handicapField) els.handicapField.hidden = drillOn || kifuOn;
+  if (els.deadMethodField) els.deadMethodField.hidden = drillOn || kifuOn;
+  if (els.autoDeadField) els.autoDeadField.hidden = drillOn || kifuOn;
   els.btnNew.textContent = drillOn ? "进入本题" : kifuOn ? "打开这局" : "开始新对局";
   if (els.setupHeading) els.setupHeading.textContent = kifuOn ? "棋谱" : drillOn ? "练习" : "新对局";
   if (els.difficultyLabel) els.difficultyLabel.textContent = kifuOn ? "偏离棋谱后的 AI" : "AI 强度";
@@ -826,6 +951,13 @@ function armKataSearch() {
   return kataAbort.signal;
 }
 
+/** 点目估死子等：不要求当前是段位档，也提供可取消的 signal。 */
+function armKataUtilitySearch() {
+  abortKataSearch();
+  kataAbort = new AbortController();
+  return kataAbort.signal;
+}
+
 function isKataCanceled(err) {
   return Boolean(err && (err.canceled || err.name === "KataGoCanceledError"));
 }
@@ -968,17 +1100,32 @@ async function maybeAiMove() {
     if (engine.phase !== "playing" || engine.toPlay !== aiColor()) return;
 
     if (move.type === "pass") {
+      syncAutoDead();
+      const wantAuto = engine.autoDead;
+      const useKata = wantAuto && deadMethodIsKata();
+      if (useKata) engine.autoDead = false;
       const res = engine.pass();
+      engine.autoDead = wantAuto;
       if (!res.ok) {
         refresh(res.reason || "AI 停着失败");
         return;
       }
       if (res.scoring) {
-        const n = engine.deadMarks.size;
-        refresh(
-          `AI 停着，进入点目预览：已标 ${n} 个死子。看着色，可点棋子修改后再确认。`,
-          true
-        );
+        if (wantAuto && useKata) {
+          const markRes = await markDeadForScoring({ preferEnter: false, force: true });
+          refresh(
+            markRes.ok || markRes.canceled
+              ? scoringMarkMessage(markRes, { entered: true })
+              : `AI 停着，进入点目预览：已标 ${engine.deadMarks.size} 个死子。看着色，可点棋子修改后再确认。`,
+            true
+          );
+        } else {
+          const n = engine.deadMarks.size;
+          refresh(
+            `AI 停着，进入点目预览：已标 ${n} 个死子。看着色，可点棋子修改后再确认。`,
+            true
+          );
+        }
       } else {
         refresh("AI 停着", true);
       }
@@ -1788,22 +1935,34 @@ async function newGame() {
   drillToken += 1;
   aiToken += 1;
   aiThinking = false;
+  syncHandicapOptions();
   const size = Number(els.sizeSelect.value);
+  const hc = handicapCount();
+  if (hc >= 2 && els.komiSelect) els.komiSelect.value = "0";
   const komi = Number(els.komiSelect.value);
   engine = new GoEngine(size, komi, {
     autoDead: !els.autoDeadToggle || els.autoDeadToggle.checked,
   });
+  const placed = applySelectedHandicap(engine);
+  if (!placed.ok) {
+    showMessage(placed.reason || "无法摆让子");
+    return;
+  }
   applyDifficulty();
   hover = null;
   syncAiOptionVisibility();
 
+  const handicapTip =
+    hc >= 2 ? `让${hc}子，白先，贴目 ${engine.komi}。` : "";
   let tip = isRecordMode()
-    ? "打谱开始，黑先。每颗落下的棋子标着序号，提掉的不再标。随时可以标死子或确认点目。"
-    : "新对局开始，黑先。";
+    ? `打谱开始。${handicapTip || "黑先。"}每颗落下的棋子标着序号，提掉的不再标。随时可以标死子或确认点目。`
+    : handicapTip
+      ? `新对局开始：${handicapTip}`
+      : "新对局开始，黑先。";
   if (isAiMode()) {
     const you = colorName(humanColor());
     const pace = size >= 19 ? "19 路思考会稍久。" : "";
-    tip = `人机对战开始：你执${you}，AI 执${colorName(aiColor())}（${els.difficultySelect.selectedOptions[0].text} · ${size}路）。${pace}`;
+    tip = `人机对战开始：你执${you}，AI 执${colorName(aiColor())}（${els.difficultySelect.selectedOptions[0].text} · ${size}路）。${handicapTip}${pace}`;
   }
   teachOverlay = null;
   if (els.teachNote) els.teachNote.textContent = "";
@@ -1821,17 +1980,34 @@ els.btnPass.addEventListener("click", async () => {
   }
   if (aiThinking || teachBusy || !isHumanTurn()) return;
   const taught = captureTeachPoint();
+  syncAutoDead();
+  const wantAuto = engine.autoDead;
+  const useKata = wantAuto && deadMethodIsKata();
+  // 若要用模型估死子，先跳过 beginScoring 里的启发式，稍后再异步标。
+  if (useKata) engine.autoDead = false;
   const res = engine.pass();
+  engine.autoDead = wantAuto;
   if (!res.ok) {
     showMessage(res.reason);
     return;
   }
   if (res.scoring) {
-    const n = engine.deadMarks.size;
-    refresh(
-      `双方停着，进入点目预览：已标 ${n} 个死子。深色空点计黑，浅色计白。可点棋子修改后再确认。`,
-      true
-    );
+    let markRes = {
+      ok: true,
+      count: engine.deadMarks.size,
+      method: wantAuto ? (useKata ? "pending" : "heuristic") : "off",
+    };
+    if (wantAuto && useKata) {
+      markRes = await markDeadForScoring({ preferEnter: false });
+    } else if (wantAuto && engine.deadMarks.size === 0) {
+      const again = engine.autoMarkDead();
+      markRes = { ok: again.ok, count: again.count || 0, method: "heuristic" };
+    }
+    const msg =
+      markRes.method === "katago" || markRes.method === "heuristic-fallback" || markRes.canceled
+        ? scoringMarkMessage(markRes, { entered: true })
+        : `双方停着，进入点目预览：已标 ${engine.deadMarks.size} 个死子。深色空点计黑，浅色计白。可点棋子修改后再确认。`;
+    refresh(msg, true);
     if (taught) await explainPlayed({ pass: true }, taught.key, taught.snap);
   } else {
     refresh(`${colorName(opponent(engine.toPlay))}方停着`, true);
@@ -1839,21 +2015,18 @@ els.btnPass.addEventListener("click", async () => {
   }
 });
 
-els.btnAutoDead.addEventListener("click", () => {
-  if (aiThinking) return;
+els.btnAutoDead.addEventListener("click", async () => {
+  if (aiThinking || teachBusy) return;
   if (engine.phase !== "playing" && engine.phase !== "scoring") return;
   aiToken += 1;
-  const res = engine.autoMarkDead();
+  abortKataSearch();
+  const res = await markDeadForScoring({ preferEnter: engine.phase === "playing", force: true });
   if (!res.ok) {
     showMessage(res.reason || "");
+    refresh();
     return;
   }
-  refresh(
-    res.entered
-      ? `已进入点目，自动标记 ${res.count} 个死子。可点击棋子修改，再确认点目。`
-      : `已重新自动标记 ${res.count} 个死子，可手动微调后确认点目。`,
-    true
-  );
+  refresh(scoringMarkMessage(res, { entered: Boolean(res.entered) }), true);
 });
 
 els.btnResign.addEventListener("click", () => {
@@ -1931,24 +2104,18 @@ els.btnUndo.addEventListener("click", () => {
   armTeach();
 });
 
-els.btnScore.addEventListener("click", () => {
-  if (aiThinking) return;
+els.btnScore.addEventListener("click", async () => {
+  if (aiThinking || teachBusy) return;
   if (engine.phase === "playing") {
     aiToken += 1;
     abortKataSearch();
-    syncAutoDead();
-    const res = engine.beginScoring();
+    const res = await markDeadForScoring({ preferEnter: true });
     if (!res.ok) {
       showMessage(res.reason || "");
+      refresh();
       return;
     }
-    const n = engine.deadMarks.size;
-    refresh(
-      engine.autoDead
-        ? `点目预览：自动标了 ${n} 个死子。看着色改完，再按「确认结果」。提子不另加。`
-        : "点目预览：没有自动标死子。点棋子自己标，再按「确认结果」。",
-      true
-    );
+    refresh(scoringMarkMessage(res, { entered: true }), true);
     return;
   }
   if (engine.phase !== "scoring") return;
@@ -2237,6 +2404,7 @@ els.modeSelect.addEventListener("change", () => {
 for (const el of [
   els.sizeSelect,
   els.komiSelect,
+  els.handicapSelect,
   els.humanColorSelect,
   els.difficultySelect,
 ].filter(Boolean)) {
@@ -2246,6 +2414,12 @@ for (const el of [
       syncEngineNote();
       if (!danSelected()) teachArmed = null;
       else armTeach();
+    }
+    if (el === els.sizeSelect || el === els.handicapSelect) {
+      syncHandicapOptions();
+    }
+    if (el === els.handicapSelect && handicapCount() >= 2 && els.komiSelect) {
+      els.komiSelect.value = "0";
     }
     if (isDrill() || isKifu()) {
       if (el === els.difficultySelect) {
@@ -2258,13 +2432,22 @@ for (const el of [
       showMessage("新设置将在下一局生效，请点击「开始新对局」", true);
       return;
     }
-    // 尚未落子：立即同步棋盘规格/贴目，避免界面与内部状态不一致
-    engine = new GoEngine(Number(els.sizeSelect.value), Number(els.komiSelect.value), {
+    // 尚未落子：立即同步棋盘规格/贴目/让子，避免界面与内部状态不一致
+    syncHandicapOptions();
+    const size = Number(els.sizeSelect.value);
+    const hc = handicapCount();
+    if (hc >= 2 && els.komiSelect) els.komiSelect.value = "0";
+    engine = new GoEngine(size, Number(els.komiSelect.value), {
       autoDead: !els.autoDeadToggle || els.autoDeadToggle.checked,
     });
+    applySelectedHandicap(engine);
     applyDifficulty();
     hover = null;
-    refresh("设置已同步。人机对战请点击「开始新对局」。", true);
+    const tip =
+      hc >= 2
+        ? `设置已同步：让${hc}子，白先，贴目 ${engine.komi}。人机对战请点击「开始新对局」。`
+        : "设置已同步。人机对战请点击「开始新对局」。";
+    refresh(tip, true);
     resizeCanvas();
   });
 }
@@ -2409,6 +2592,7 @@ els.autoDeadToggle?.addEventListener("change", () => {
 });
 
 initDifficultyDefault();
+syncHandicapOptions();
 syncEngineNote();
 syncAiOptionVisibility();
 resizeCanvas();

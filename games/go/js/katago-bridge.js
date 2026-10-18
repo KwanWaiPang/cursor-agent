@@ -204,3 +204,18 @@ export async function kataChooseMove(engine, level, onStatus, signal) {
   if (engine.isLegal(move.x, flipped)) return { type: "play", x: move.x, y: flipped };
   throw new Error("KataGo 给出的落点在这里不合法");
 }
+
+/**
+ * 用 KataGo ownership 估计死子并写入 engine.deadMarks。
+ * 会进入点目阶段；失败时抛错，由调用方回退启发式。
+ * territory 已经过 orientReview 的 Y 翻转校对。
+ */
+export async function kataEstimateDead(engine, onStatus, signal) {
+  const review = await kataReview(engine, onStatus, signal);
+  const res = engine.markDeadFromOwnership(review.territory);
+  if (!res.ok) {
+    const err = new Error(res.reason || "模型估死子失败");
+    throw err;
+  }
+  return { ...res, review };
+}

@@ -1,4 +1,4 @@
-import { BLACK, WHITE, GoEngine, stoneOrderNumbers } from "./engine.js";
+import { BLACK, WHITE, GoEngine, stoneOrderNumbers, handicapStonePoints } from "./engine.js";
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -322,6 +322,59 @@ function testCornerFalseEye() {
   assert(g.countApproxEyes(group) === 0, "corner eye with an enemy diagonal is false");
 }
 
+
+function testHandicapNineteen() {
+  const pts2 = handicapStonePoints(19, 2);
+  assert(pts2.length === 2, "two stones");
+  assert(pts2[0][0] === 3 && pts2[0][1] === 15, "D4 first");
+  assert(pts2[1][0] === 15 && pts2[1][1] === 3, "Q16 second");
+  const pts9 = handicapStonePoints(19, 9);
+  assert(pts9.length === 9, "nine stones");
+  assert(pts9.some(([x, y]) => x === 9 && y === 9), "tengen in nine");
+  const g = new GoEngine(19, 0);
+  const res = g.applyHandicap(4);
+  assert(res.ok && res.count === 4, "apply four");
+  assert(g.toPlay === WHITE, "white to play");
+  assert(g.board[15][3] === BLACK && g.board[3][15] === BLACK, "corner stones");
+  assert(g.board[3][3] === BLACK && g.board[15][15] === BLACK, "other corners");
+  assert(g.moveHistory.length === 0, "handicap is setup not moves");
+  assert(g.handicap === 4, "handicap recorded");
+}
+
+function testHandicapNineMaxFive() {
+  assert(handicapStonePoints(9, 5).length === 5, "nine board five");
+  assert(handicapStonePoints(9, 6).length === 0, "nine board rejects six");
+  const g = new GoEngine(9, 0);
+  assert(!g.applyHandicap(6).ok, "apply six fails on 9");
+  assert(g.applyHandicap(2).ok && g.toPlay === WHITE, "nine board two stones");
+}
+
+function testMarkDeadFromOwnership() {
+  const g = new GoEngine(5, 0, { autoDead: false });
+  g.board[0][0] = BLACK;
+  g.board[0][1] = BLACK;
+  g.board[4][4] = WHITE;
+  // ownership strongly white on black stones, strongly black on white stone
+  const own = Array.from({ length: 5 }, () => Array(5).fill(0));
+  own[0][0] = -0.9;
+  own[0][1] = -0.85;
+  own[4][4] = 0.9;
+  const res = g.markDeadFromOwnership(own, 0.55);
+  assert(res.ok && g.phase === "scoring", "enters scoring");
+  assert(g.deadMarks.has("0,0") && g.deadMarks.has("1,0"), "black marked dead");
+  assert(g.deadMarks.has("4,4"), "white marked dead");
+  g.clearDeadMarks();
+  const live = Array.from({ length: 5 }, () => Array(5).fill(0));
+  live[0][0] = 0.8;
+  live[0][1] = 0.7;
+  live[4][4] = -0.8;
+  g.markDeadFromOwnership(live, 0.55);
+  assert(g.deadMarks.size === 0, "alive stones stay unmarked");
+}
+
+testHandicapNineteen();
+testHandicapNineMaxFive();
+testMarkDeadFromOwnership();
 testSimpleKoOnly();
 testScorePreview();
 testAutoDeadCanBeDisabled();
