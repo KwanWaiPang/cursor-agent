@@ -87,6 +87,7 @@ const els = {
   btnKifuJump: document.getElementById("btnKifuJump"),
   kifuJump: document.getElementById("kifuJump"),
   kifuNumbersToggle: document.getElementById("kifuNumbersToggle"),
+  kifuNextToggle: document.getElementById("kifuNextToggle"),
   setupHeading: document.getElementById("setupHeading"),
   difficultyLabel: document.querySelector("label[for='difficultySelect']"),
   btnPass: document.getElementById("btnPass"),
@@ -124,6 +125,30 @@ let drill = null;
 let drillToken = 0;
 let drillHint = null;
 let drillFlash = null;
+/** 看答案演示完，盘面停在答案终局，等用户点一下再复原。 */
+let drillDemoShown = false;
+/** 等级下拉框当前对应的科目，用来判断是否换了科目。 */
+let levelSelectTrack = null;
+const DRILL_TRACK_LEVEL_KEY = "go-hub-drill-track-level";
+
+function rememberedTrackLevel(track) {
+  try {
+    const map = JSON.parse(localStorage.getItem(DRILL_TRACK_LEVEL_KEY) || "{}");
+    return Number(map?.[track]) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function rememberTrackLevel(track, level) {
+  try {
+    const map = JSON.parse(localStorage.getItem(DRILL_TRACK_LEVEL_KEY) || "{}") || {};
+    map[track] = level;
+    localStorage.setItem(DRILL_TRACK_LEVEL_KEY, JSON.stringify(map));
+  } catch {
+    /* private mode */
+  }
+}
 let flashToken = 0;
 let uiLock = 0;
 let kifu = null;
@@ -556,6 +581,7 @@ function updatePanel() {
     els.kifuNote.textContent = "";
   }
   canvas.style.cursor = aiThinking || kifuAiThinking ? "wait" : "crosshair";
+  syncQuickbar();
 
   if (isDrill() && drill.solvedFlag) {
     const p = drill.problem;
@@ -578,6 +604,42 @@ function updatePanel() {
     els.result.textContent = "";
   }
 }
+
+/** 窄屏棋盘下的常用操作条：照抄侧栏原按钮的文字、可用与隐藏状态。 */
+function syncQuickbar() {
+  const bar = document.getElementById("quickbar");
+  if (!bar) return;
+  const dot = document.getElementById("quickTurnDot");
+  const label = document.getElementById("quickTurnLabel");
+  if (dot) dot.className = els.turnDot.className;
+  if (label) label.textContent = els.turnLabel.textContent;
+  for (const btn of bar.querySelectorAll("button[data-for]")) {
+    const src = document.getElementById(btn.dataset.for);
+    let hide = !src || src.hidden || Boolean(src.closest("[hidden]"));
+    if (!hide && src.id === "btnScore") hide = engine.phase !== "scoring";
+    if (!hide && (src.id === "btnKifuReveal" || src.id === "btnKifuNext") && isKifu()) {
+      hide = src.id === "btnKifuReveal" ? kifu.mode === "replay" : kifu.mode !== "replay";
+    }
+    btn.hidden = hide;
+    if (src) {
+      btn.disabled = src.disabled;
+      if (btn.textContent !== src.textContent) btn.textContent = src.textContent;
+      if (src.title) btn.title = src.title;
+    }
+  }
+  // 按钮多少变了，操作条可能换行变高；棋盘跟着重新量一次。
+  const h = Math.round(bar.getBoundingClientRect().height);
+  if (quickbarHeight !== null && h !== quickbarHeight) requestAnimationFrame(() => resizeCanvas());
+  quickbarHeight = h;
+}
+
+let quickbarHeight = null;
+
+document.getElementById("quickbar")?.addEventListener("click", (e) => {
+  const btn = e.target.closest?.("button[data-for]");
+  if (!btn || btn.disabled) return;
+  document.getElementById(btn.dataset.for)?.click();
+});
 
 function boardMetrics() {
   const cssSize = canvas.clientWidth;
@@ -612,9 +674,31 @@ function pointToXY(x, y, m) {
   };
 }
 
+/**
+ * 窄屏单列时，棋盘下面还要放一条常用操作（行棋方、停着、悔棋、认输）。
+ * 棋盘边长不超过「视口高 − 棋盘上方 − 操作条」，首屏就能点到这些按钮。
+ */
+function fitAboveQuickbar(wrap, size) {
+  const bar = document.getElementById("quickbar");
+  if (!bar || getComputedStyle(bar).display === "none") return size;
+  syncQuickbar();
+  const wrapStyle = getComputedStyle(wrap);
+  const padY = (parseFloat(wrapStyle.paddingTop) || 0) + (parseFloat(wrapStyle.paddingBottom) || 0);
+  const top = wrap.getBoundingClientRect().top + window.scrollY;
+  const layout = wrap.closest(".layout");
+  const gap = layout ? parseFloat(getComputedStyle(layout).rowGap) || 0 : 0;
+  const barH = Math.max(bar.getBoundingClientRect().height, 48);
+  const room = window.innerHeight - top - padY - gap - barH - 8;
+  // 单列时宽度上限是整列宽；高度按上面的余量算，两者取小，棋盘尽量大但不把操作条挤出首屏。
+  const padX = (parseFloat(wrapStyle.paddingLeft) || 0) + (parseFloat(wrapStyle.paddingRight) || 0);
+  const colW = (layout ? layout.clientWidth : window.innerWidth) - padX;
+  return Math.max(240, Math.floor(Math.min(colW, room)));
+}
+
 function resizeCanvas() {
   const wrap = canvas.parentElement;
-  const { width: cssSize } = measureBoardBox(wrap, { aspect: 1, min: 240 });
+  let { width: cssSize } = measureBoardBox(wrap, { aspect: 1, min: 240 });
+  cssSize = fitAboveQuickbar(wrap, cssSize);
   canvas.style.width = `${cssSize}px`;
   canvas.style.height = `${cssSize}px`;
   canvas.width = Math.round(cssSize * dpr);
@@ -727,9 +811,18 @@ function draw() {
         const owner = map[y]?.[x];
         if (!owner) continue;
         const p = pointToXY(x, y, m);
-        ctx.fillStyle = owner === BLACK ? "rgba(28, 22, 16, 0.34)" : "rgba(255, 253, 248, 0.94)";
+        // 底色加深，并在中间画一个实心小方块，点目时一眼能看出归属。
+        ctx.fillStyle = owner === BLACK ? "rgba(28, 22, 16, 0.5)" : "rgba(255, 253, 248, 0.94)";
         const half = grid * 0.46;
         ctx.fillRect(p.sx - half, p.sy - half, half * 2, half * 2);
+        if (!engine.board[y][x] || engine.deadMarks.has(`${x},${y}`)) {
+          const mark = grid * 0.17;
+          ctx.fillStyle = owner === BLACK ? "#141010" : "#fffdf8";
+          ctx.strokeStyle = owner === BLACK ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.45)";
+          ctx.lineWidth = Math.max(1, grid * 0.035);
+          ctx.fillRect(p.sx - mark, p.sy - mark, mark * 2, mark * 2);
+          ctx.strokeRect(p.sx - mark, p.sy - mark, mark * 2, mark * 2);
+        }
       }
     }
   }
@@ -784,7 +877,10 @@ function draw() {
   if ((isKifu() || isRecordMode()) && engine.lastMove && !engine.lastMove.pass && engine.phase !== "scoring") {
     ring(engine.lastMove, "#8a3d12", 1.08);
   }
-  const recordNext = isKifu() && kifu?.mode === "replay" && !kifu.deviated && !kifuPlaying ? kifu.nextMove() : null;
+  const recordNext =
+    isKifu() && kifu?.mode === "replay" && !kifu.deviated && !kifuPlaying && els.kifuNextToggle?.checked
+      ? kifu.nextMove()
+      : null;
   const hinted = teachOverlay?.best;
   const sameAsRecord = recordNext && hinted && !recordNext.pass && recordNext.x === hinted.x && recordNext.y === hinted.y;
   if (!sameAsRecord) ring(hinted, "#c45c26");
@@ -1237,6 +1333,7 @@ function updateDrillMeta() {
   els.drillProgress.textContent = text;
   els.drillSource.textContent = p.source || "";
   if (els.btnDrillSolve) els.btnDrillSolve.textContent = p.review ? "看过了" : "看答案";
+  syncQuickbar();
 }
 
 function fillLevelSelect() {
@@ -1244,7 +1341,15 @@ function fillLevelSelect() {
   uiLock += 1;
   const trackId = els.trackSelect.value || "tactic";
   const track = trackById(trackId);
-  const wanted = drill && drill.track === trackId ? drill.level : Number(els.levelSelect.value) || 1;
+  // 换了科目时不沿用上一科目的级号：回到该科目上次练到的级，没有就从一级开始。
+  const switched = levelSelectTrack !== null && levelSelectTrack !== trackId;
+  const wanted =
+    drill && drill.track === trackId
+      ? drill.level
+      : switched
+        ? rememberedTrackLevel(trackId) || 1
+        : Number(els.levelSelect.value) || rememberedTrackLevel(trackId) || 1;
+  levelSelectTrack = trackId;
   const previous = els.levelSelect.value;
   els.levelSelect.innerHTML = "";
   for (const lv of track.levels) {
@@ -1255,7 +1360,7 @@ function fillLevelSelect() {
   }
   const choice = track.levels.some((lv) => lv.level === wanted) ? wanted : 1;
   els.levelSelect.value = String(choice);
-  if (!els.levelSelect.value) els.levelSelect.value = previous || "1";
+  if (!els.levelSelect.value) els.levelSelect.value = switched ? "1" : previous || "1";
   if (!drill) {
     els.drillIntro.textContent = track.intro;
   }
@@ -1271,6 +1376,8 @@ function startDrill() {
   hover = null;
   drillHint = null;
   drillFlash = null;
+  drillDemoShown = false;
+  rememberTrackLevel(drill.track, drill.level);
   uiLock += 1;
   els.trackSelect.value = drill.track;
   fillLevelSelect();
@@ -1294,6 +1401,13 @@ function replayDrillLog() {
 
 function onDrillMove(coord) {
   if (!drill || drill.busy || drill.solvedFlag) return;
+  if (drillDemoShown) {
+    drillDemoShown = false;
+    engine = loadPosition(drill.problem);
+    hover = null;
+    refresh("盘面已复原到题目开局。请自己走一遍。", true);
+    return;
+  }
   if (drill.problem?.review) {
     showMessage("这题没有原谱正解，不核对落子。按「看过了」记入进度。");
     return;
@@ -1397,8 +1511,9 @@ async function showDrillSolution() {
   if (token !== drillToken) return;
   drill.busy = false;
   drill.resetAttempt();
-  engine = loadPosition(drill.problem);
-  refresh("演示结束。请自己再走一遍。", true);
+  // 盘面停在答案的终局，方便看清；点一下棋盘或按「重试」再复原。
+  drillDemoShown = true;
+  refresh("演示结束，盘上是答案走完的局面。点一下棋盘或按「重试」复原，再自己走一遍。", true);
 }
 
 function shiftDrill(delta) {
@@ -2147,6 +2262,8 @@ function submitCoord() {
   const coord = parseCoord(els.coordInput?.value);
   if (!coord) {
     showMessage("坐标写成字母加数字，例如 D4。I 不用。");
+    els.coordInput?.focus();
+    els.coordInput?.select();
     return;
   }
   keyboardPoint = coord;
@@ -2193,7 +2310,7 @@ function placeKeyboard() {
 
 els.btnNew.addEventListener("click", () => {
   const dirty = isDrill() ? drill && drill.log.length > 0 : engine.moveHistory.length > 0;
-  const ask = isDrill() ? "重开本题？当前尝试会清空。" : "开始新对局？当前棋谱将清空。";
+  const ask = isDrill() ? "重开本题？当前尝试会清空。" : "开始新对局？当前对局将清空。";
   if (dirty && !confirm(ask)) return;
   newGame();
 });
@@ -2526,8 +2643,12 @@ window.addEventListener("resize", () => {
 });
 
 try {
-  if (localStorage.getItem("go-hub-kifu-numbers") === "0" && els.kifuNumbersToggle) {
-    els.kifuNumbersToggle.checked = false;
+  // 手数默认关闭（后期数字太密）；用户打开过才记住。键名换新，旧的默认值不再沿用。
+  if (els.kifuNumbersToggle) {
+    els.kifuNumbersToggle.checked = localStorage.getItem("go-hub-kifu-numbers-v2") === "1";
+  }
+  if (els.kifuNextToggle) {
+    els.kifuNextToggle.checked = localStorage.getItem("go-hub-kifu-next-hint") === "1";
   }
   const pace = localStorage.getItem("go-hub-kifu-pace");
   if (els.kifuPace && (pace === "slow" || pace === "mid" || pace === "fast")) els.kifuPace.value = pace;
@@ -2536,11 +2657,19 @@ try {
 }
 els.kifuNumbersToggle?.addEventListener("change", () => {
   try {
-    localStorage.setItem("go-hub-kifu-numbers", els.kifuNumbersToggle.checked ? "1" : "0");
+    localStorage.setItem("go-hub-kifu-numbers-v2", els.kifuNumbersToggle.checked ? "1" : "0");
   } catch {
     /* private mode */
   }
   if (isKifu()) refresh();
+});
+els.kifuNextToggle?.addEventListener("change", () => {
+  try {
+    localStorage.setItem("go-hub-kifu-next-hint", els.kifuNextToggle.checked ? "1" : "0");
+  } catch {
+    /* private mode */
+  }
+  if (isKifu()) draw();
 });
 
 try {

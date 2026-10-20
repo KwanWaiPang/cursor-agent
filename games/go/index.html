@@ -49,6 +49,27 @@
           ></canvas>
         </section>
 
+        <!-- 窄屏：棋盘下方紧贴一条常用操作，不必往下滚到侧栏。按钮转发给侧栏里的原按钮。 -->
+        <div class="quickbar" id="quickbar" role="toolbar" aria-label="常用操作">
+          <div class="quickbar-turn">
+            <span id="quickTurnDot" class="stone-dot black" aria-hidden="true"></span>
+            <span id="quickTurnLabel">黑方行棋</span>
+          </div>
+          <div class="quickbar-buttons">
+            <button type="button" data-for="btnPass">停着</button>
+            <button type="button" class="secondary" data-for="btnUndo">悔棋</button>
+            <button type="button" class="danger" data-for="btnResign">认输</button>
+            <button type="button" class="secondary" data-for="btnScore">确认点目</button>
+            <button type="button" class="secondary" data-for="btnDrillHint">提示</button>
+            <button type="button" class="secondary" data-for="btnDrillUndo">悔棋</button>
+            <button type="button" class="secondary" data-for="btnDrillRetry">重试</button>
+            <button type="button" class="secondary" data-for="btnDrillSolve">看答案</button>
+            <button type="button" class="secondary" data-for="btnKifuPrev">上一手</button>
+            <button type="button" class="secondary" data-for="btnKifuNext">下一手</button>
+            <button type="button" class="secondary" data-for="btnKifuReveal">揭示此手</button>
+          </div>
+        </div>
+
         <aside class="panel">
           <section class="card" id="statusCard">
             <h2>局势</h2>
@@ -155,6 +176,32 @@
             </div>
             <div id="kifuOptions" class="ai-options" hidden>
               <p id="kifuProgress" class="drill-progress"></p>
+              <div class="kifu-study" id="kifuStudyBlock">
+              <div class="field">
+                <label for="kifuStudy">学习方式</label>
+                <select id="kifuStudy">
+                  <option value="replay">打谱 · 逐步看整局</option>
+                  <option value="guess">试下 · 猜下一手</option>
+                  <option value="play">对练 · 我执一方，偏离后 AI 接上</option>
+                </select>
+              </div>
+              <div class="field" id="kifuSideField">
+                <label for="kifuSide">我执</label>
+                <select id="kifuSide">
+                  <option value="black" selected>黑</option>
+                  <option value="white">白</option>
+                </select>
+              </div>
+              <div class="controls" style="margin-top: 0.35rem">
+                <button id="btnKifuReveal" class="secondary" type="button">揭示此手</button>
+                <button id="btnKifuReturn" class="secondary" type="button">回到谱上</button>
+              </div>
+              <div class="controls" style="margin-top: 0.35rem">
+                <button id="btnKifuNote" class="secondary" type="button">下一处批注</button>
+                <button id="btnKifuMiss" class="secondary" type="button">再练错过</button>
+              </div>
+              <p id="kifuNote" class="drill-source"></p>
+              </div>
               <div class="field kifu-slider-field">
                 <label for="kifuSlider">打谱进度</label>
                 <input id="kifuSlider" type="range" min="0" max="1" step="1" value="0" />
@@ -184,9 +231,15 @@
                 <button id="btnKifuJump" class="secondary" type="button">跳到这一手</button>
               </div>
               <label class="inline-check" for="kifuNumbersToggle">
-                <input id="kifuNumbersToggle" type="checkbox" checked />
+                <input id="kifuNumbersToggle" type="checkbox" />
                 显示手数
               </label>
+              <label class="inline-check" for="kifuNextToggle">
+                <input id="kifuNextToggle" type="checkbox" />
+                打谱时圈出谱上下一手
+              </label>
+              <div class="kifu-pick">
+                <p class="kifu-pick-title">选谱</p>
               <div class="field">
                 <label for="kifuPlayer">棋手</label>
                 <select id="kifuPlayer">
@@ -221,31 +274,8 @@
                 <label for="kifuSelect">棋谱（19路全谱）</label>
                 <select id="kifuSelect"></select>
               </div>
-              <div class="field">
-                <label for="kifuStudy">学习方式</label>
-                <select id="kifuStudy">
-                  <option value="replay">打谱 · 逐步看整局</option>
-                  <option value="guess">试下 · 猜下一手</option>
-                  <option value="play">对练 · 我执一方，偏离后 AI 接上</option>
-                </select>
-              </div>
-              <div class="field" id="kifuSideField">
-                <label for="kifuSide">我执</label>
-                <select id="kifuSide">
-                  <option value="black" selected>黑</option>
-                  <option value="white">白</option>
-                </select>
-              </div>
-              <div class="controls" style="margin-top: 0.55rem">
-                <button id="btnKifuReveal" class="secondary" type="button">揭示此手</button>
-                <button id="btnKifuReturn" class="secondary" type="button">回到谱上</button>
-              </div>
-              <div class="controls" style="margin-top: 0.55rem">
-                <button id="btnKifuNote" class="secondary" type="button">下一处批注</button>
-                <button id="btnKifuMiss" class="secondary" type="button">再练错过</button>
-              </div>
               <p id="kifuBlurb" class="drill-note"></p>
-              <p id="kifuNote" class="drill-source"></p>
+              </div>
             </div>
             <div id="aiOptions" class="ai-options">
               <div class="field">
@@ -322,7 +352,7 @@
                 <li>初段到九段改用 KataGo 模型，引擎与 Web KaTrain 相同，在浏览器里计算。段位越高，搜索越多、着手越稳。九段一手可能要几十秒。第一次会下载约 4MB 的公开小模型，不是完整的大模型。</li>
                 <li>「模型讲解」从初段起才会对每一手自动估计亏了多少目。二十五级到一级不自动算。没被这次搜索看过的手只说「没算到」，不下结论。棋谱里随时可以按「模型看上一手」。地盘只轻轻标出模型很有把握的空点。</li>
                 <li>解题前三级是不同的基本棋形。四级到九级是安永吉八段和 David Ormerod 的每周一题。十级起是 u-go.net 上带正解的古典谱：碁经众妙、玄玄棋经、玄览。同一棋形只收一题。官子仍是八级、每级 20 题。开局只说明目标，比如提子、叫吃或收气。拿不准按「提示」，下错一步按「悔棋」。需要连续应手时，对方会落子，你再继续。等级可以随时切换，不必解锁。</li>
-                <li>经典棋谱是 19 路全谱，打开这一模式时才载入。可以按棋手、等级、时代筛选，也可以按局名查找。时代分成唐、宋、明、清、近代；唐以前的传说谱归在唐，1912 年起归在近代。等级按谱上双方较低的一段：四段及以下是初级，五段六段是中级，七段及以上是高级。没有段位时，让子和短谱算初级，分先长谱算高级。打谱时拖进度条，或按「连续打谱」往后看。播放时只标刚落下的那一手，遇到批注会先停下，再按「继续」。点盘上的棋子，就跳到它落下的那一手。打谱时方向键是上一手、下一手，翻页键一次十手，空格暂停或继续。对局时方向键用来选点，回车落子，也可以输入坐标。批注写在刚下的那一手；耳赤之手是第 127 手。手数可以关掉。猜下一手时，第一次猜错不公布答案；再错就记下来，以后用「再练错过」回到那些局面。</li>
+                <li>经典棋谱是 19 路全谱，打开这一模式时才载入。可以按棋手、等级、时代筛选，也可以按局名查找。时代分成唐、宋、明、清、近代；唐以前的传说谱归在唐，1912 年起归在近代。等级按谱上双方较低的一段：四段及以下是初级，五段六段是中级，七段及以上是高级。没有段位时，让子和短谱算初级，分先长谱算高级。打谱时拖进度条，或按「连续打谱」往后看。播放时只标刚落下的那一手，遇到批注会先停下，再按「继续」。点盘上的棋子，就跳到它落下的那一手。打谱时方向键是上一手、下一手，翻页键一次十手，空格暂停或继续。对局时方向键用来选点，回车落子，也可以输入坐标。批注写在刚下的那一手；耳赤之手是第 127 手。手数默认不显示，可以打开；谱上下一手的绿色圈也默认关闭，可以打开。猜下一手时，第一次猜错不公布答案；再错就记下来，以后用「再练错过」回到那些局面。</li>
               </ul>
             </details>
           </section>
