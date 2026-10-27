@@ -159,14 +159,15 @@ function testUndo() {
 }
 
 function testReviewProblem() {
-  const problem = PROBLEMS.find((item) => item.review);
-  assert(problem, "a look-only classical problem exists");
-  const session = new DrillSession({ solved: {} });
-  const index = problemsOf(problem.track, problem.level).findIndex((item) => item.id === problem.id);
-  assert(session.setPlace(problem.track, problem.level, index), "open the look-only level");
-  assert(session.options().length === 0, "look-only problem has no checked moves");
-  session.markSolved();
-  assert(session.progress.solved[problem.id], "looking counts as seen");
+  const review = PROBLEMS.filter((item) => item.review);
+  assert(review.length === 0, `graded bank should not ship look-only problems, got ${review.length}`);
+  assert(TRACKS.find((track) => track.id === "tactic").levels.every((lv) => lv.level <= 15), "tactic track ends at level 15");
+  const beginner = [1, 2, 3].map((level) => problemsOf("tactic", level).length);
+  assert(beginner[0] >= 18, `L1 expected >=18, got ${beginner[0]}`);
+  assert(beginner[1] >= 15, `L2 expected >=15, got ${beginner[1]}`);
+  assert(beginner[2] >= 18, `L3 expected >=18, got ${beginner[2]}`);
+  const yose2 = problemsOf("yose", 2).length;
+  assert(yose2 >= 45 && yose2 <= 55, `yose L2 expected ~50, got ${yose2}`);
 }
 
 testCurriculumShape();

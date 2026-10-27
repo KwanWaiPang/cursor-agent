@@ -12,22 +12,24 @@
  *   curl -fL -O https://dl.u-go.net/problems/qjzm.tar.gz
  *   curl -fL -O https://dl.u-go.net/problems/xuanlan.tar.gz
  *   mkdir -p xuanlan qjzm-raw && tar -xzf xuanlan.tar.gz -C xuanlan && tar -xzf qjzm.tar.gz -C qjzm-raw
- *   git clone --depth 1 https://github.com/tasuki/tsumego.git /tmp/tasuki
+ *   # optional (no longer imported into the graded bank):
+ *   # git clone --depth 1 https://github.com/tasuki/tsumego.git /tmp/tasuki
  *
  * Beginner problems are original to this repo.
  * Levels 4–9 use Go Game Guru weekly problems by An Younggil (8p) and
  * David Ormerod (CC BY-NC-SA 4.0). Only the line marked Correct is kept.
  * Level 10+ uses public-domain classical problems that already have solutions
  * (u-go.net / Flygo: 碁经众妙, 玄玄棋经, 玄览, 官子谱).
- * A short later band is look-only: tasuki's public-domain diagrams with no
- * book line. Those are not auto-checked.
+ * Look-only tasuki diagrams (no book line) are no longer shipped in the graded
+ * tactic track; only problems with solutions are kept.
  *
  * Not included: 101weiqi, goproblems, Cho Chikun, Lee Changho.
+ * tasuki/tsumego ASCII diagrams are still readable via tools/tsumego-read.mjs
+ * but are not imported into problems.js.
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { GoEngine } from "../js/engine.js";
-import { parseTasukiFile } from "./tsumego-read.mjs";
 
 const BLACK = 1;
 const WHITE = 2;
@@ -403,6 +405,594 @@ const ORIGINALS = [
     moves: [{ x: 1, y: 1, color: BLACK, replies: [] }],
     check: { type: "capture", min: 3 },
   },
+  {
+    id: "tactic-1-n01",
+    track: "tactic",
+    level: 1,
+    title: "四面围杀",
+    prompt: "黑先。白子四面被围，只剩一口气。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[5,4],[4,3],[2,5],[6,5]],
+    white: [[4,4]],
+    moves: [{"x":4,"y":5,"color":1,"replies":[]}],
+    check: {"type":"capture"},
+  },
+  {
+    id: "tactic-1-n02",
+    track: "tactic",
+    level: 1,
+    title: "白先二路提子",
+    prompt: "白先。二路上这颗黑子只剩一口气。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: WHITE,
+    black: [[3,0]],
+    white: [[2,0],[4,0]],
+    moves: [{"x":3,"y":1,"color":2,"replies":[]}],
+    check: {"type":"capture"},
+  },
+  {
+    id: "tactic-1-n03",
+    track: "tactic",
+    level: 1,
+    title: "提掉三子串",
+    prompt: "黑先。三颗白子连成一串，只剩一口气。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[2,3],[2,4],[2,5],[4,3],[4,4],[4,5],[3,2]],
+    white: [[3,3],[3,4],[3,5]],
+    moves: [{"x":3,"y":6,"color":1,"replies":[]}],
+    check: {"type":"capture","min":3},
+  },
+  {
+    id: "tactic-1-n04",
+    track: "tactic",
+    level: 1,
+    title: "白先边上提子",
+    prompt: "白先。边上一颗黑子只剩一口气。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: WHITE,
+    black: [[0,5]],
+    white: [[0,4],[1,5]],
+    moves: [{"x":0,"y":6,"color":2,"replies":[]}],
+    check: {"type":"capture"},
+  },
+  {
+    id: "tactic-1-n05",
+    track: "tactic",
+    level: 1,
+    title: "角上单子",
+    prompt: "黑先。角上那颗白子只剩一口气。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[1,0]],
+    white: [[0,0]],
+    moves: [{"x":0,"y":1,"color":1,"replies":[]}],
+    check: {"type":"capture"},
+  },
+  {
+    id: "tactic-1-n06",
+    track: "tactic",
+    level: 1,
+    title: "提掉弯三",
+    prompt: "黑先。弯着的三颗白子只剩一口气。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[4,3],[5,3],[6,4],[6,5],[5,6],[4,6]],
+    white: [[4,4],[5,4],[5,5]],
+    moves: [{"x":4,"y":5,"color":1,"replies":[]}],
+    check: {"type":"capture","min":3},
+  },
+  {
+    id: "tactic-1-n07",
+    track: "tactic",
+    level: 1,
+    title: "白先逃出",
+    prompt: "白先。自己的子被叫吃了，把气长出来。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: WHITE,
+    black: [[2,4],[4,4],[3,3]],
+    white: [[3,4]],
+    moves: [{"x":3,"y":5,"color":2,"replies":[]}],
+    check: {"type":"survive","at":[3,4]},
+  },
+  {
+    id: "tactic-1-n08",
+    track: "tactic",
+    level: 1,
+    title: "二路上提子",
+    prompt: "黑先。二路上这颗白子只剩一口气。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[5,0],[7,0]],
+    white: [[6,0]],
+    moves: [{"x":6,"y":1,"color":1,"replies":[]}],
+    check: {"type":"capture"},
+  },
+  {
+    id: "tactic-1-n09",
+    track: "tactic",
+    level: 1,
+    title: "白先提掉两子",
+    prompt: "白先。两颗黑子连在一起，只剩一口气。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: WHITE,
+    black: [[7,7],[7,8]],
+    white: [[6,7],[6,8],[8,7],[7,6]],
+    moves: [{"x":8,"y":8,"color":2,"replies":[]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-1-n10",
+    track: "tactic",
+    level: 1,
+    title: "左边逃气",
+    prompt: "黑先。边上自己的子被叫吃了，往外长。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[0,6]],
+    white: [[0,5],[0,7]],
+    moves: [{"x":1,"y":6,"color":1,"replies":[]}],
+    check: {"type":"survive","at":[0,6]},
+  },
+  {
+    id: "tactic-1-n11",
+    track: "tactic",
+    level: 1,
+    title: "白先角上提子",
+    prompt: "白先。角上那颗黑子只剩一口气。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: WHITE,
+    black: [[8,8]],
+    white: [[7,8]],
+    moves: [{"x":8,"y":7,"color":2,"replies":[]}],
+    check: {"type":"capture"},
+  },
+  {
+    id: "tactic-2-n01",
+    track: "tactic",
+    level: 2,
+    title: "上边连接",
+    prompt: "黑先。上边一子只剩一口气，连下来就能活。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,1],[3,3],[4,1]],
+    white: [[2,1],[3,0],[4,0]],
+    moves: [{"x":3,"y":2,"color":1,"replies":[]}],
+    check: {"type":"survive","at":[3,1]},
+  },
+  {
+    id: "tactic-2-n02",
+    track: "tactic",
+    level: 2,
+    title: "中腹双打",
+    prompt: "黑先。一着同时叫吃两块白棋。白救一块，你提另一块。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[5,3],[4,2],[5,5],[4,6],[6,4]],
+    white: [[4,3],[4,5]],
+    moves: [{"x":4,"y":4,"color":1,"replies":[{"x":3,"y":3,"color":2,"replies":[{"x":3,"y":5,"color":1,"replies":[]}]},{"x":3,"y":5,"color":2,"replies":[{"x":3,"y":3,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture"},
+  },
+  {
+    id: "tactic-2-n03",
+    track: "tactic",
+    level: 2,
+    title: "左边连接",
+    prompt: "黑先。左边一子只剩一口气，连到右边就能活。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[1,4],[3,4],[1,3]],
+    white: [[1,5],[0,4],[2,5]],
+    moves: [{"x":2,"y":4,"color":1,"replies":[]}],
+    check: {"type":"survive","at":[1,4]},
+  },
+  {
+    id: "tactic-2-n04",
+    track: "tactic",
+    level: 2,
+    title: "白先提子解围",
+    prompt: "白先。自己被叫吃时，把正在叫吃的黑子提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: WHITE,
+    black: [[4,3],[3,4],[5,4]],
+    white: [[4,4],[4,2],[5,3]],
+    moves: [{"x":3,"y":3,"color":2,"replies":[]}],
+    check: {"type":"survive","at":[4,4]},
+  },
+  {
+    id: "tactic-2-n05",
+    track: "tactic",
+    level: 2,
+    title: "拐头连接",
+    prompt: "黑先。拐一个弯把两子连上。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,3],[5,4]],
+    white: [[3,2],[2,3],[3,4],[5,3],[5,5],[6,4]],
+    moves: [{"x":4,"y":3,"color":1,"replies":[]}],
+    check: {"type":"survive","at":[3,3]},
+  },
+  {
+    id: "tactic-2-n06",
+    track: "tactic",
+    level: 2,
+    title: "右边连接",
+    prompt: "黑先。右边一子只剩一口气，连到左边就能活。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[5,3],[7,3]],
+    white: [[7,2],[7,4],[8,3]],
+    moves: [{"x":6,"y":3,"color":1,"replies":[]}],
+    check: {"type":"survive","at":[7,3]},
+  },
+  {
+    id: "tactic-2-n07",
+    track: "tactic",
+    level: 2,
+    title: "白先连接",
+    prompt: "白先。自己两子被隔开，连上就能活。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: WHITE,
+    black: [[4,2],[4,4],[5,3]],
+    white: [[3,3],[5,2]],
+    moves: [{"x":4,"y":3,"color":2,"replies":[]}],
+    check: {"type":"survive","at":[3,3]},
+  },
+  {
+    id: "tactic-2-n08",
+    track: "tactic",
+    level: 2,
+    title: "连回两子",
+    prompt: "黑先。两子各剩一口气，连在一起就能活。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[2,5],[4,5]],
+    white: [[2,4],[2,6],[1,5],[4,4],[4,6],[5,5]],
+    moves: [{"x":3,"y":5,"color":1,"replies":[]}],
+    check: {"type":"survive","at":[2,5]},
+  },
+  {
+    id: "tactic-2-n09",
+    track: "tactic",
+    level: 2,
+    title: "上边打吃再提",
+    prompt: "黑先。先叫吃，白棋长出后，再把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,1],[4,0],[3,2],[5,2]],
+    white: [[4,1]],
+    moves: [{"x":5,"y":1,"color":1,"replies":[{"x":4,"y":2,"color":2,"replies":[{"x":4,"y":3,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-2-n10",
+    track: "tactic",
+    level: 2,
+    title: "白先提眼中子",
+    prompt: "白先。黑子堵在眼位里，把最后一口气补上。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: WHITE,
+    black: [[3,3]],
+    white: [[2,2],[2,3],[2,4],[3,4],[4,4],[4,3],[4,2],[3,1]],
+    moves: [{"x":3,"y":2,"color":2,"replies":[]}],
+    check: {"type":"capture"},
+  },
+  {
+    id: "tactic-3-n01",
+    track: "tactic",
+    level: 3,
+    title: "打吃再提（多一子）",
+    prompt: "黑先。先叫吃，白棋长出一步后，再把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[4,3],[3,5],[5,5],[2,3]],
+    white: [[4,4]],
+    moves: [{"x":5,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":4,"y":6,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n02",
+    track: "tactic",
+    level: 3,
+    title: "打吃再提（左外子）",
+    prompt: "黑先。先叫吃，白棋长出一步后，再把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[4,3],[3,5],[5,5],[2,5]],
+    white: [[4,4]],
+    moves: [{"x":5,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":4,"y":6,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n03",
+    track: "tactic",
+    level: 3,
+    title: "打吃再提（右外子）",
+    prompt: "黑先。先叫吃，白棋长出一步后，再把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[4,3],[3,5],[5,5],[5,3]],
+    white: [[4,4]],
+    moves: [{"x":5,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":4,"y":6,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n04",
+    track: "tactic",
+    level: 3,
+    title: "打吃再提（下外子）",
+    prompt: "黑先。先叫吃，白棋长出一步后，再把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[4,3],[3,5],[5,5],[6,5]],
+    white: [[4,4]],
+    moves: [{"x":5,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":4,"y":6,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n05",
+    track: "tactic",
+    level: 3,
+    title: "打吃再提（尖外子）",
+    prompt: "黑先。先叫吃，白棋长出一步后，再把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[4,3],[3,5],[5,5],[3,3]],
+    white: [[4,4]],
+    moves: [{"x":5,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":4,"y":6,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n06",
+    track: "tactic",
+    level: 3,
+    title: "打吃再提（上外子）",
+    prompt: "黑先。先叫吃，白棋长出一步后，再把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[4,3],[3,5],[5,5],[4,2]],
+    white: [[4,4]],
+    moves: [{"x":5,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":4,"y":6,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n07",
+    track: "tactic",
+    level: 3,
+    title: "打吃再提（远外子）",
+    prompt: "黑先。先叫吃，白棋长出一步后，再把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[4,3],[3,5],[5,5],[6,4]],
+    white: [[4,4]],
+    moves: [{"x":5,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":4,"y":6,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n08",
+    track: "tactic",
+    level: 3,
+    title: "打吃再提（侧外子）",
+    prompt: "黑先。先叫吃，白棋长出一步后，再把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[4,3],[3,5],[5,5],[5,6]],
+    white: [[4,4]],
+    moves: [{"x":5,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":4,"y":6,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n09",
+    track: "tactic",
+    level: 3,
+    title: "打吃再提（旁外子）",
+    prompt: "黑先。先叫吃，白棋长出一步后，再把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[4,3],[3,5],[5,5],[2,4]],
+    white: [[4,4]],
+    moves: [{"x":5,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":4,"y":6,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n10",
+    track: "tactic",
+    level: 3,
+    title: "打吃再提（底外子）",
+    prompt: "黑先。先叫吃，白棋长出一步后，再把它提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[4,3],[3,5],[5,5],[3,6]],
+    white: [[4,4]],
+    moves: [{"x":5,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":4,"y":6,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n11",
+    track: "tactic",
+    level: 3,
+    title: "追打三手",
+    prompt: "黑先。连续叫吃两回，再提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[2,3],[3,2],[2,4],[4,4],[6,6]],
+    white: [[3,3]],
+    moves: [{"x":4,"y":3,"color":1,"replies":[{"x":3,"y":4,"color":2,"replies":[{"x":3,"y":5,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n12",
+    track: "tactic",
+    level: 3,
+    title: "先连后打",
+    prompt: "黑先。先连回自己，再把对方叫吃。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[5,4],[4,2],[6,6]],
+    white: [[4,3],[3,3],[5,3],[2,4],[3,5]],
+    moves: [{"x":4,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":5,"y":5,"color":1,"replies":[]}]}]}],
+    check: {"type":"survive","at":[3,4]},
+  },
+  {
+    id: "tactic-3-n13",
+    track: "tactic",
+    level: 3,
+    title: "一子双提带外子",
+    prompt: "黑先。一个点同时是两块白棋的最后一口气。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[4,2],[3,1],[2,2],[4,4],[3,5],[2,4],[6,6]],
+    white: [[3,2],[3,4]],
+    moves: [{"x":3,"y":3,"color":1,"replies":[]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n14",
+    track: "tactic",
+    level: 3,
+    title: "征子带劫材位",
+    prompt: "黑先。这是征子：每次都叫吃，追到边上提掉。多一子不影响征子。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[2,1],[3,2],[5,5]],
+    white: [[3,1]],
+    moves: [{"x":4,"y":1,"color":1,"replies":[{"x":3,"y":0,"color":2,"replies":[{"x":4,"y":0,"color":1,"replies":[{"x":2,"y":0,"color":2,"replies":[{"x":1,"y":0,"color":1,"replies":[]}]}]}]}]}],
+    check: {"type":"capture","min":3},
+  },
+  {
+    id: "tactic-3-n15",
+    track: "tactic",
+    level: 3,
+    title: "扑吃带外子",
+    prompt: "黑先。扑进对方的气里提子。外面多一子不改变扑吃。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[1,0],[3,0],[0,1],[3,1],[0,2],[3,2],[1,3],[2,3],[5,5]],
+    white: [[2,0],[1,2],[2,2]],
+    moves: [{"x":2,"y":1,"color":1,"replies":[]}],
+    check: {"type":"capture"},
+  },
+  {
+    id: "tactic-3-n16",
+    track: "tactic",
+    level: 3,
+    title: "倒扑",
+    prompt: "黑先。先送进一子，白提之后再反提。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[0,1],[1,0],[1,2],[2,3],[3,1],[3,2]],
+    white: [[1,1],[2,1],[2,2]],
+    moves: [{"x":2,"y":0,"color":1,"replies":[{"x":2,"y":1,"color":2,"replies":[{"x":1,"y":1,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n17",
+    track: "tactic",
+    level: 3,
+    title: "白先短征子",
+    prompt: "白先。这是短征子：每次叫吃，追几步提掉。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: WHITE,
+    black: [[5,1]],
+    white: [[4,1],[5,2]],
+    moves: [{"x":6,"y":1,"color":2,"replies":[{"x":5,"y":0,"color":1,"replies":[{"x":6,"y":0,"color":2,"replies":[{"x":4,"y":0,"color":1,"replies":[{"x":3,"y":0,"color":2,"replies":[]}]}]}]}]}],
+    check: {"type":"capture","min":3},
+  },
+  {
+    id: "tactic-3-n18",
+    track: "tactic",
+    level: 3,
+    title: "先连再应",
+    prompt: "黑先。先把自己危险的棋连回去，再应完对方。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[3,4],[5,4],[4,2]],
+    white: [[4,3],[3,3],[5,3],[2,4],[3,5]],
+    moves: [{"x":4,"y":4,"color":1,"replies":[{"x":4,"y":5,"color":2,"replies":[{"x":5,"y":5,"color":1,"replies":[]}]}]}],
+    check: {"type":"survive","at":[3,4]},
+  },
+  {
+    id: "tactic-3-n19",
+    track: "tactic",
+    level: 3,
+    title: "白先双打",
+    prompt: "白先。一着同时叫吃两块黑棋，黑救一块你提另一块。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: WHITE,
+    black: [[3,2],[3,4]],
+    white: [[4,2],[3,1],[4,4],[3,5]],
+    moves: [{"x":3,"y":3,"color":2,"replies":[{"x":2,"y":2,"color":1,"replies":[{"x":2,"y":4,"color":2,"replies":[]}]},{"x":2,"y":4,"color":1,"replies":[{"x":2,"y":2,"color":2,"replies":[]}]}]}],
+    check: {"type":"capture"},
+  },
+  {
+    id: "tactic-3-n20",
+    track: "tactic",
+    level: 3,
+    title: "白先倒扑",
+    prompt: "白先。先送进一子，黑提之后再反提。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: WHITE,
+    black: [[1,1],[2,1],[2,2]],
+    white: [[0,1],[1,0],[1,2],[2,3],[3,1],[3,2]],
+    moves: [{"x":2,"y":0,"color":2,"replies":[{"x":2,"y":1,"color":1,"replies":[{"x":1,"y":1,"color":2,"replies":[]}]}]}],
+    check: {"type":"capture","min":2},
+  },
+  {
+    id: "tactic-3-n21",
+    track: "tactic",
+    level: 3,
+    title: "双叫再提",
+    prompt: "黑先。先一子双叫，白逃一块后提掉另一块。",
+    source: "馆内原创",
+    size: 9,
+    toPlay: BLACK,
+    black: [[5,1],[4,0],[3,1],[5,3],[4,4],[3,3]],
+    white: [[4,1],[4,3]],
+    moves: [{"x":4,"y":2,"color":1,"replies":[{"x":3,"y":2,"color":2,"replies":[{"x":5,"y":2,"color":1,"replies":[]}]}]}],
+    check: {"type":"capture"},
+  }
 ];
 
 function parseSgf(text) {
@@ -1178,7 +1768,7 @@ const EXTRA = 30;
 const usedG = new Set();
 const slices = [
   [(p) => p.lineLen === 1 && p.stones <= 22, 1, "一手官子"],
-  [(p) => p.lineLen === 2 && p.stones <= 28, 2, "两手收官"],
+  [(p) => p.lineLen === 2 && p.stones <= 48, 2, "两手收官"],
   [(p) => p.lineLen >= 3 && p.lineLen <= 4, 3, "短收官"],
   [(p) => p.lineLen >= 4 && p.lineLen <= 6, 4, "先手官子"],
   [(p) => p.lineLen >= 6 && p.lineLen <= 9, 5, "局部收官"],
@@ -1203,7 +1793,9 @@ for (const row of pickedByLevel) {
     row.level === 1
       ? (p) => p.lineLen === 1 && p.stones <= 48
       : row.level === 2
-        ? (p) => p.lineLen === 2 && p.stones <= 48
+        ? (p) =>
+            (p.lineLen === 2 && p.stones <= 48) ||
+            (p.lineLen === 3 && p.stones <= 36)
         : row.level === 8
           ? (p) => p.lineLen >= 18 && p.lineLen <= 48
           : row.pred;
@@ -1221,99 +1813,9 @@ for (const row of pickedByLevel) {
   );
 }
 
-const TASUKI_CREDIT =
-  "棋形来自 tsumego.tasuki.org（Vít Brunner 整理，公有领域古典题，原谱无正解）。https://github.com/tasuki/tsumego";
-const tasukiRoot = "/tmp/tasuki/books/problems";
-const gokyoOpen = claimNewShapes(
-  parseTasukiFile(`${tasukiRoot}/gokyoshumyo.txt`, "gokyo").filter((problem) =>
-    ["1", "2", "4", "6"].includes(problem.section) && problem.stones >= 6 && problem.stones <= 26
-  ),
-  seenDiagram
-);
-const hatOpen = claimNewShapes(
-  parseTasukiFile(`${tasukiRoot}/hatsuyoron.txt`, "hatsuyoron").filter(
-    (problem) => problem.stones >= 8 && problem.stones <= 26
-  ),
-  seenDiagram
-);
-const xxqjOpen = claimNewShapes(
-  parseTasukiFile(`${tasukiRoot}/xxqj.txt`, "xxqj").filter(
-    (problem) => problem.stones >= 8 && problem.stones <= 24
-  ),
-  seenDiagram
-);
-const GOKYO_SECTION = { 1: "活", 2: "杀棋", 4: "攻杀", 6: "渡过" };
-function pickSpread(items, n) {
-  const sorted = items
-    .slice()
-    .sort((a, b) => a.stones - b.stones || String(a.label).localeCompare(String(b.label), "en", { numeric: true }));
-  return spread(sorted, n);
-}
-const gokyoLook = ["1", "2", "4", "6"].flatMap((section) =>
-  pickSpread(
-    gokyoOpen.filter((problem) => problem.section === section),
-    5
-  )
-);
-const hatLook = pickSpread(hatOpen, 12);
-const xxqjLook = xxqjOpen.length >= 5 ? pickSpread(xxqjOpen, 8) : [];
-console.log(`tasuki look gokyo ${gokyoLook.length} hat ${hatLook.length} xxqj ${xxqjLook.length} (open ${gokyoOpen.length}/${hatOpen.length}/${xxqjOpen.length})`);
-
+// Look-only tasuki bands removed from the graded tactic track (no solution to check).
 const reviewBands = [];
-let reviewLevel = 16;
-if (hatLook.length >= 5) {
-  reviewBands.push({
-    level: reviewLevel,
-    name: "十六级 · 发阳论",
-    source: `发阳论（约 1713，公有领域）。${TASUKI_CREDIT}`,
-    bookName: "发阳论",
-    items: hatLook,
-    title: (problem) => `发阳论 · ${problem.label}`,
-  });
-  reviewLevel += 1;
-}
-if (gokyoLook.length >= 5) {
-  const cn = reviewLevel === 16 ? "十六" : "十七";
-  reviewBands.push({
-    level: reviewLevel,
-    name: `${cn}级 · 碁经众妙（无原谱）`,
-    source: `碁经众妙（1812，公有领域；这份棋形无原谱正解）。${TASUKI_CREDIT}`,
-    bookName: "碁经众妙",
-    items: gokyoLook,
-    title: (problem) => `碁经众妙 · ${GOKYO_SECTION[problem.section] || "棋形"} ${problem.label}`,
-  });
-  reviewLevel += 1;
-}
-if (xxqjLook.length >= 5) {
-  const cn = { 16: "十六", 17: "十七", 18: "十八" }[reviewLevel];
-  reviewBands.push({
-    level: reviewLevel,
-    name: `${cn}级 · 玄玄棋经（无原谱）`,
-    source: `玄玄棋经（约 1349，公有领域；这份棋形无原谱正解）。${TASUKI_CREDIT}`,
-    bookName: "玄玄棋经",
-    items: xxqjLook,
-    title: (problem) => `玄玄棋经 · 无原谱 ${problem.label}`,
-  });
-}
-
-function reviewProblems(band) {
-  return band.items.map((problem, index) => ({
-    id: `tactic-${band.level}-${String(index + 1).padStart(2, "0")}`,
-    track: "tactic",
-    level: band.level,
-    title: band.title(problem, index),
-    prompt: "",
-    source: band.source,
-    size: problem.size,
-    toPlay: problem.toPlay,
-    black: problem.black,
-    white: problem.white,
-    moves: [],
-    review: true,
-    bookName: band.bookName,
-  }));
-}
-const tacticReview = reviewBands.flatMap(reviewProblems);
+const tacticReview = [];
 
 const PROBLEMS = [
   ...ORIGINALS.map(({ check, ...rest }) => rest),
@@ -1341,7 +1843,7 @@ const TRACKS = [
   {
     id: "tactic",
     name: "解题",
-    intro: "局部解题。前三级是不同的基本棋形。四级到九级是每周一题。十级起是 u-go.net 上带正解的古典谱：碁经众妙、玄玄棋经、玄览。再往后有少量无原谱的古典棋形，只供看，不核对落子。同一棋形只收一题。等级可以随时切换。",
+    intro: "局部解题。前三级是馆内原创基本棋形（已加厚，三级含多手练习）。四级到九级是每周一题。十级到十五级是 u-go.net 上带正解的古典谱：碁经众妙、玄玄棋经、玄览。同一棋形只收一题。等级可以随时切换。",
     levels: [
       { level: 1, name: "一级 · 提子与逃气" },
       { level: 2, name: "二级 · 连接与双打" },
@@ -1358,7 +1860,6 @@ const TRACKS = [
       { level: 13, name: "十三级 · 玄玄棋经深入" },
       { level: 14, name: "十四级 · 玄玄棋经长谱" },
       { level: 15, name: "十五级 · 玄览" },
-      ...reviewBands.map((band) => ({ level: band.level, name: band.name })),
     ],
   },
   {
@@ -1604,15 +2105,13 @@ const body = `/**
  * 围棋练习题。入门三级为馆内原创；四级起为公有领域古典解题与官子。
  * 由 games/go/tools/build-problems.mjs 生成。不要手改古典题坐标。
  * 每题的 prompt 只写目标。坐标和原因在每步 why 里，走完后写入 lesson。
- * 标了 review 的题没有原谱正解，只摆棋形，不核对落子。
- *
  * 解题四级起：Go Game Guru 每周一题，安永吉八段与 David Ormerod。
  * 许可 CC BY-NC-SA 4.0：https://creativecommons.org/licenses/by-nc-sa/4.0/
  * 原谱 https://github.com/gogameguru/go-problems
  * 这里抽出标成 Correct 的正解，写成中文目标，属于改编。
- * 十级起另收 u-go.net 上带正解的古典谱：碁经众妙有正解的一部分、玄玄棋经、玄览。
+ * 十级到十五级另收 u-go.net 上带正解的古典谱：碁经众妙有正解的一部分、玄玄棋经、玄览。
  * 官子仍用 u-go.net 的公有领域官子谱，每级在原来的二十题后再补同档题。
- * 十六级起有一小部分 tsumego.tasuki.org 的公有领域棋形。那些题原谱没有正解，只供看。
+ * 无原谱正解的 tasuki 棋形已从分级解题中撤下，只保留带正解的题。
  * 没有整段搬 101 围棋网、goproblems，也没有收录赵治勋、李昌镐的现代题集。
  */
 export const TRACKS = ${JSON.stringify(TRACKS, null, 2)};
