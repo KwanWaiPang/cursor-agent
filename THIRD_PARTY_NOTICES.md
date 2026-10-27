@@ -23,7 +23,7 @@ The Game Hub aggregates several open-source games under a shared UI shell.
 - KataGo 浏览器档 / In-browser KataGo level:
   - 引擎移植自 [Web KaTrain](https://github.com/Sir-Teo/web-katrain)（MIT），其中的神经网络前向与搜索来自 [KataGo](https://github.com/lightvector/KataGo)（MIT）
   - 模型 `g170-b6c96-s175395328-d26788732`，KataGo 仓库公开的测试用小网络 / small public test network from the KataGo repository
-- 练习题一到三级：馆内原创 / Beginner drills: original
+- 练习题一到三级：馆内原创（已加厚，含多手练习）/ Beginner drills: original, expanded
 - 每周一题 / Weekly problems, levels 4–9 of 解题:
   - 作者 / Authors: 安永吉 An Younggil (8 dan) and David Ormerod, Go Game Guru
   - 来源 / Source: [gogameguru/go-problems](https://github.com/gogameguru/go-problems)
@@ -35,6 +35,7 @@ The Game Hub aggregates several open-source games under a shared UI shell.
   - 玄览 Xuanlan。谱面转录 Flygo → u-go.net
   - 官子谱 Guan Zi Pu。谱面转录 Flygo → u-go.net
 - 未收录 / Not included: 101 围棋网、goproblems.com，以及赵治勋、李昌镐的现代题集。这些题目不能再分发。
+- 说明 / Note: tsumego.tasuki.org 的公有领域棋形（发阳论等）曾以无正解 look-only 形式试收；因无法自动核对，已从分级解题撤下。阅读工具 `games/go/tools/tsumego-read.mjs` 仍保留，但 `problems.js` 不再导入。
 - 19 路经典全谱 / Full-board classical games, public domain, collected by Andries Brouwer (CWI), who states he claims no rights and that the games are in the public domain: <https://homepages.cwi.nl/~aeb/go/games/>
   - 当湖十局（范西屏、施襄夏，1739）、施襄夏对程兰如、徐星友对程兰如、烂柯，以及唐宋对局
   - 秀策耳赤之局（1846）与御城棋；对太田雄藏、对海老泽健造、对村濑秀甫
