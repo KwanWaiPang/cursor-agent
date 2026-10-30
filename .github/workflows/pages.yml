@@ -48,6 +48,7 @@ jobs:
           node --experimental-default-type=module games/go/js/katago-bridge.test.js
           node --experimental-default-type=module --test games/junqi/js/engine.test.js
           node --experimental-default-type=module --test games/redcap/js/fit.test.js
+          node --experimental-default-type=module --test games/steel-shell/js/engine.test.js
           node --experimental-default-type=module --test games/street-duty/src/core/quality.test.js
 
   deploy:

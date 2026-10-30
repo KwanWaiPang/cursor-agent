@@ -1,0 +1,135 @@
+/**
+ * 钢壳奇兵关卡。世界坐标 y 向下，地面顶 y = 148。
+ * 平台高度留在可跳范围内；尖刺避开小兵巡逻段。
+ */
+
+/** @typedef {{ x: number, kind: 'soldier' | 'grenadier' | 'shield' }} Troop */
+
+export const LEVELS = [
+  {
+    id: "station",
+    name: "锈轨车站",
+    indexLabel: "第一关",
+    blurb: "沿锈轨推进，击破关底的锈步行者。下蹲能躲开多数平射。",
+    theme: "station",
+    width: 2520,
+    spawn: 28,
+    checkpoints: [860, 1680],
+    boss: { trigger: 1980, kind: "walker", name: "锈步行者" },
+    enemies: [
+      { x: 340, kind: "soldier" },
+      { x: 560, kind: "soldier" },
+      { x: 800, kind: "grenadier" },
+      { x: 1040, kind: "soldier" },
+      { x: 1280, kind: "shield" },
+      { x: 1520, kind: "grenadier" },
+      { x: 1760, kind: "soldier" },
+    ],
+    platforms: [
+      { x: 480, y: 108, w: 96 },
+      { x: 900, y: 96, w: 110 },
+      { x: 1320, y: 112, w: 88 },
+      { x: 1600, y: 100, w: 100 },
+    ],
+    crates: [
+      { x: 640, y: 124, w: 24, h: 24 },
+      { x: 1180, y: 124, w: 24, h: 24 },
+      { x: 1660, y: 116, w: 26, h: 32 },
+    ],
+    pickups: [
+      { x: 508, y: 94, kind: "grenade" },
+      { x: 1340, y: 132, kind: "med" },
+      { x: 1630, y: 84, kind: "grenade" },
+    ],
+    spikes: [],
+  },
+  {
+    id: "pipe",
+    name: "冷凝管廊",
+    indexLabel: "第二关",
+    blurb: "管廊有尖刺。灰鸢浮炮在头顶巡航，向上瞄准或跳射击中它。",
+    theme: "pipe",
+    width: 2760,
+    spawn: 28,
+    checkpoints: [980, 1860],
+    boss: { trigger: 2200, kind: "gunship", name: "灰鸢浮炮" },
+    enemies: [
+      { x: 300, kind: "soldier" },
+      { x: 520, kind: "grenadier" },
+      { x: 860, kind: "soldier" },
+      { x: 1100, kind: "shield" },
+      { x: 1340, kind: "grenadier" },
+      { x: 1680, kind: "soldier" },
+      { x: 1920, kind: "shield" },
+      { x: 2080, kind: "grenadier" },
+    ],
+    platforms: [
+      { x: 420, y: 112, w: 100 },
+      { x: 780, y: 100, w: 90 },
+      { x: 1200, y: 108, w: 120 },
+      { x: 1580, y: 96, w: 100 },
+      { x: 1960, y: 104, w: 110 },
+    ],
+    crates: [
+      { x: 600, y: 124, w: 24, h: 24 },
+      { x: 1400, y: 124, w: 24, h: 24 },
+      { x: 1800, y: 120, w: 24, h: 28 },
+    ],
+    pickups: [
+      { x: 800, y: 84, kind: "grenade" },
+      { x: 1224, y: 132, kind: "med" },
+      { x: 1608, y: 80, kind: "grenade" },
+      { x: 1988, y: 88, kind: "med" },
+    ],
+    spikes: [
+      { x: 700, w: 40 },
+      { x: 1500, w: 36 },
+    ],
+  },
+  {
+    id: "fort",
+    name: "钢壳要塞",
+    indexLabel: "第三关",
+    blurb: "熔炉巨壳守着要塞。榴弹能更快撕开炉壳，半血后它会呼叫增援。",
+    theme: "fort",
+    width: 3000,
+    spawn: 28,
+    checkpoints: [1100, 2000],
+    boss: { trigger: 2420, kind: "crawler", name: "熔炉巨壳" },
+    enemies: [
+      { x: 320, kind: "soldier" },
+      { x: 540, kind: "soldier" },
+      { x: 760, kind: "shield" },
+      { x: 1180, kind: "grenadier" },
+      { x: 1420, kind: "soldier" },
+      { x: 1640, kind: "grenadier" },
+      { x: 1980, kind: "shield" },
+      { x: 2200, kind: "soldier" },
+      { x: 2340, kind: "grenadier" },
+    ],
+    platforms: [
+      { x: 400, y: 108, w: 120 },
+      { x: 860, y: 96, w: 100 },
+      { x: 1280, y: 112, w: 130 },
+      { x: 1680, y: 100, w: 120 },
+      { x: 2100, y: 104, w: 100 },
+      { x: 2280, y: 112, w: 80 },
+    ],
+    crates: [
+      { x: 600, y: 124, w: 24, h: 24 },
+      { x: 1500, y: 124, w: 24, h: 24 },
+      { x: 2060, y: 116, w: 28, h: 32 },
+    ],
+    pickups: [
+      { x: 430, y: 92, kind: "grenade" },
+      { x: 1300, y: 132, kind: "med" },
+      { x: 1710, y: 84, kind: "grenade" },
+      { x: 2124, y: 88, kind: "med" },
+      { x: 2304, y: 96, kind: "grenade" },
+    ],
+    spikes: [
+      { x: 980, w: 40 },
+      { x: 1760, w: 36 },
+    ],
+  },
+];

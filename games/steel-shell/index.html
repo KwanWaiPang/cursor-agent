@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>钢壳奇兵 · 游戏馆</title>
+    <meta
+      name="description"
+      content="钢壳奇兵：原创横版跑打。三关废土推进，步枪与榴弹，关底机体。致敬街机跑打，非 SNK 产品。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=ZCOOL+XiaoWei&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../css/shared.css" />
+    <link rel="stylesheet" href="../../css/game-page.css" />
+    <link rel="stylesheet" href="./css/styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%233c7c86'/%3E%3Crect x='14' y='30' width='28' height='16' rx='2' fill='%23e6b15a'/%3E%3Crect x='38' y='34' width='14' height='4' fill='%23f4f7f8'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body class="theme-yi game-page steel-page">
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <a href="../../"><h1>钢壳奇兵</h1></a>
+          <p>横版跑打 · 向街机跑打致敬 · 非 SNK 产品</p>
+        </div>
+        <div class="topbar-actions">
+          <button type="button" id="btnSound" class="secondary">声音</button>
+          <button type="button" id="btnPause" class="secondary">暂停</button>
+          <a class="btn secondary" href="../../">← 游戏馆</a>
+        </div>
+      </header>
+      <main>
+        <div class="stage-wrap">
+          <div class="frame" id="frame">
+            <canvas id="game" width="256" height="180" aria-label="钢壳奇兵画面"></canvas>
+            <div id="hud" class="hud" hidden>
+              <div class="hud-row">
+                <b id="stageName">第一关</b>
+                <span id="score">000000</span>
+                <span id="lives">命 × 3</span>
+              </div>
+              <div class="hud-row sub">
+                <span class="pips" id="hp" aria-label="生命"></span>
+                <span id="nades">榴弹 8</span>
+                <span class="weapon">步枪</span>
+              </div>
+              <div class="progress" aria-hidden="true"><i id="progress"></i></div>
+            </div>
+            <div id="bossbar" class="bossbar" hidden>
+              <span id="bossName">关底</span>
+              <div class="boss-track"><i id="bossFill"></i></div>
+            </div>
+          </div>
+          <div id="overlay" class="overlay">
+            <div class="card overlay-card">
+              <p class="eyebrow" id="ovKicker">游戏馆 · 横版跑打</p>
+              <h2 id="ovTitle">钢壳奇兵</h2>
+              <p id="ovBody">
+                斥候青岚推进废土三关。步枪无限，榴弹有限。下蹲躲开平射，向上瞄准对付浮空目标。致敬街机跑打手感，并非商业街机的官方作品。
+              </p>
+              <button type="button" id="ovBtn">开始任务</button>
+            </div>
+          </div>
+        </div>
+        <div class="touch-bar" id="touch">
+          <div class="pad" aria-label="移动与瞄准">
+            <button type="button" data-act="up" aria-label="向上瞄准">上</button>
+            <button type="button" data-act="left" aria-label="向左">左</button>
+            <button type="button" data-act="down" aria-label="下蹲或向下瞄准">蹲</button>
+            <button type="button" data-act="right" aria-label="向右">右</button>
+          </div>
+          <div class="actions" aria-label="动作">
+            <button type="button" data-act="grenade" aria-label="投掷榴弹">榴弹</button>
+            <button type="button" data-act="jump" aria-label="跳跃">跳</button>
+            <button type="button" data-act="fire" class="fire" aria-label="射击">射击</button>
+          </div>
+        </div>
+        <p class="help steel-help">
+          ← → / A D 移动 · W / ↑ 向上瞄准 · S / ↓ 下蹲（空中改为向下射击）· 空格 / K / Z 跳跃 · J / X 步枪 · C / Q 榴弹 · 鼠标在画面上瞄准，按住左键射击 · P / Esc 暂停。
+          下蹲可躲开平射。盾兵正面挡步枪，榴弹和背后射击有效。手机用下方按键。
+        </p>
+      </main>
+    </div>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>

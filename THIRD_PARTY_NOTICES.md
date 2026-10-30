@@ -68,6 +68,15 @@ The Game Hub aggregates several open-source games under a shared UI shell.
 - 渲染库 / Renderer: [Three.js](https://github.com/mrdoob/three.js) r185（MIT）
 - 说明 / Note: 第一人称 3D 卡通粉丝向；中文 UI、游戏馆入口与 Pages 打包为适配层。宝可梦为权利方商标，本页为非官方粉丝向。 Upstream MIT retained; hub adds Chinese UI and packaging.
 
+## 钢壳奇兵 · Steel Shell Commandos（`games/steel-shell/`）
+
+- 来源 / Source: 本仓库原创 / Original to this repository
+- 许可证 / License: MIT（仓库根目录 [`LICENSE`](./LICENSE)）
+- 玩法参考 / Gameplay reference（未搬运源码、精灵、音效或关卡）:
+  - [CyrilDieumegard/rusted-cannon](https://github.com/CyrilDieumegard/rusted-cannon)（MIT，原创像素，作者声明与 SNK 无关）
+  - [DanMat/Blastix](https://github.com/DanMat/Blastix)（MIT，程序像素）
+- 说明 / Note: 横版跑打。角色、关卡、像素与音效均为馆内原创。玩法向街机横版跑打致敬，**不是** SNK 产品，未使用其名称作为正式名，也未使用商业精灵。详见 [`games/steel-shell/NOTICE.md`](./games/steel-shell/NOTICE.md)。
+
 ## 红帽奇遇 · Red Cap Quest（`games/redcap/`）
 
 - 来源 / Source: 本仓库原创 / Original to this repository

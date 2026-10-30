@@ -30,9 +30,9 @@ For the Street Duty engine contract (subsystems / events), see [`games/street-du
                                │
         ┌──────────┬───────────┴──────┬────────────┬──────────┐
         ▼          ▼                  ▼            ▼          ▼
-   games/go/…  games/fps/   games/street-duty/  games/pocket/  games/redcap/
-   静态棋类等    静态 FPS       Vite 构建 FPS      静态 3D 冒险   静态平台跳跃
-   boards       static FPS     built FPS          FP 3D fan      pixel platformer
+   games/go/…  games/fps/  games/street-duty/  games/steel-shell/  games/pocket/  games/redcap/
+   静态棋类等   静态 FPS    Vite 构建 FPS       静态横版跑打      静态 3D 冒险    静态平台跳跃
+   boards      static FPS  built FPS            run-and-gun       FP 3D fan       pixel platformer
 ```
 
 | 层 Layer | 职责 Responsibility |
@@ -51,10 +51,10 @@ The hub does not bootstrap game runtimes; each card is a full navigation.
 
 ### 3.1 纯静态 / Static games
 
-`go` · `xiangqi` · `gomoku` · `junqi` · `monopoly` · `chess3d` · `fps` · `pocket` · `redcap`
+`go` · `xiangqi` · `gomoku` · `junqi` · `monopoly` · `chess3d` · `fps` · `steel-shell` · `pocket` · `redcap`
 
-- 打开即玩，无需 `npm`。  
-  Open and play; no `npm` required.
+- 打开即玩，无需 `npm`。`steel-shell` 是原创横版跑打，与两款 3D 射击互不替换。  
+  Open and play; no `npm` required. `steel-shell` is an original run-and-gun and does not replace either 3D shooter.
 - 可直接用任意静态服务器托管。  
   Serve with any static file server.
 
@@ -162,4 +162,5 @@ If Pages is still **legacy branch deploy**, the committed `games/street-duty/ind
 - Tactical Assault: [games/fps/README.md](./games/fps/README.md)
 - Pocket Adventure: [games/pocket/README.md](./games/pocket/README.md)
 - Red Cap Quest: [games/redcap/README.md](./games/redcap/README.md)
+- Steel Shell Commandos: [games/steel-shell/README.md](./games/steel-shell/README.md)
 - Upstream Street Duty project: [mshumer/Claude-of-Duty](https://github.com/mshumer/Claude-of-Duty)
